@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "niveau": "interne",
+  "git": {
+    "autorise": true,
+    "note": "Export local ; aucun push autorisé par cette génération."
+  },
+  "ia": {
+    "assistance_autorisee": false,
+    "evaluation_autorisee": false,
+    "contenu_autorise": [],
+    "note": "Pas de nouvel envoi externe avec cet outil. Document principal rédigé dans la session Hermes autorisée."
+  }
+}

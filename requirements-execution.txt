@@ -1,0 +1,4 @@
+ansible-core>=2.20,<2.21
+PyYAML>=6.0,<7
+jsonschema>=4.23,<5
+pytest>=8.3,<10

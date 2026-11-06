@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "criteres": [
+    {
+      "id": "CRT-001",
+      "titre": "Recette de EXG-001",
+      "statut": "propose",
+      "exigence": "EXG-001",
+      "protocole": "un lecteur ne peut soumettre ni approuver ; un opérateur ne peut administrer ; les refus sont vérifiés par appels API directs.",
+      "resultat_attendu": "un lecteur ne peut soumettre ni approuver ; un opérateur ne peut administrer ; les refus sont vérifiés par appels API directs."
+    },
+    {
+      "id": "CRT-002",
+      "titre": "Recette de EXG-002",
+      "statut": "propose",
+      "exigence": "EXG-002",
+      "protocole": "un nouveau manifeste valide apparaît après rechargement ; un manifeste invalide est signalé sans masquer les autres.",
+      "resultat_attendu": "un nouveau manifeste valide apparaît après rechargement ; un manifeste invalide est signalé sans masquer les autres."
+    },
+    {
+      "id": "CRT-003",
+      "titre": "Recette de EXG-003",
+      "statut": "propose",
+      "exigence": "EXG-003",
+      "protocole": "enregistrer puis recharger conserve nœuds, positions, paramètres et dépendances ; cycles interdits.",
+      "resultat_attendu": "enregistrer puis recharger conserve nœuds, positions, paramètres et dépendances ; cycles interdits."
+    },
+    {
+      "id": "CRT-004",
+      "titre": "Recette de EXG-004",
+      "statut": "propose",
+      "exigence": "EXG-004",
+      "protocole": "valeurs par défaut, listes de choix et bornes numériques sont rendues ; les données invalides sont aussi refusées par le serveur.",
+      "resultat_attendu": "valeurs par défaut, listes de choix et bornes numériques sont rendues ; les données invalides sont aussi refusées par le serveur."
+    },
+    {
+      "id": "CRT-005",
+      "titre": "Recette de EXG-005",
+      "statut": "propose",
+      "exigence": "EXG-005",
+      "protocole": "une cible inconnue, une commande arbitraire, un dépassement et une configuration interdite sont refusés avant mutation.",
+      "resultat_attendu": "une cible inconnue, une commande arbitraire, un dépassement et une configuration interdite sont refusés avant mutation."
+    },
+    {
+      "id": "CRT-006",
+      "titre": "Recette de EXG-006",
+      "statut": "propose",
+      "exigence": "EXG-006",
+      "protocole": "décision, acteur et date sont persistés ; un changement du plan ou des sources approuvées bloque une exécution devenue non conforme.",
+      "resultat_attendu": "décision, acteur et date sont persistés ; un changement du plan ou des sources approuvées bloque une exécution devenue non conforme."
+    },
+    {
+      "id": "CRT-007",
+      "titre": "Recette de EXG-007",
+      "statut": "propose",
+      "exigence": "EXG-007",
+      "protocole": "chaque exécution approuvée retrouve son plan expurgé, son vrai commit Git et ses événements, sans secret.",
+      "resultat_attendu": "chaque exécution approuvée retrouve son plan expurgé, son vrai commit Git et ses événements, sans secret."
+    },
+    {
+      "id": "CRT-008",
+      "titre": "Recette de EXG-008",
+      "statut": "propose",
+      "exigence": "EXG-008",
+      "protocole": "un redémarrage conserve l'historique ; une opération interrompue reste en revue, sans rejeu silencieux.",
+      "resultat_attendu": "un redémarrage conserve l'historique ; une opération interrompue reste en revue, sans rejeu silencieux."
+    },
+    {
+      "id": "CRT-009",
+      "titre": "Recette de EXG-009",
+      "statut": "propose",
+      "exigence": "EXG-009",
+      "protocole": "les traces et lectures HTTP indépendantes prouvent sauvegarde, canary, vérification et rolling sur deux cibles.",
+      "resultat_attendu": "les traces et lectures HTTP indépendantes prouvent sauvegarde, canary, vérification et rolling sur deux cibles."
+    },
+    {
+      "id": "CRT-010",
+      "titre": "Recette de EXG-010",
+      "statut": "propose",
+      "exigence": "EXG-010",
+      "protocole": "un échec rolling restaure aussi le canary ; l'absence initiale est restaurée ; un échec de restauration n'est jamais déclaré réussi.",
+      "resultat_attendu": "un échec rolling restaure aussi le canary ; l'absence initiale est restaurée ; un échec de restauration n'est jamais déclaré réussi."
+    },
+    {
+      "id": "CRT-011",
+      "titre": "Recette de EXG-011",
+      "statut": "propose",
+      "exigence": "EXG-011",
+      "protocole": "l'inventaire vient d'une lecture réelle ; une indisponibilité est affichée et non remplacée par des données fabriquées.",
+      "resultat_attendu": "l'inventaire vient d'une lecture réelle ; une indisponibilité est affichée et non remplacée par des données fabriquées."
+    },
+    {
+      "id": "CRT-012",
+      "titre": "Recette de EXG-012",
+      "statut": "propose",
+      "exigence": "EXG-012",
+      "protocole": "total, détail par ressource, devise et nature estimative sont visibles et cohérents avec le calcul serveur.",
+      "resultat_attendu": "total, détail par ressource, devise et nature estimative sont visibles et cohérents avec le calcul serveur."
+    },
+    {
+      "id": "CRT-013",
+      "titre": "Recette de EXG-013",
+      "statut": "propose",
+      "exigence": "EXG-013",
+      "protocole": "une extension désactivée n'est pas importée ; une extension défaillante ne laisse pas d'enregistrement partiel et ne casse pas le noyau.",
+      "resultat_attendu": "une extension désactivée n'est pas importée ; une extension défaillante ne laisse pas d'enregistrement partiel et ne casse pas le noyau."
+    },
+    {
+      "id": "CRT-014",
+      "titre": "Recette de EXG-014",
+      "statut": "propose",
+      "exigence": "EXG-014",
+      "protocole": "le service choisi passe déploiement, vérification et restauration sans modifier le noyau ; les limites de persistance sont documentées.",
+      "resultat_attendu": "le service choisi passe déploiement, vérification et restauration sans modifier le noyau ; les limites de persistance sont documentées."
+    },
+    {
+      "id": "CRT-015",
+      "titre": "Recette de EXG-015",
+      "statut": "propose",
+      "exigence": "EXG-015",
+      "protocole": "un déploiement réel utilise un secret à portée limitée issu du coffre ; révocation/expiration bloquent proprement ; aucune fuite dans Git ou les logs.",
+      "resultat_attendu": "un déploiement réel utilise un secret à portée limitée issu du coffre ; révocation/expiration bloquent proprement ; aucune fuite dans Git ou les logs."
+    },
+    {
+      "id": "CRT-016",
+      "titre": "Recette de EXG-016",
+      "statut": "propose",
+      "exigence": "EXG-016",
+      "protocole": "un événement de job produit un message effectivement reçu, avec gestion d'échec et protection contre les doublons.",
+      "resultat_attendu": "un événement de job produit un message effectivement reçu, avec gestion d'échec et protection contre les doublons."
+    },
+    {
+      "id": "CRT-017",
+      "titre": "Recette de EXG-017",
+      "statut": "propose",
+      "exigence": "EXG-017",
+      "protocole": "santé, état des jobs et erreurs sont consultables ; une panne contrôlée est visible ; la rétention est documentée.",
+      "resultat_attendu": "santé, état des jobs et erreurs sont consultables ; une panne contrôlée est visible ; la rétention est documentée."
+    },
+    {
+      "id": "CRT-018",
+      "titre": "Recette de EXG-018",
+      "statut": "propose",
+      "exigence": "EXG-018",
+      "protocole": "plan, création, lecture indépendante et destruction contrôlée sont prouvés ; état et verrouillage sont protégés.",
+      "resultat_attendu": "plan, création, lecture indépendante et destruction contrôlée sont prouvés ; état et verrouillage sont protégés."
+    },
+    {
+      "id": "CRT-019",
+      "titre": "Recette de EXG-019",
+      "statut": "propose",
+      "exigence": "EXG-019",
+      "protocole": "une modification autorisée puis sa restauration sont vérifiées depuis un accès de secours préservé sur une cible de lab autorisée.",
+      "resultat_attendu": "une modification autorisée puis sa restauration sont vérifiées depuis un accès de secours préservé sur une cible de lab autorisée."
+    },
+    {
+      "id": "CRT-020",
+      "titre": "Recette de EXG-020",
+      "statut": "propose",
+      "exigence": "EXG-020",
+      "protocole": "un acteur authentifié approuve le plan exact ; un clic rejoué, expiré ou non autorisé est refusé et audité.",
+      "resultat_attendu": "un acteur authentifié approuve le plan exact ; un clic rejoué, expiré ou non autorisé est refusé et audité."
+    },
+    {
+      "id": "CRT-021",
+      "titre": "Recette de EXG-021",
+      "statut": "propose",
+      "exigence": "EXG-021",
+      "protocole": "l'agent cite ses événements sources, exprime l'incertitude et ne possède aucun outil de mutation ; toute correction passe par une nouvelle demande approuvée.",
+      "resultat_attendu": "l'agent cite ses événements sources, exprime l'incertitude et ne possède aucun outil de mutation ; toute correction passe par une nouvelle demande approuvée."
+    },
+    {
+      "id": "CRT-022",
+      "titre": "Recette de EXG-022",
+      "statut": "propose",
+      "exigence": "EXG-022",
+      "protocole": "un dépôt de test reçoit le plan expurgé et permet de relier demande, commit et résultat ; échec Git et divergence sont gérés explicitement.",
+      "resultat_attendu": "un dépôt de test reçoit le plan expurgé et permet de relier demande, commit et résultat ; échec Git et divergence sont gérés explicitement."
+    },
+    {
+      "id": "CRT-023",
+      "titre": "Recette de EXG-023",
+      "statut": "propose",
+      "exigence": "EXG-023",
+      "protocole": "chaque valeur mesurée indique source, période et fraîcheur ; les estimations restent distinctes des factures.",
+      "resultat_attendu": "chaque valeur mesurée indique source, période et fraîcheur ; les estimations restent distinctes des factures."
+    },
+    {
+      "id": "CRT-024",
+      "titre": "Recette de EXG-024",
+      "statut": "propose",
+      "exigence": "EXG-024",
+      "protocole": "intégrité, provenance, versions, scans, revue, révocation et isolation sont définis et testés avant l'exécution de code non fiable.",
+      "resultat_attendu": "intégrité, provenance, versions, scans, revue, révocation et isolation sont définis et testés avant l'exécution de code non fiable."
+    }
+  ]
+}

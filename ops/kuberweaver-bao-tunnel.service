@@ -1,0 +1,18 @@
+[Unit]
+Description=KuberWeaver SSH tunnel to isolated lab OpenBao
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver
+ExecStart=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver/.venv/bin/python scripts/setup_bao.py tunnel
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
