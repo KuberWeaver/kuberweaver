@@ -6,6 +6,7 @@
 - [Cadrage original](docs/cadrage-original/), vision initiale et infographie, à distinguer des fonctions effectivement livrées.
 - [Recette et limites](docs/ACCEPTANCE.md) et [résultats de vérification](docs/VERIFICATION.md).
 - [Contrats des extensions](docs/EXTENSIONS.md) et [cycle d'exécution](docs/EXECUTION.md).
+- [Accès agents et droits API](docs/AGENT_ACCESS.md), [serveur MCP](docs/MCP.md) et [recette de complétion](docs/COMPLETION_STATUS.md).
 
 Ce dépôt contient les sources, tests, manifestes, scripts et documents du prototype. Les secrets, comptes locaux, états d'exécution, snapshots, fichiers d'état IaC et dépendances installées sont exclus. Les VM du laboratoire, images système et accès SSH existants ne sont pas embarqués : un clone ne reconstitue pas automatiquement le laboratoire. Les chemins des unités systemd et les accès de lab doivent être adaptés à l'environnement d'installation.
 
@@ -28,6 +29,18 @@ Ce fichier est privé, mode 0600. Ne pas le publier. Il n'y a pas de mot de pass
 
 Le serveur écoute uniquement sur le loopback du poste. Ce n'est pas un déploiement public ou un service SaaS multi-tenant.
 
+## Pilotage par un agent externe
+
+Aucun modèle IA embarqué n'est nécessaire. Un administrateur humain ouvre **Accès agents**, choisit un rôle maximal, des scopes explicites et une expiration, puis conserve le jeton affiché une seule fois dans un fichier privé 0600. La révocation est immédiate pour les nouvelles requêtes. Les tokens ne sont pas conservés dans le stockage du navigateur.
+
+Pour une lecture strictement financière, sélectionner `read:finops` sans ajouter le scope global `read`. Pour un agent proposant des déploiements, attribuer les lectures nécessaires, `plan` et `submit`, sans `approve`. Le rôle et les scopes sont deux limites cumulatives ; le MCP ne remplace pas les contrôles de l'API.
+
+```sh
+.venv/bin/python scripts/mcp_server.py --base-url http://127.0.0.1:8088 --token-file /chemin/prive/agent.token
+```
+
+Le serveur stdio expose 29 outils métier typés, pas de commande système libre, d'URL arbitraire ou d'accès direct aux secrets. Aucun jeton n'est émis automatiquement et aucun MCP n'est ajouté automatiquement à Hermes. Voir `docs/MCP.md` pour installer son SDK et configurer un client.
+
 ## Parcours de démonstration
 
 1. Se connecter et ouvrir Canvas, initialement vide pour un nouvel utilisateur.
@@ -49,6 +62,7 @@ Le noyau gère identité, admission, approbations, état durable, audit et orche
 ```
 backend/kuberweaver/
   app.py, api.py                HTTP, sessions, RBAC, CSRF
+  agent_auth.py, mcp_server.py  jetons révocables, scopes, outils MCP
   models.py, policy.py         enveloppes et admission
   storage.py, jobs.py          état durable, queue, audit, GitOps
   catalog.py                   découverte des blueprints déclaratifs
@@ -90,14 +104,17 @@ Les hooks canoniques sont `before_plan`, `after_approval`, `job_started` et `job
 | Sessions, RBAC, CSRF, quotas par plan, approbation | Fonctionnel, comptes locaux |
 | NGINX et Apache sur deux invités GNS3 | Déploiements réels par Ansible |
 | Canary, rolling, rollback automatique et manuel | Exercés avec readbacks HTTP indépendants |
-| GitOps | Commits locaux réels de plans approuvés, pas de push distant ni de pipeline client complet |
+| GitOps | Commits locaux ; publication distante optionnelle avec relecture du SHA, testée sur dépôts de test, pas de pipeline client hébergé validé |
 | Infrastructure | Inventaire GNS3 réel en lecture seule |
 | FinOps | Estimations selon une grille interne, pas de facturation cloud ni de mesures de consommation |
 | Diagnostic | Règles déterministes et fournisseurs optionnels, pas d'inférence LLM configurée |
-| Notifications | Outbox locale, pas d'envoi Teams/Discord/WhatsApp ou d'approbation ChatOps |
+| Notifications et ChatOps | Outbox, webhook durable et callback signé testés par vrais échanges locaux ; aucun connecteur SaaS externe configuré ni certification Slack/Teams |
 | OpenBao | Service persistant initialisé dans le lab, provider KV v2 testé ; bootstrap et tunnel privés |
-| Identifiants d'exécution | SSH du lab existant ; pas d'injection des clés Ansible depuis OpenBao |
-| OpenTofu, cloud, nouvelles VMs | Non implémentés, aucune fausse réussite de provisionnement |
+| Identifiants d'exécution | Injection éphémère depuis le fournisseur de secrets sélectionné, isolation et nettoyage testés ; aucun secret de déploiement réel reconfiguré |
+| OpenTofu, cloud, nouvelles VMs | Adaptateur plan/application/suppression gardé désactivé ; SSH actuel refusé par les contrôles de confiance ; aucune création/suppression de VM validée |
+| Redis persistant | Cycle spécifique et restauration testés, manifeste planned et extension désactivée ; aucune validation distante |
+| API et MCP pour agents externes | Jetons par rôle et scopes, expiration/révocation, 29 outils ; protocole stdio et API réelle isolée exercés |
+| Supervision applicative | Métriques et snapshot read-only raccordés ; règles Prometheus et dashboard Grafana validés, stack non déployée |
 | Stack front/back, Cisco IOS, pfSense | Entrées prévues, désactivées faute d'adaptateurs/cibles validés |
 | Marketplace communautaire, paiements, signatures, isolation de code tiers | Hors périmètre de cette version |
 
@@ -136,7 +153,7 @@ Le lab doit être démarré pour les déploiements et l'accès OpenBao. Le porta
 
 ```sh
 uv venv .venv
-uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt
 npm --prefix frontend ci
 npm --prefix frontend test
 npm --prefix frontend run build

@@ -24,6 +24,8 @@ import {
 import { api, setCsrf, ApiError } from "./api";
 import type { User, Plugin } from "./model";
 import { Canvas } from "./Canvas";
+import { Operations } from "./Operations";
+import { AgentAccess } from "./AgentAccess";
 import {
   Catalogue,
   Jobs,
@@ -45,6 +47,8 @@ const nav = [
   { id: "diagnostics", label: "Diagnostic", icon: Stethoscope },
   { id: "audit", label: "Audit", icon: History },
   { id: "integrations", label: "Intégrations", icon: Blocks },
+  { id: "operations", label: "Opérations", icon: Command },
+  { id: "agents", label: "Accès agents", icon: LockKeyhole },
 ];
 export function App() {
   const [user, setUser] = useState<User | null>(null),
@@ -388,9 +392,11 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           {page === "infrastructure" && <Infrastructure />}
           {page === "governance" && <Governance user={user} />}
           {page === "finops" && <FinOps />}
-          {page === "diagnostics" && <Diagnostics />}
+          {page === "diagnostics" && <Diagnostics user={user} />}
           {page === "audit" && <Audit />}
           {page === "integrations" && <Integrations user={user} />}
+          {page === "operations" && <Operations user={user} />}
+          {page === "agents" && <AgentAccess user={user} />}
           {!nav.some((n) => n.id === page) && (
             <div className="panel">
               Page introuvable.{" "}

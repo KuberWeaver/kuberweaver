@@ -1,0 +1,20 @@
+{
+  "slides": 14,
+  "pdf_pages": 14,
+  "editable_text_boxes_checked": 176,
+  "embedded_images": 2,
+  "speaker_notes": "present on all slides",
+  "all_team_members_present": true,
+  "pptx_structure_and_bounds": "PASS",
+  "pdf_text_bounds": "PASS",
+  "pdf_visual_review": "14 rendered pages inspected through two contact sheets",
+  "pptx_rendering": "PPTX structure verified; PDF generated from common geometry, not a LibreOffice rendering of PPTX",
+  "catbox_image": "empty response; substituted with explicitly attributed local original project diagram",
+  "source_attribution": "in slide notes and NOTES_PRESENTATION.md",
+  "commercial_claims": "vision, prototype and hypotheses explicitly distinguished",
+  "github_push": false,
+  "files": {
+    "KuberWeaver_Presentation_Investisseurs.pptx": 3486771,
+    "KuberWeaver_Presentation_Investisseurs.pdf": 4472917
+  }
+}

@@ -1006,9 +1006,18 @@ export function FinOps() {
   );
 }
 
-export function Diagnostics() {
+export function Diagnostics({ user }: { user?: User } = {}) {
   const r = useResource("/diagnostics");
   const d = r.data;
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
+  async function runAnalysis() {
+    if (running) return;
+    setRunning(true); setRunError("");
+    try { r.setData(await api("/diagnostics/run", { method: "POST" })); }
+    catch (e) { setRunError(errorMessage(e)); }
+    finally { setRunning(false); }
+  }
   return (
     <>
       <PageTitle
@@ -1016,10 +1025,8 @@ export function Diagnostics() {
         title="Diagnostic du laboratoire"
         description="Des constats expliqués. Aucune remédiation automatique, aucune modification de l’infrastructure."
         actions={
-          <button onClick={r.refresh}>
-            <RefreshCw size={15} />
-            Exécuter les règles
-          </button>
+          <><button onClick={r.refresh} disabled={running}><RefreshCw size={15} />Actualiser le résultat</button>
+          <button onClick={runAnalysis} disabled={running || user?.role === "viewer"}>{running ? "Analyse en cours…" : "Lancer une analyse explicite"}</button></>
         }
       />
       <div className="diagnostics-mode panel">
@@ -1027,14 +1034,14 @@ export function Diagnostics() {
           <Activity size={22} />
         </span>
         <div>
-          <h3>Moteur de règles</h3>
-          <p>
-            Diagnostic déterministe · Aucun modèle d’IA configuré dans cette
-            vue.
-          </p>
+          <h3>{d?.mode === "llm" ? "Diagnostic IA" : "Moteur de règles"}</h3>
+          <p>{d?.mode === "llm" ? `Fournisseur : ${d.provider || "llm"} · Modèle : ${d.model || "non communiqué"} · Exécution explicite uniquement.` : "Diagnostic déterministe · Pas de remédiation automatique."}</p>
+          {d?.mode === "llm" && d.status === "not_run" && <p>Aucune analyse IA exécutée. Le chargement de cette page ne déclenche aucun appel modèle.</p>}
+          {d?.generated_at && <small>Résultat produit : {date(d.generated_at)}</small>}
         </div>
         <Badge>Lecture seule</Badge>
       </div>
+      {runError && <ErrorNotice message={runError} />}
       <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
         {d && (
           <>
@@ -1044,7 +1051,7 @@ export function Diagnostics() {
                 {typeof d.summary === "string" ? (
                   <p>{d.summary}</p>
                 ) : (
-                  <Details data={d.summary} title="Résultat des règles" />
+                  <Details data={d.summary} title="Synthèse du fournisseur sélectionné" />
                 )}
               </section>
             )}
@@ -1058,8 +1065,7 @@ export function Diagnostics() {
                   title="Aucun constat remonté"
                   icon={<ShieldCheck size={28} />}
                 >
-                  Les règles n’ont signalé aucun problème. Cela ne constitue pas
-                  une garantie de sécurité exhaustive.
+                  Aucun constat n’est disponible dans ce résultat. Une analyse non exécutée ne prouve pas l’absence de problème ; aucun diagnostic ne constitue une garantie de sécurité exhaustive.
                 </Empty>
               ) : (
                 d.findings.map((f: any, i: number) => (
@@ -1080,6 +1086,7 @@ export function Diagnostics() {
                     </div>
                     <p>{f.message || f.description}</p>
                     {f.resource && <small>Ressource : {f.resource}</small>}
+                    {Array.isArray(f.citations) && f.citations.length > 0 && <p className="muted">Sources : {f.citations.map((c: any) => `${c.job_id} / événement ${c.event_id}`).join(", ")}</p>}
                     {f.recommendation && (
                       <div className="notice">
                         <Info size={15} />

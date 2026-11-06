@@ -10,7 +10,8 @@ import threading
 from pathlib import Path
 from fastapi import HTTPException
 from .storage import now
-from .providers import resolve_provider, execution_binding
+from .providers import resolve_provider, execution_binding, execution_credential_binding, invoke_approved_execution
+from .gitops import publish as publish_remote
 
 TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}
 
@@ -153,13 +154,27 @@ class Jobs:
             raise RuntimeError('GitOps artifact readback failed')
         return commit
 
-    def approve(self, identity, actor):
+    def approve(self, identity, actor, *, expected_graph_hash=None):
+        def publication_policy_hash():
+            try:
+                with (self.store.path / 'config' / 'gitops.json').open('rb') as stream:
+                    return hashlib.sha256(stream.read(16385)).hexdigest()
+            except FileNotFoundError:
+                return None
+            except OSError:
+                return 'unreadable'
+
         with self.store.lock:
             job = self.get(identity)
-            if job['status'] != 'pending_approval' or job.get('requires_manual_review'):
+            if job['status'] != 'pending_approval' or job.get('requires_manual_review') or (job.get('approval_claim') or {}).get('state') == 'inflight':
                 raise HTTPException(409, 'Job is not awaiting approval')
+            if expected_graph_hash is not None and digest(job['graph']) != expected_graph_hash:
+                raise HTTPException(409, 'Reviewed graph changed')
             report = self.check(job['graph'], job.get('created_by_role', 'operator'))
+            policy_hash = digest(self.admission.settings())
+            remote_policy_hash = publication_policy_hash()
             job['approved_execution_provider'] = execution_binding(self.app)
+            job['approved_credentials'] = execution_credential_binding(self.app)
             job.update(approved_by=actor['username'], approved_at=now(), cost=report['cost'])
             job['approved_graph_hash'] = digest(job['graph'])
             manifests = self.catalog.discover()
@@ -170,7 +185,67 @@ class Jobs:
             except Exception:
                 self.store.audit(actor['username'], 'job.gitops_failed', identity)
                 raise HTTPException(503, 'Local GitOps commit failed; execution was not queued')
-            job['status'] = 'queued'
+            # Durable, never automatically expired/reaped. A process interruption
+            # leaves an ambiguous publication attempt blocked for manual review.
+            job.update(status='approving', requires_manual_review=True,
+                       approval_claim={'id': secrets.token_hex(16), 'state': 'inflight'})
+            self.store.put('jobs', identity, job)
+            reserved = digest({k: v for k, v in job.items() if k != 'events'})
+        # No shared store lock, including from authenticated callback callers.
+        # Unexpected exceptions deliberately preserve the durable inflight claim.
+        remote = publish_remote(self.store.path, job['git_commit'])
+        with self.store.lock:
+            current = self.get(identity)
+            unchanged = digest({k: v for k, v in current.items() if k != 'events'}) == reserved
+            if not unchanged:
+                # Never overwrite a concurrent rejection or changed graph with our
+                # stale approval snapshot, even if the exact old commit published.
+                current.update(requires_manual_review=True, error='Approval changed during publication; manual review required')
+                if current.get('approval_claim') == job['approval_claim']:
+                    current['approval_claim']['state'] = 'conflict'
+                if remote['status'] != 'disabled':
+                    current['remote_gitops'] = remote
+                self.store.put('jobs', identity, current)
+                raise HTTPException(409, 'Approval changed during publication; execution was not queued')
+            job = current
+            job.pop('remote_gitops', None)
+            if remote['status'] != 'disabled':
+                job['remote_gitops'] = remote
+            # Persist sanitized publication evidence, but retain the inflight
+            # guard until final validation/queueing or a known required failure.
+            self.store.put('jobs', identity, job)
+            if remote['status'] not in {'disabled', 'verified'}:
+                self.store.audit(actor['username'], 'job.remote_gitops_failed', identity, {'status': remote['status']})
+                self.emit(identity, 'gitops', 'warning', 'Remote GitOps publication was not verified')
+                if remote['required_before_execution']:
+                    job = self.get(identity)
+                    job.update(status='pending_approval', requires_manual_review=False)
+                    job['approval_claim']['state'] = 'completed'
+                    self.store.put('jobs', identity, job)
+                    raise HTTPException(503, 'Required remote GitOps publication failed; execution was not queued')
+                job = self.get(identity)
+            try:
+                manifests = self.catalog.discover()
+                valid = (
+                    digest(job['graph']) == job['approved_graph_hash']
+                    and digest(self.admission.settings()) == policy_hash
+                    and publication_policy_hash() == remote_policy_hash
+                    and self.check(job['graph'], job.get('created_by_role', 'operator')) == report
+                    and execution_binding(self.app) == job['approved_execution_provider']
+                    and execution_credential_binding(self.app) == job['approved_credentials']
+                    and all(plugin_id in manifests and digest(manifests[plugin_id]) == value
+                            for plugin_id, value in job['approved_manifest_hashes'].items())
+                    and all(self.catalog.fingerprint(plugin_id) == value
+                            for plugin_id, value in job['approved_source_hashes'].items()))
+            except Exception:
+                valid = False
+            if not valid:
+                job.update(requires_manual_review=True, error='Approval dependencies changed during publication; manual review required')
+                job['approval_claim']['state'] = 'conflict'
+                self.store.put('jobs', identity, job)
+                raise HTTPException(409, 'Approval dependencies changed; execution was not queued')
+            job.update(status='queued', requires_manual_review=False)
+            job['approval_claim']['state'] = 'completed'
             self.store.put('jobs', identity, job)
             self.emit(identity, 'approval', 'info', 'Approved and committed locally; queued for serialized execution')
             self.store.audit(actor['username'], 'job.approved', identity, {'git_commit': job['git_commit']})
@@ -274,6 +349,8 @@ class Worker:
                     raise RuntimeError('Plugin manifest changed since approval; manual review required')
                 if any(self.app.state.catalog.fingerprint(plugin_id) != fingerprint for plugin_id, fingerprint in job.get('approved_source_hashes', {}).items()):
                     raise RuntimeError('Plugin implementation changed since approval; manual review required')
+                if job.get('approved_credentials') != execution_credential_binding(self.app):
+                    raise RuntimeError('Approved execution credential mapping changed; manual review required')
                 pinned = job.get('approved_execution_provider')
                 if not pinned or execution_binding(self.app, pinned['name']) != pinned:
                     raise RuntimeError('Approved execution provider changed or is unavailable')
@@ -285,7 +362,7 @@ class Worker:
             self.jobs.emit(identity, 'rollback' if rollback else 'execution', 'info', 'Serialized worker started')
             executor = resolve_provider(self.app, 'execution', job['approved_execution_provider']['name'])
             callback = lambda phase, level, message: self.jobs.emit(identity, phase, level, message)
-            result = (executor.rollback if rollback else executor.execute)(copy.deepcopy(job), callback)
+            result = invoke_approved_execution(self.app, executor, 'rollback' if rollback else 'execute', copy.deepcopy(job), callback)
             if not isinstance(result, dict) or result.get('status') not in {'succeeded', 'failed', 'rolled_back', 'rollback_failed'}:
                 raise RuntimeError('Execution provider returned an invalid terminal result')
             with self.store.lock:

@@ -27,6 +27,16 @@ def install_api(app, plugins_dir, executor=None):
     app.state.worker = Worker(app)
     from .runtime import configure
     configure(app)
+    if hasattr(app.state.executor, 'secret_resolver'):
+        app.state.executor.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
+    from .notification_dispatcher import NotificationDispatcher
+    services = getattr(app.state, 'background_services', [])
+    services.append(NotificationDispatcher(app))
+    app.state.background_services = services
+    from .operations import install_operations_api
+    install_operations_api(app)
+    from .chatops import install_chatops_api
+    install_chatops_api(app)
 
     @app.post('/api/jobs', status_code=201)
     def submit_job(data: JobRequest, current=Depends(role('admin', 'operator'))):
@@ -97,6 +107,41 @@ def install_api(app, plugins_dir, executor=None):
     def diagnostics(current=Depends(user)):
         return resolve_provider(app, 'diagnostics').read()
 
+    import threading
+    import time
+    diagnostic_lock = threading.Lock()
+    diagnostic_attempts = {}
+    diagnostic_window = []
+
+    @app.post('/api/diagnostics/run')
+    def run_diagnostics(current=Depends(role('admin', 'operator'))):
+        # A browser's disabled button is not an API budget boundary. Bound
+        # concurrency globally and attempts per account, including failures.
+        if not diagnostic_lock.acquire(blocking=False):
+            raise HTTPException(429, 'A diagnostic is already running', headers={'Retry-After': '30'})
+        try:
+            stamp = time.monotonic()
+            previous = diagnostic_attempts.get(current['id'])
+            diagnostic_window[:] = [attempt for attempt in diagnostic_window if stamp - attempt < 60]
+            if (previous is not None and stamp - previous < 30) or len(diagnostic_window) >= 5:
+                raise HTTPException(429, 'Diagnostic invocation limit reached; retry later', headers={'Retry-After': '30'})
+            provider = resolve_provider(app, 'diagnostics')
+            run = getattr(provider, 'run', provider.read)
+            diagnostic_attempts[current['id']] = stamp
+            diagnostic_window.append(stamp)
+            store.audit(current['username'], 'diagnostics.run_requested', detail={'provider': app.state.provider_bindings['diagnostics']})
+            try:
+                result = run()
+            except Exception:
+                # Provider HTTPExceptions are no more trusted than any upstream
+                # error: their details/headers may contain tokens or URLs.
+                store.audit(current['username'], 'diagnostics.run_failed', detail={'provider': app.state.provider_bindings['diagnostics']})
+                raise HTTPException(503, 'Selected diagnostic provider unavailable') from None
+            store.audit(current['username'], 'diagnostics.run_completed', detail={'provider': app.state.provider_bindings['diagnostics']})
+            return result
+        finally:
+            diagnostic_lock.release()
+
     @app.get('/api/providers')
     def providers(current=Depends(user)):
         return provider_listing(app)
@@ -165,22 +210,15 @@ def install_api(app, plugins_dir, executor=None):
     @app.get('/api/overview')
     def overview(current=Depends(user)):
         all_jobs = store.list('jobs')
-        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'queued', 'running', 'rolling_back', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed')}
+        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed')}
         counts.update(jobs=len(all_jobs), plugins=len(catalog.discover()), blueprints=len(store.list('blueprints')),
                       nodes=len(getattr(app.state, 'inventory_cache', {}).get('nodes', [])), pending_approvals=counts['pending_approval'])
         return {'counts': counts, 'recent_jobs': [jobs.present(job) for job in all_jobs[:10]], 'costs': costs(), 'integrations': integration_list(app)}
 
     @app.get('/metrics', response_class=PlainTextResponse)
     def metrics():
-        all_jobs = store.list('jobs')
-        lines = ['# HELP kuberweaver_http_requests_total HTTP requests received by this process.',
-                 '# TYPE kuberweaver_http_requests_total counter', f'kuberweaver_http_requests_total {app.state.request_count}',
-                 '# HELP kuberweaver_jobs Persisted jobs by current status.', '# TYPE kuberweaver_jobs gauge']
-        for status in ('pending_approval', 'queued', 'running', 'rolling_back', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed'):
-            lines.append('kuberweaver_jobs{status="' + status + '"} ' + str(sum(job['status'] == status for job in all_jobs)))
-        lines += ['# TYPE kuberweaver_audit_events_total counter', 'kuberweaver_audit_events_total ' + str(store.one('SELECT count(*) AS n FROM audit')['n']),
-                  '# TYPE kuberweaver_queue_depth gauge', 'kuberweaver_queue_depth ' + str(app.state.worker.queue.qsize())]
-        return PlainTextResponse('\n'.join(lines) + '\n', media_type='text/plain; version=0.0.4')
+        from .observability import metrics_text
+        return PlainTextResponse(metrics_text(app), media_type='text/plain; version=0.0.4')
 
     @app.get('/api/jobs/{identity}/events')
     async def events(identity: str, request: Request, current=Depends(user)):
@@ -192,7 +230,14 @@ def install_api(app, plugins_dir, executor=None):
         async def stream():
             nonlocal cursor
             while not await request.is_disconnected():
-                if not store.session(request.cookies.get('kw_session')):
+                if getattr(request.state, 'agent', None):
+                    # Long-lived streams must re-check machine revocation and
+                    # expiry, not reuse the initial request's authentication.
+                    bearer = request.headers.get('authorization', '').partition(' ')[2]
+                    refreshed = app.state.agent_tokens.authenticate(bearer)
+                    if not refreshed or not ({'read', 'read:jobs'} & set(refreshed['scopes'])):
+                        return
+                elif not store.session(request.cookies.get('kw_session')):
                     return
                 job = jobs.get(identity)
                 for event in job['events']:

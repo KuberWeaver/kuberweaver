@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: kuberweaver-local
+    orgId: 1
+    folder: KuberWeaver
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: ${KW_DASHBOARDS_PATH}

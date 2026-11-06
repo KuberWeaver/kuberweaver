@@ -1,0 +1,116 @@
+{
+  "evaluation_interval": "15s",
+  "tests": [
+    {
+      "name": "all dashboard queries preserve absent data",
+      "input_series": [],
+      "promql_expr_test": [
+        {
+          "expr": "up{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_operational_healthy{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_worker_alive{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_storage_readable{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_jobs{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_queue_depth{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "rate(kuberweaver_http_requests_total{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}[5m])",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_audit_events_total{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_jobs_manual_review{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_jobs_invalid_records{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "(kuberweaver_job_submission_to_finish_seconds{statistic=\"sum\",job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"} / ignoring(statistic) kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}) and ignoring(statistic) (kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"} > 0)",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_job_submission_to_finish_seconds{statistic=\"max\",job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_provider_configured{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_provider_probe_observed{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_provider_probe_success{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        },
+        {
+          "expr": "kuberweaver_provider_last_success_age_seconds{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}",
+          "eval_time": "1m",
+          "exp_samples": []
+        }
+      ]
+    },
+    {
+      "name": "duration mean matches statistic and observation labels",
+      "input_series": [
+        {
+          "series": "kuberweaver_job_submission_to_finish_seconds{statistic=\"sum\",job=\"kuberweaver\",service=\"kuberweaver\",instance=\"local\"}",
+          "values": "240+0x8"
+        },
+        {
+          "series": "kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=\"local\"}",
+          "values": "2+0x8"
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "(kuberweaver_job_submission_to_finish_seconds{statistic=\"sum\",job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"} / ignoring(statistic) kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"}) and ignoring(statistic) (kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\".+\"} > 0)",
+          "eval_time": "1m",
+          "exp_samples": [
+            {
+              "labels": "{job=\"kuberweaver\",service=\"kuberweaver\",instance=\"local\"}",
+              "value": 120
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

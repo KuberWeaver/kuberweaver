@@ -1,7 +1,7 @@
 # KuberWeaver
 ## Présentation du projet et cahier des charges
 
-Version 1.2, 6 novembre 2026  
+Version 1.3, 6 novembre 2026  
 Établissement et campus : EFREI Paris  
 Destinataires : mentor, intervenants techniques et équipe projet  
 Statut : proposition de cadrage à relire et à valider humainement
@@ -59,7 +59,15 @@ La demande initiale porte sur une interface visuelle, initialement vide, permett
 
 Sans plateforme commune, ces activités reposent sur des outils et procédures séparés. Le risque est de perdre la cohérence entre ce qui a été demandé, approuvé, exécuté et effectivement obtenu.
 
-### 2.2 Objectifs du projet
+### 2.2 Précision du besoin : une plateforme agent-capable
+
+Le porteur du projet précise que l'intégration IA signifie d'abord rendre **l'ensemble des fonctions de la plateforme pilotable depuis un agent externe**, Hermes ou tout autre client compatible. KuberWeaver n'a pas besoin d'embarquer un modèle de langage : son API expose les fonctions métier, et un serveur MCP en propose une interface typée aux agents.
+
+Le même contrôle s'applique au portail et aux agents : rôle maximal, actions explicitement autorisées, quotas, validation, approbation et audit. Les accès agents sont des jetons individuels, expirables et révocables, stockés sous forme d'empreinte côté serveur. Un agent opérateur peut soumettre sans approuver. Un pouvoir d'administration ou d'approbation n'est possible que si un administrateur humain le délègue explicitement, dans les limites du rôle et des scopes attribués. Un agent ne peut pas créer ses propres accès privilégiés.
+
+Le diagnostic LLM en lecture seule devient une intégration optionnelle indépendante, non une dépendance ni la définition de l'IA du produit. Aucun fournisseur de modèles ou abonnement IA n'est obligatoire pour utiliser le portail ou son API/MCP.
+
+### 2.3 Objectifs du projet
 
 | Objectif | Résultat recherché |
 | --- | --- |
@@ -70,7 +78,7 @@ Sans plateforme commune, ces activités reposent sur des outils et procédures s
 | O5, traçabilité | Relier identité, version du plan, approbation, journal et preuves de résultat. |
 | O6, exploitation | Comprendre les incidents, les coûts estimés et l'état des ressources. |
 
-### 2.3 Ce que le prototype doit prouver
+### 2.4 Ce que le prototype doit prouver
 
 Le démonstrateur doit prouver un cycle complet sur des ressources réelles, pas seulement afficher une topologie ou produire des journaux plausibles. L'ajout d'une nouvelle catégorie de service doit ensuite éprouver la modularité au-delà des deux serveurs web déjà intégrés.
 
@@ -104,7 +112,7 @@ La séparation opérateur/approbateur existe par rôles. Une séparation stricte
 - Construire un hyperviseur, un cloud ou un moteur d'automatisation maison.
 - Garantir une absence totale de panne ou un rollback universel.
 - Exécuter du code tiers non fiable directement dans le processus serveur.
-- Donner à l'IA un droit autonome de changement sur l'infrastructure.
+- Accorder implicitement des droits à un agent ou lui permettre de contourner l'API, les politiques et les approbations ; une délégation explicite reste possible selon les scopes autorisés.
 - Réaliser tous les fournisseurs cloud et équipements réseau en une itération.
 - Livrer un système de paiement, une facturation commerciale ou un SaaS multi-tenant dans P0.
 - Exposer le prototype actuel sur Internet sans durcissement préalable.
@@ -287,7 +295,7 @@ Les priorités ci-dessous sont proposées. Chaque ligne associe une exigence à 
 | EXG-018 | P2 | Provisionner une ressource avec OpenTofu sur un fournisseur choisi. | CRT-018 : plan, création, lecture indépendante et destruction contrôlée sont prouvés ; état et verrouillage sont protégés. |
 | EXG-019 | P2 | Configurer un équipement réseau pilote. | CRT-019 : une modification autorisée puis sa restauration sont vérifiées depuis un accès de secours préservé sur une cible de lab autorisée. |
 | EXG-020 | P2 | Autoriser une approbation ChatOps sécurisée. | CRT-020 : un acteur authentifié approuve le plan exact ; un clic rejoué, expiré ou non autorisé est refusé et audité. |
-| EXG-021 | P2 | Fournir un diagnostic LLM strictement en lecture seule. | CRT-021 : l'agent cite ses événements sources, exprime l'incertitude et ne possède aucun outil de mutation ; toute correction passe par une nouvelle demande approuvée. |
+| EXG-021 | P1 | Permettre le pilotage de la plateforme par un agent externe via API et MCP, avec droits limités. | CRT-021 : des appels MCP réels lisent et soumettent via l'API ; les actions hors scopes et l'approbation par un opérateur sont refusées ; expiration et révocation bloquent immédiatement les accès ; les mutations autorisées restent approuvées et auditées. |
 | EXG-022 | P2 | Étendre GitOps à un dépôt distant contrôlé. | CRT-022 : un dépôt de test reçoit le plan expurgé et permet de relier demande, commit et résultat ; échec Git et divergence sont gérés explicitement. |
 | EXG-023 | P2 | Exploiter des mesures de consommation et des recommandations FinOps. | CRT-023 : chaque valeur mesurée indique source, période et fraîcheur ; les estimations restent distinctes des factures. |
 | EXG-024 | Vision | Distribuer des plugins tiers avec une chaîne de confiance. | CRT-024 : intégrité, provenance, versions, scans, revue, révocation et isolation sont définis et testés avant l'exécution de code non fiable. |

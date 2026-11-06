@@ -1,0 +1,839 @@
+{
+  "uid": "kuberweaver-local",
+  "title": "KuberWeaver \u2014 local application evidence",
+  "description": "Aggregate local evidence; missing series are never mapped to success.",
+  "tags": [
+    "kuberweaver",
+    "local-app"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "editable": false,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "label": "App instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "kuberweaver-prometheus"
+        },
+        "query": {
+          "query": "label_values(up{job=\"kuberweaver\",service=\"kuberweaver\"}, instance)",
+          "refId": "instance"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Evidence boundaries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Local app monitoring only.** No data means unknown, not healthy. Scrape success is not worker or upstream success. Provider configuration is not a live probe. Health reads never refresh inventory or resolve secrets. Duration gauges cover valid persisted terminal jobs and include approval waiting; they are not execution latency or an SLO. No Alertmanager delivery is provisioned."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Scrape reachable (not application health)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Local operational checks (not upstream health)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_operational_healthy{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Worker alive",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_worker_alive{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Storage readable",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_storage_readable{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Persisted jobs by current status",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_jobs{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "In-memory queue depth",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_queue_depth{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "HTTP requests per second (includes scrapes)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(kuberweaver_http_requests_total{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}[5m])",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Persisted audit records",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_audit_events_total{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Manual review required",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_jobs_manual_review{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Malformed job records",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_jobs_invalid_records{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Submission to finish mean (includes approval waiting)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(kuberweaver_job_submission_to_finish_seconds{statistic=\"sum\",job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"} / ignoring(statistic) kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}) and ignoring(statistic) (kuberweaver_job_submission_to_finish_observations{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"} > 0)",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Submission to finish maximum (persisted jobs)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_job_submission_to_finish_seconds{statistic=\"max\",job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Provider configured (not connectivity)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_provider_configured{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Cached probe observed (0 means never observed)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 52,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_provider_probe_observed{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Cached fresh probe success (missing means unknown)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_provider_probe_success{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Last successful probe age",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "kuberweaver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kuberweaver_provider_last_success_age_seconds{job=\"kuberweaver\",service=\"kuberweaver\",instance=~\"$instance\"}",
+          "legendFormat": "{{status}}{{kind}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data / unknown",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    }
+  ]
+}

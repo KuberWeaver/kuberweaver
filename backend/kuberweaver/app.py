@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from .storage import Store, check_password
+from .agent_auth import AgentTokens, install_agent_tokens, required_scope, permits
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -29,6 +30,7 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                executor=None):
     state_dir = Path(state_dir or os.environ.get('KUBERWEAVER_STATE_DIR', ROOT / 'data'))
     store = Store(state_dir)
+    agent_tokens = AgentTokens(store)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -42,16 +44,34 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
             except BlockingIOError:
                 lock.close()
                 raise RuntimeError('KuberWeaver is already running for this state directory; use one server worker')
+        started = []
+        worker_started = False
         try:
             app.state.worker.start()
+            worker_started = True
+            for service in app.state.background_services:
+                service.start()
+                started.append(service)
             yield
         finally:
-            app.state.worker.close()
-            if lock is not None:
-                lock.close()
+            try:
+                if worker_started:
+                    app.state.worker.close()
+            finally:
+                try:
+                    # ExitStack also runs remaining cleanup if one close raises.
+                    from contextlib import ExitStack
+                    with ExitStack() as cleanup:
+                        for service in started:
+                            cleanup.callback(service.close)
+                finally:
+                    if lock is not None:
+                        lock.close()
 
     app = FastAPI(title='KuberWeaver', version='0.1.0', lifespan=lifespan)
     app.state.store = store
+    app.state.agent_tokens = agent_tokens
+    app.state.background_services = []
     app.state.state_dir = state_dir
     app.state.testing = testing
     app.state.request_count = 0
@@ -71,6 +91,20 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
         allowed_hosts = {'localhost', '127.0.0.1', '::1'} | ({'testserver'} if testing else set())
         if host not in allowed_hosts:
             return JSONResponse({'detail': 'Local host required'}, status_code=400)
+        request.state.agent = None
+        authorization = request.headers.getlist('authorization')
+        if authorization:
+            if len(authorization) != 1 or request.cookies.get('kw_session'):
+                return JSONResponse({'detail': 'Ambiguous credentials'}, status_code=401)
+            scheme, separator, value = authorization[0].partition(' ')
+            principal = agent_tokens.authenticate(value) if separator and scheme.lower() == 'bearer' else None
+            if not principal:
+                return JSONResponse({'detail': 'Invalid agent credentials'}, status_code=401)
+            scope = required_scope(request.method, request.url.path)
+            if not permits(principal['scopes'], scope):
+                store.audit(principal['username'], 'agent.request_denied', detail={'method': request.method, 'scope': scope or 'unsupported'})
+                return JSONResponse({'detail': 'Agent scope does not permit this operation'}, status_code=403)
+            request.state.agent = principal
         if request.method not in ('GET', 'HEAD', 'OPTIONS'):
             try:
                 too_large = int(request.headers.get('content-length', '0')) > 1_048_576
@@ -84,7 +118,8 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                 return JSONResponse({'detail': 'Cross-origin request rejected'}, status_code=403)
             if request.headers.get('sec-fetch-site') == 'cross-site':
                 return JSONResponse({'detail': 'Cross-site request rejected'}, status_code=403)
-            if request.url.path.startswith('/api/') and request.url.path != '/api/auth/login':
+            signed_callback = request.method == 'POST' and request.url.path == '/api/chatops/callback'
+            if request.url.path.startswith('/api/') and request.url.path != '/api/auth/login' and not request.state.agent and not signed_callback:
                 session = store.session(request.cookies.get('kw_session'))
                 if not session:
                     return JSONResponse({'detail': 'Authentication required'}, status_code=401)
@@ -100,6 +135,8 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
         return response
 
     def user(request: Request):
+        if getattr(request.state, 'agent', None):
+            return request.state.agent
         result = store.session(request.cookies.get('kw_session'))
         if not result:
             raise HTTPException(401, 'Authentication required')
@@ -114,6 +151,7 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
 
     app.state.user_dependency = user
     app.state.role_dependency = role
+    install_agent_tokens(app)
 
     @app.post('/api/auth/login')
     def login(data: Login, request: Request, response: Response):
@@ -136,7 +174,7 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
 
     @app.get('/api/auth/me')
     def me(request: Request, current=Depends(user)):
-        return {'user': current, 'csrf_token': store.session(request.cookies.get('kw_session'))['csrf']}
+        return {'user': current, 'csrf_token': None if current.get('principal_type') == 'agent' else store.session(request.cookies.get('kw_session'))['csrf']}
 
     @app.post('/api/auth/logout')
     def logout(request: Request, response: Response, current=Depends(user)):

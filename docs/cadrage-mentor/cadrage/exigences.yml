@@ -383,10 +383,10 @@
     },
     {
       "id": "EXG-021",
-      "titre": "Fournir un diagnostic LLM strictement en lecture seule.",
-      "description": "Fournir un diagnostic LLM strictement en lecture seule.",
+      "titre": "Permettre le pilotage de la plateforme par un agent externe via API et MCP, avec droits limités.",
+      "description": "Permettre le pilotage de la plateforme par un agent externe via API et MCP, avec droits limités.",
       "statut": "propose",
-      "priorite": "P2",
+      "priorite": "P1",
       "sources": [
         "BES-001"
       ],

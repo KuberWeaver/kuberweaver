@@ -1,0 +1,2290 @@
+[
+  {
+    "slide": 1,
+    "text": "LA VISION",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "KuberWeaver",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Standardiser le sur-mesure.",
+    "lines": 1,
+    "size": 43,
+    "required_h": 0.7822222222222223,
+    "box": [
+      0.62,
+      2.04,
+      10.6,
+      0.92
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Le produit s’adapte à l’entreprise.\nPas l’inverse.",
+    "lines": 2,
+    "size": 28,
+    "required_h": 1.0061111111111112,
+    "box": [
+      0.65,
+      3.25,
+      10.7,
+      1.24
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Votre infrastructure",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.89,
+      5.51,
+      3.28,
+      0.39
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Vos règles",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      5.0200000000000005,
+      5.51,
+      3.28,
+      0.39
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Votre rythme",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      9.15,
+      5.51,
+      3.28,
+      0.39
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "Prototype fonctionnel  /  Vision produit  /  EFREI Paris",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 1,
+    "text": "01",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "COMPRENDRE LE CONTEXTE",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "L’infrastructure devient un service interne.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "Infrastructure Platform\nEngineering, ou IPE",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8338888888888889,
+    "box": [
+      8.5,
+      2.22,
+      4.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "Transformer serveurs, réseaux et données en services faciles à demander.",
+    "lines": 3,
+    "size": 20,
+    "required_h": 1.0750000000000002,
+    "box": [
+      8.5,
+      3.4,
+      4.05,
+      1.13
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "Comme un catalogue interne :\non choisit, les règles sont intégrées.",
+    "lines": 2,
+    "size": 15.5,
+    "required_h": 0.5755555555555555,
+    "box": [
+      8.65,
+      5.12,
+      3.88,
+      0.8
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "Schéma : Platform Engineering [1, 4]  /  Standardiser + automatiser pour mieux servir les équipes",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 2,
+    "text": "02",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "LE PROBLÈME",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Le sur-mesure finit trop souvent en bricolage.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Des besoins différents ne devraient pas produire des pratiques incontrôlables.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "TEMPS",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      1.08,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Chaque demande\nrepart de zéro.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      0.86,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Des échanges et des gestes manuels se répètent.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      0.86,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "RISQUE",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      5.210000000000001,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Chaque équipe fait\nun peu autrement.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      4.99,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "La sécurité et la qualité deviennent difficiles à suivre.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      4.99,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "VISIBILITÉ",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      9.34,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Les coûts restent\ndispersés.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      9.12,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "Les décideurs peinent à relier dépenses et besoins.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      9.12,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "KuberWeaver  /  EFREI Paris  /  Présentation investisseurs",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 3,
+    "text": "03",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "LA RÉPONSE KUBERWEAVER",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Transformer votre savoir-faire en services réutilisables.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Vous définissez vos standards. Vos équipes les utilisent sans les réinventer.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "01",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      0.83,
+      3.12,
+      2.35,
+      0.45
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Choisir",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      0.83,
+      3.86,
+      2.35,
+      0.46
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Un environnement du catalogue.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.5927777777777777,
+    "box": [
+      0.83,
+      4.57,
+      2.35,
+      0.85
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "02",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      3.9,
+      3.12,
+      2.35,
+      0.45
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Adapter",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      3.9,
+      3.86,
+      2.35,
+      0.46
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Les paramètres autorisés.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.5927777777777777,
+    "box": [
+      3.9,
+      4.57,
+      2.35,
+      0.85
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "03",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      6.97,
+      3.12,
+      2.35,
+      0.45
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Valider",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      6.97,
+      3.86,
+      2.35,
+      0.46
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Les règles, le coût et les droits.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.5927777777777777,
+    "box": [
+      6.97,
+      4.57,
+      2.35,
+      0.85
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "04",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      10.04,
+      3.12,
+      2.35,
+      0.45
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Déployer",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      10.04,
+      3.86,
+      2.35,
+      0.46
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Vérifier et garder une trace.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.5927777777777777,
+    "box": [
+      10.04,
+      4.57,
+      2.35,
+      0.85
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "Un environnement spécifique, une méthode reproductible.",
+    "lines": 1,
+    "size": 20,
+    "required_h": 0.3861111111111111,
+    "box": [
+      0.9,
+      6.08,
+      11.5,
+      0.39
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "KuberWeaver  /  EFREI Paris  /  Présentation investisseurs",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 4,
+    "text": "04",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "LA MODULARITÉ, SIMPLEMENT",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Des briques métier autour d’un socle commun.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Un plugin ajoute un service ou connecte un outil, sans tout reconstruire.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Vous conservez",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      0.88,
+      3.1,
+      2.8,
+      0.45
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Vos équipements\nVos outils\nVos contraintes métier",
+    "lines": 4,
+    "size": 19.5,
+    "required_h": 1.7750000000000001,
+    "box": [
+      0.88,
+      4.0,
+      2.8,
+      1.8
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "KuberWeaver",
+    "lines": 1,
+    "size": 29,
+    "required_h": 0.5411111111111111,
+    "box": [
+      4.55,
+      3.1,
+      4.2,
+      0.55
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Un socle commun :\ndroits, règles, validation,\ntraçabilité et coûts estimés.",
+    "lines": 3,
+    "size": 22,
+    "required_h": 1.325,
+    "box": [
+      4.55,
+      4.04,
+      4.15,
+      1.82
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Vous ajoutez",
+    "lines": 1,
+    "size": 23,
+    "required_h": 0.43777777777777777,
+    "box": [
+      9.65,
+      3.1,
+      2.8,
+      0.45
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Les services utiles\nLes connexions requises\nLes modèles propres à vous",
+    "lines": 5,
+    "size": 18,
+    "required_h": 1.9166666666666667,
+    "box": [
+      9.65,
+      4.02,
+      2.78,
+      1.93
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "Philosophie produit  /  Adapter l’outil à l’existant plutôt qu’imposer un nouvel environnement",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 5,
+    "text": "05",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "DES BESOINS SPÉCIFIQUES",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Le même socle. Des catalogues différents.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Trois exemples de marchés à explorer, pas des références clients.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "INDUSTRIE",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      1.08,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Reproduire un\nenvironnement de site.",
+    "lines": 2,
+    "size": 20.5,
+    "required_h": 0.725,
+    "box": [
+      0.86,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Des modèles adaptés aux équipements et aux règles locales.",
+    "lines": 3,
+    "size": 16,
+    "required_h": 0.9416666666666669,
+    "box": [
+      0.86,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "FINTECH",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      5.210000000000001,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Encadrer les\nchangements sensibles.",
+    "lines": 2,
+    "size": 20.0,
+    "required_h": 0.7083333333333334,
+    "box": [
+      4.99,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Des accès maîtrisés, des validations et des traces exploitables.",
+    "lines": 3,
+    "size": 16,
+    "required_h": 0.9416666666666669,
+    "box": [
+      4.99,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "ARTISANAT & PME",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      9.34,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Simplifier les\nbesoins récurrents.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      9.12,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Un catalogue adapté, éventuellement opéré par un prestataire IT.",
+    "lines": 3,
+    "size": 16,
+    "required_h": 0.9416666666666669,
+    "box": [
+      9.12,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "Cas d’usage envisagés  /  Validation métier et intégrations à réaliser avec les entreprises pilotes",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 6,
+    "text": "06",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "LA PROMESSE DE CONTRÔLE",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Des pratiques de grande entreprise, à votre échelle.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Les mêmes principes de maîtrise, sans prétendre à une certification équivalente.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "GOUVERNANCE",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      1.08,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Qui peut demander ?\nQui doit valider ?",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      0.86,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Des responsabilités et une trace des décisions.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      0.86,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "SÉCURITÉ",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      5.210000000000001,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Des règles avant\nchaque changement.",
+    "lines": 2,
+    "size": 22.5,
+    "required_h": 0.7916666666666666,
+    "box": [
+      4.99,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Des droits limités et des vérifications à chaque étape.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      4.99,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "COÛTS IT",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      9.34,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Savoir ce que\nl’on engage.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      9.12,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Un coût estimé avant décision, détaillé par ressource.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      9.12,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "Sécurité à chaque étape  /  FinOps = comprendre et piloter les coûts informatiques",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 7,
+    "text": "07",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 8,
+    "text": "LA STRUCTURE DU PRODUIT",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 8,
+    "text": "Une porte d’entrée, plusieurs capacités.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 8,
+    "text": "Schéma de vision, source : cadrage original du projet  /  Certaines intégrations restent à développer",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 8,
+    "text": "08",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "LE RÔLE DE L’IA",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Hermes : un assistant outillé, pas un décideur.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Un agent IA combine :",
+    "lines": 1,
+    "size": 25,
+    "required_h": 0.4722222222222222,
+    "box": [
+      0.65,
+      2.4,
+      7.6,
+      0.48
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Un modèle",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.88,
+      3.29,
+      2.55,
+      0.4
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Comprendre et expliquer.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      3.5,
+      3.29,
+      3.83,
+      0.42
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Des outils autorisés",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.88,
+      4.24,
+      2.55,
+      0.4
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Consulter les informations utiles.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      3.5,
+      4.24,
+      3.83,
+      0.42
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Du contexte",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.88,
+      5.1899999999999995,
+      2.55,
+      0.4
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Retenir les procédures et les échanges.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      3.5,
+      5.1899999999999995,
+      3.83,
+      0.42
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Dans KuberWeaver,\nle rôle envisagé",
+    "lines": 2,
+    "size": 25,
+    "required_h": 0.9027777777777778,
+    "box": [
+      8.32,
+      2.82,
+      4.1,
+      1.0
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Observer → expliquer → proposer\n\nL’humain garde la décision.",
+    "lines": 4,
+    "size": 20,
+    "required_h": 1.4194444444444445,
+    "box": [
+      8.32,
+      4.15,
+      4.08,
+      1.61
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "Hermes Agent : Nous Research [2]  /  Intégration envisagée, non connectée au prototype actuel",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 9,
+    "text": "09",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "UNE PLATEFORME QUI ACCOMPAGNE LA CROISSANCE",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Commencer petit. Étendre sans repartir de zéro.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Une trajectoire de produit, pas une capacité de grande échelle déjà démontrée.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "01",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      0.87,
+      3.27,
+      3.33,
+      0.46
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Une équipe",
+    "lines": 1,
+    "size": 22,
+    "required_h": 0.42055555555555557,
+    "box": [
+      0.87,
+      4.0,
+      3.33,
+      0.87
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Quelques services utiles.\nDes règles communes.",
+    "lines": 2,
+    "size": 15,
+    "required_h": 0.5583333333333333,
+    "box": [
+      0.87,
+      4.95,
+      3.33,
+      0.65
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "02",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      5.0,
+      3.27,
+      3.33,
+      0.46
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Plusieurs équipes",
+    "lines": 1,
+    "size": 22,
+    "required_h": 0.42055555555555557,
+    "box": [
+      5.0,
+      4.0,
+      3.33,
+      0.87
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Davantage de modèles.\nDes responsabilités distinctes.",
+    "lines": 2,
+    "size": 15,
+    "required_h": 0.5583333333333333,
+    "box": [
+      5.0,
+      4.95,
+      3.33,
+      0.65
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "03",
+    "lines": 1,
+    "size": 24,
+    "required_h": 0.45499999999999996,
+    "box": [
+      9.129999999999999,
+      3.27,
+      3.33,
+      0.46
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Une organisation étendue",
+    "lines": 2,
+    "size": 22,
+    "required_h": 0.7994444444444445,
+    "box": [
+      9.129999999999999,
+      4.0,
+      3.33,
+      0.87
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Plus de sites et de fournisseurs.\nUne exploitation renforcée.",
+    "lines": 2,
+    "size": 15,
+    "required_h": 0.5583333333333333,
+    "box": [
+      9.129999999999999,
+      4.95,
+      3.33,
+      0.65
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "La même logique de service, avec des capacités ajoutées au besoin.",
+    "lines": 1,
+    "size": 21,
+    "required_h": 0.4033333333333333,
+    "box": [
+      0.66,
+      6.2,
+      12.0,
+      0.5
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "Cible : PME, ETI et grandes organisations  /  Durcissement et montée en charge à valider",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 10,
+    "text": "10",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "LA LOGIQUE ÉCONOMIQUE",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Un budget pour les services utiles, pas pour le superflu.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "L’avantage recherché : un coût global proportionné au besoin.",
+    "lines": 1,
+    "size": 16,
+    "required_h": 0.31722222222222224,
+    "box": [
+      0.6,
+      1.82,
+      12.0,
+      0.63
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "RÉUTILISER",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      1.08,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Préserver\nl’investissement existant.",
+    "lines": 3,
+    "size": 19.5,
+    "required_h": 1.0166666666666666,
+    "box": [
+      0.86,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Capitaliser sur les outils et procédures déjà maîtrisés.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      0.86,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "RÉPÉTER MOINS",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      5.210000000000001,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Réduire le travail\nfait à la main.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      4.99,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Transformer une procédure validée en service réutilisable.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.6416666666666667,
+    "box": [
+      4.99,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "MESURER",
+    "lines": 1,
+    "size": 11,
+    "required_h": 0.23111111111111113,
+    "box": [
+      9.34,
+      2.92,
+      3.15,
+      0.36
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Vérifier la valeur\nchez les pilotes.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8083333333333332,
+    "box": [
+      9.12,
+      3.5900000000000003,
+      3.36,
+      1.02
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Comparer délai, effort, incidents et coût total avant / après.",
+    "lines": 3,
+    "size": 16,
+    "required_h": 0.9416666666666669,
+    "box": [
+      9.12,
+      4.71,
+      3.36,
+      1.6799999999999997
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "Hypothèse économique à valider  /  Aucun gain chiffré ni prix commercial revendiqué",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 11,
+    "text": "11",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "OÙ NOUS EN SOMMES",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "Un prototype réel. Une industrialisation à construire.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "DÉJÀ DÉMONTRÉ",
+    "lines": 1,
+    "size": 12,
+    "required_h": 0.24833333333333332,
+    "box": [
+      0.9,
+      2.43,
+      6.5,
+      0.36
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "Composer, approuver, déployer\net revenir à l’état précédent.",
+    "lines": 2,
+    "size": 27,
+    "required_h": 0.9716666666666666,
+    "box": [
+      0.9,
+      3.14,
+      6.4,
+      1.12
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "Des services web réellement exécutés sur deux cibles de laboratoire.",
+    "lines": 2,
+    "size": 15.0,
+    "required_h": 0.5583333333333333,
+    "box": [
+      0.9,
+      4.57,
+      6.35,
+      0.55
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "159",
+    "lines": 1,
+    "size": 39,
+    "required_h": 0.7133333333333334,
+    "box": [
+      8.36,
+      2.57,
+      1.75,
+      0.8
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "tests backend",
+    "lines": 1,
+    "size": 17,
+    "required_h": 0.33444444444444443,
+    "box": [
+      10.07,
+      2.8,
+      2.2,
+      0.4
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "35",
+    "lines": 1,
+    "size": 39,
+    "required_h": 0.7133333333333334,
+    "box": [
+      8.36,
+      3.7,
+      1.75,
+      0.8
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "tests frontend",
+    "lines": 1,
+    "size": 17,
+    "required_h": 0.33444444444444443,
+    "box": [
+      10.07,
+      3.93,
+      2.2,
+      0.4
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "Prochaine étape : éprouver une brique différente et un cas d’entreprise pilote.",
+    "lines": 2,
+    "size": 23,
+    "required_h": 0.8338888888888889,
+    "box": [
+      0.67,
+      5.93,
+      12.0,
+      0.84
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "État du prototype documenté et testé  /  Pas encore prêt pour une exploitation critique en production",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 12,
+    "text": "12",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "L’ÉQUIPE ET LE CAP",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Six profils pour relier produit, infrastructure et valeur.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Etienne MURZEAU",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.65,
+      2.19,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Référent, IA et infrastructure",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      0.65,
+      2.62,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Rayan CHOUCHANE",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      6.9,
+      2.19,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Infrastructure, GitOps et pipeline",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      6.9,
+      2.62,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Alex YAO",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.65,
+      3.15,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Infrastructure et provisionnement",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      0.65,
+      3.58,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Vidjay VELAYOUDAM",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      6.9,
+      3.15,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "FinOps et business",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      6.9,
+      3.58,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Abdel-Waheb SAKKAL",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      0.65,
+      4.109999999999999,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Infrastructure, services et restauration",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      0.65,
+      4.539999999999999,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Priyank SOLANKI",
+    "lines": 1,
+    "size": 18,
+    "required_h": 0.3516666666666667,
+    "box": [
+      6.9,
+      4.109999999999999,
+      5.7,
+      0.39
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Développement web full stack",
+    "lines": 1,
+    "size": 14,
+    "required_h": 0.2827777777777778,
+    "box": [
+      6.9,
+      4.539999999999999,
+      5.7,
+      0.36
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "Notre cap : rendre reproductible ce qui fait votre différence.",
+    "lines": 1,
+    "size": 25,
+    "required_h": 0.4722222222222222,
+    "box": [
+      0.92,
+      5.8,
+      11.5,
+      0.6
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "EFREI Paris  /  Prochaine preuve : un pilote métier et un bilan de valeur mesuré",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 13,
+    "text": "13",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "ANNEXE / SOURCES ET PÉRIMÈTRE",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      0.58,
+      0.29,
+      11.8,
+      0.28
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Les références, les images et les limites.",
+    "lines": 1,
+    "size": 31,
+    "required_h": 0.5325,
+    "box": [
+      0.58,
+      0.83,
+      12.1,
+      0.95
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "01",
+    "lines": 1,
+    "size": 19,
+    "required_h": 0.3688888888888889,
+    "box": [
+      0.65,
+      2.11,
+      0.51,
+      0.41
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "IPE : principes et contexte",
+    "lines": 1,
+    "size": 20,
+    "required_h": 0.3861111111111111,
+    "box": [
+      1.29,
+      2.11,
+      10.9,
+      0.43
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Platform Engineering, article et pyramide fournis.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      1.29,
+      2.5999999999999996,
+      10.9,
+      0.4
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "02",
+    "lines": 1,
+    "size": 19,
+    "required_h": 0.3688888888888889,
+    "box": [
+      0.65,
+      3.1399999999999997,
+      0.51,
+      0.41
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Hermes Agent : définition",
+    "lines": 1,
+    "size": 20,
+    "required_h": 0.3861111111111111,
+    "box": [
+      1.29,
+      3.1399999999999997,
+      10.9,
+      0.43
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Documentation officielle de Nous Research.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      1.29,
+      3.63,
+      10.9,
+      0.4
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "03",
+    "lines": 1,
+    "size": 19,
+    "required_h": 0.3688888888888889,
+    "box": [
+      0.65,
+      4.17,
+      0.51,
+      0.41
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "KuberWeaver : état et architecture",
+    "lines": 1,
+    "size": 20,
+    "required_h": 0.3861111111111111,
+    "box": [
+      1.29,
+      4.17,
+      10.9,
+      0.43
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Cahier des charges, README, vérifications et schéma local.",
+    "lines": 1,
+    "size": 15,
+    "required_h": 0.30000000000000004,
+    "box": [
+      1.29,
+      4.66,
+      10.9,
+      0.4
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Vision ≠ fonctionnalités livrées. Cas sectoriels ≠ clients acquis.\nÉconomies, conformité et passage à l’échelle restent à valider.",
+    "lines": 2,
+    "size": 16,
+    "required_h": 0.5927777777777777,
+    "box": [
+      0.91,
+      5.79,
+      11.55,
+      0.65
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "Images attribuées  /  Droits à confirmer avant diffusion publique  /  Notes détaillées dans le PowerPoint",
+    "lines": 1,
+    "size": 9,
+    "required_h": 0.19666666666666666,
+    "box": [
+      0.6,
+      7.14,
+      11.35,
+      0.21
+    ]
+  },
+  {
+    "slide": 14,
+    "text": "14",
+    "lines": 1,
+    "size": 10,
+    "required_h": 0.2138888888888889,
+    "box": [
+      12.24,
+      7.11,
+      0.5,
+      0.25
+    ]
+  }
+]

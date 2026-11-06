@@ -20,6 +20,11 @@ from typing import Callable
 import jsonschema
 import yaml
 
+try:
+    from .execution_credentials import operation_credentials
+except ImportError:  # Standalone loading used by the executor safety tests.
+    from backend.kuberweaver.execution_credentials import operation_credentials
+
 ROOT = Path(__file__).resolve().parents[2]
 SSH_CONFIG = Path('/home/ubu/Desktop/infra-platform-lab/ssh_config')
 TARGETS = {'app': {'alias': 'infra-app', 'ip': '192.168.122.40'},
@@ -45,7 +50,8 @@ def _private_json(path, value):
 
 
 class Executor:
-    def __init__(self, state_dir: Path, plugins_dir: Path | None = None):
+    def __init__(self, state_dir: Path, plugins_dir: Path | None = None, *, secret_resolver=None):
+        self.secret_resolver = secret_resolver
         self.state_dir = Path(state_dir).resolve()
         self.plugins_dir = Path(plugins_dir or ROOT / 'plugins').resolve()
         self.runner = subprocess.run
@@ -182,11 +188,27 @@ class Executor:
         argv = [str(executable), '-i', str(inventory), str(playbook), '--extra-vars', '@' + str(params_path)]
         emit(action, 'info', f"{entry['node_id']} on {entry['target']}: {action}")
         try:
-            proc = self.runner(argv, capture_output=True, text=True, timeout=300,
-                               env={**os.environ, 'ANSIBLE_NOCOLOR': '1', 'ANSIBLE_HOST_KEY_CHECKING': 'True',
-                                    'ANSIBLE_LOCAL_TEMP': str(folder / 'ansible-tmp')})
-            _private_json(folder / 'logs' / f'{token}.json',
-                          {'returncode': proc.returncode, 'stdout': proc.stdout, 'stderr': proc.stderr})
+            with operation_credentials(self.state_dir, entry['target'], TARGETS,
+                                       self.secret_resolver, result_path=result_path,
+                                       ssh_config=SSH_CONFIG) as credential_env:
+                operation_argv = list(argv)
+                if credential_env:
+                    # Extra vars outrank the persisted inventory; only ephemeral
+                    # config paths, never key bytes, cross the command boundary.
+                    operation_argv[-2:-2] = ['-e', json.dumps({
+                        'ansible_ssh_common_args': credential_env['ANSIBLE_SSH_COMMON_ARGS']})]
+                # Do not forward provider tokens, agent sockets, logging/callback
+                # settings or arbitrary ANSIBLE_* overrides to credential consumers.
+                inherited = ({key: value for key, value in os.environ.items()
+                              if key in {'PATH', 'HOME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'VIRTUAL_ENV'}}
+                             if credential_env else dict(os.environ))
+                proc = self.runner(operation_argv, capture_output=True, text=True, timeout=300,
+                                   env={**inherited, 'ANSIBLE_NOCOLOR': '1', 'ANSIBLE_HOST_KEY_CHECKING': 'True',
+                                        'ANSIBLE_LOCAL_TEMP': str(folder / 'ansible-tmp'), **credential_env})
+                _private_json(folder / 'logs' / f'{token}.json',
+                              {'returncode': proc.returncode,
+                               'stdout': '[suppressed]' if credential_env else proc.stdout,
+                               'stderr': '[suppressed]' if credential_env else proc.stderr})
             result = json.loads(result_path.read_text()) if result_path.exists() else {}
             if result_path.exists():
                 result_path.chmod(0o600)

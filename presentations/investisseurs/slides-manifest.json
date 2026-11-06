@@ -1,0 +1,84 @@
+[
+  {
+    "title": "KuberWeaver",
+    "note": "Positionnement de vision : rendre les environnements propres à une entreprise reproductibles et gouvernés. Il ne s’agit pas de dire que tous les secteurs sont déjà couverts. Le projet est au stade prototype. Aucun montant levé, revenu ou client n’est revendiqué.",
+    "sources": []
+  },
+  {
+    "title": "L’infrastructure devient un service interne.",
+    "note": "L’infrastructure correspond aux moyens informatiques qui font fonctionner les applications : serveurs, stockage, réseaux et bases de données. L’IPE les transforme en produits internes consommables avec standardisation, automatisation et self-service. Le schéma original situe ces leviers entre les difficultés opérationnelles et les résultats métier. Les gains sont des objectifs, pas des chiffres mesurés pour KuberWeaver.",
+    "sources": [
+      1,
+      4
+    ]
+  },
+  {
+    "title": "Le sur-mesure finit trop souvent en bricolage.",
+    "note": "Problèmes types à valider lors des entretiens clients. Le projet ne dispose pas d’une étude chiffrée de leur prévalence. Les difficultés de ticket-ops, de faible standardisation et de coûts non maîtrisés sont décrites dans la source IPE.",
+    "sources": [
+      1
+    ]
+  },
+  {
+    "title": "Transformer votre savoir-faire en services réutilisables.",
+    "note": "Le parcours de demande, approbation et déploiement est implémenté sur des services web du laboratoire. Les modèles réutilisables sont appelés blueprints. Le retour arrière dépend du service et n’est pas une garantie universelle.",
+    "sources": []
+  },
+  {
+    "title": "Des briques métier autour d’un socle commun.",
+    "note": "Un blueprint compatible apporte ses paramètres et son cycle de vie ; le formulaire standard est généré. Une nouvelle famille technique peut nécessiter un fournisseur développé et testé. L’adaptation n’est pas sans effort et les pages frontend spécialisées ne sont pas chargées automatiquement. L’intégration à l’existant et la portabilité des automatisations sont des objectifs, à éprouver chez les pilotes.",
+    "sources": []
+  },
+  {
+    "title": "Le même socle. Des catalogues différents.",
+    "note": "Cas illustratifs de positionnement. Industriels : environnements de test et contraintes de sites. Fintech : séparation des accès et traçabilité des changements. Artisanat : cas à qualifier, notamment pour les structures ayant un besoin récurrent d’environnements ; un petit artisan sans équipe IT pourrait être servi par son prestataire plutôt qu’exploiter le produit lui-même. Aucune conformité réglementaire automatique n’est revendiquée.",
+    "sources": []
+  },
+  {
+    "title": "Des pratiques de grande entreprise, à votre échelle.",
+    "note": "L’ambition est de rendre accessibles les mécanismes de gouvernance, sécurité et pilotage économique habituellement structurés dans les grandes organisations. Les rôles, approbations et estimations existent dans le prototype. La conformité, la résilience et l’égalité de niveau de sécurité avec une grande entreprise ne sont pas garanties. Le durcissement production reste à effectuer.",
+    "sources": []
+  },
+  {
+    "title": "Une porte d’entrée, plusieurs capacités.",
+    "note": "Schéma de vision original du projet, recadré pour enlever son titre et améliorer la lisibilité. Le lien Catbox fourni renvoyait un corps vide et n’a pas pu être utilisé ; cette illustration provient de docs/cadrage-original. OPA, Vault, OpenTofu, ChatOps et les cibles hybrides sont des éléments de vision : le prototype réel utilise des règles Python, une source OpenBao et un exécuteur Ansible sur des conteneurs web. Toutes les fonctions de ce schéma ne sont pas implémentées.",
+    "sources": []
+  },
+  {
+    "title": "Hermes : un assistant outillé, pas un décideur.",
+    "note": "Hermes Agent, développé par Nous Research, est un logiciel qui relie un modèle IA à des outils et à une mémoire. Il ne doit pas être confondu avec le modèle de langage lui-même. Le rôle envisagé dans KuberWeaver est un diagnostic optionnel en lecture seule, avec recommandations soumises à l’humain. Hermes peut techniquement agir selon ses outils et permissions ; le mode lecture seule est un choix d’intégration à faire respecter. Aucun agent Hermes de diagnostic n’est actuellement connecté au prototype ; le diagnostic livré est déterministe.",
+    "sources": [
+      2
+    ]
+  },
+  {
+    "title": "Commencer petit. Étendre sans repartir de zéro.",
+    "note": "Le noyau et les contrats de fournisseurs sont modulaires. La montée en charge entreprise reste un objectif de roadmap : SSO, permissions par objet, isolation, haute disponibilité et tests de charge ne sont pas livrés. On ne revendique donc pas une extensibilité technique infinie ni une capacité enterprise éprouvée.",
+    "sources": []
+  },
+  {
+    "title": "Un budget pour les services utiles, pas pour le superflu.",
+    "note": "Aucun prix de vente, pourcentage d’économie, coût client ou avantage chiffré face à ServiceNow n’a été validé. Les leviers proposés sont la réutilisation de l’existant, la réduction des gestes répétitifs et un périmètre proportionné. Le coût total inclut intégration, hébergement, maintenance et support. ServiceNow peut aussi être modulaire et auto-hébergé ; ce ne sont pas des exclusivités de KuberWeaver. La tarification, la licence et le modèle de support restent à définir.",
+    "sources": []
+  },
+  {
+    "title": "Un prototype réel. Une industrialisation à construire.",
+    "note": "Prototype : catalogue, canvas, rôles, approbation, déploiements réels NGINX/Apache sur deux cibles, canary/rolling, restauration, Git local et estimation interne. Tests relancés lors de la mise en dépôt privé : 159 backend, 35 frontend, build réussi. Ces tests ne constituent pas une certification sécurité ni une recette de production. Prochaines étapes à arbitrer : service réellement différent, secrets d’exécution, notifications, durcissement et validation terrain. Aucun client pilote acquis n’est revendiqué.",
+    "sources": []
+  },
+  {
+    "title": "Six profils pour relier produit, infrastructure et valeur.",
+    "note": "Équipe fournie par le porteur du projet. Les marchés et le modèle économique restent à valider. La prochaine conversation investisseurs peut porter sur des introductions à des entreprises pilotes et les critères de preuve attendus ; aucun besoin de financement chiffré n’est inventé.",
+    "sources": []
+  },
+  {
+    "title": "Les références, les images et les limites.",
+    "note": "Sources consultées pour la présentation. Le lien Catbox a renvoyé un corps vide et n’est pas embarqué ; le schéma de structure est le cadrage original local, sans affirmer que les deux images sont identiques. La pyramide est reproduite avec attribution à Platform Engineering ; droits de réutilisation à confirmer avant diffusion publique/commerciale. PDF produit directement depuis le même code de mise en page que le PPTX, pas par conversion de PowerPoint. Aucun push GitHub effectué pour cette présentation.",
+    "sources": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
+]

@@ -132,6 +132,7 @@ export const date = (value: string) =>
   value ? new Date(value).toLocaleString("fr-FR") : "—";
 export const statuses: Record<string, string> = {
   pending_approval: "À approuver",
+  approving: "Approbation et publication",
   queued: "En file",
   running: "En cours",
   rolling_back: "Restauration",

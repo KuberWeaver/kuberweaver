@@ -1,0 +1,48 @@
+---
+- name: Execute reviewed Redis lifecycle
+  hosts: all
+  gather_facts: false
+  become: true
+  vars:
+    kw_remote_root: /opt/kuberweaver/.redis-executor
+  tasks:
+    - name: Execute private Redis request
+      no_log: true
+      block:
+        - name: Private helper directory
+          ansible.builtin.file:
+            path: '{{ kw_remote_root }}'
+            state: directory
+            mode: '0700'
+        - name: Reviewed Redis helper
+          ansible.builtin.copy:
+            src: '{{ kw_helper_path }}'
+            dest: '{{ kw_remote_root }}/guest.py'
+            mode: '0700'
+        - name: Private operation request
+          ansible.builtin.copy:
+            content: '{{ kw_request_json }}'
+            dest: '{{ kw_remote_root }}/{{ kw_token }}.json'
+            mode: '0600'
+        - name: Fixed Redis protocol without shell
+          ansible.builtin.command:
+            argv: [/usr/bin/python3, '{{ kw_remote_root }}/guest.py', '{{ kw_remote_root }}/{{ kw_token }}.json']
+          register: kw_operation
+          changed_when: kw_request.action != 'verify'
+          failed_when: false
+        - name: Private structured readback
+          ansible.builtin.copy:
+            content: '{{ kw_operation.stdout }}'
+            dest: '{{ kw_result_path }}'
+            mode: '0600'
+          delegate_to: localhost
+          become: false
+        - name: Check lifecycle outcome
+          ansible.builtin.assert:
+            that: kw_operation.rc == 0
+      always:
+        - name: Remove private operation request
+          ansible.builtin.file:
+            path: '{{ kw_remote_root }}/{{ kw_token }}.json'
+            state: absent
+          no_log: true

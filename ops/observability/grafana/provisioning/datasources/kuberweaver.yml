@@ -1,0 +1,12 @@
+apiVersion: 1
+datasources:
+  - name: KuberWeaver Prometheus
+    uid: kuberweaver-prometheus
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:9091
+    isDefault: false
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s

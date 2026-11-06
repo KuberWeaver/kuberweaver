@@ -22,7 +22,10 @@ def resolve_provider(app, kind, name=None):
     if getattr(app.state, 'provider_config_error', None):
         raise HTTPException(503, 'Provider binding configuration is invalid')
     name = name if name is not None else app.state.provider_bindings[kind]
-    return registered_provider(app.state.registry, kind, name)
+    provider = registered_provider(app.state.registry, kind, name)
+    if kind == 'execution' and hasattr(provider, 'secret_resolver'):
+        provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
+    return provider
 
 
 def registered_provider(registry, kind, name):
@@ -47,8 +50,10 @@ def registered_provider(registry, kind, name):
 
 def provider_provenance(app, kind, name):
     provider = registered_provider(app.state.registry, kind, name)
-    source = Path(inspect.getfile(type(provider))).resolve()
-    paths = [source]
+    # Pin the actual class hierarchy as well as its extension package: an
+    # entrypoint may merely import a provider implemented elsewhere.
+    paths = [Path(inspect.getfile(cls)).resolve()
+             for cls in type(provider).__mro__ if cls is not object]
     if isinstance(provider, RuntimeExecutor):
         # The registry object delegates to a separate implementation. Pin that
         # class's source (and inherited implementations), not only this wrapper.
@@ -58,10 +63,40 @@ def provider_provenance(app, kind, name):
     # Include the entire trusted package, not only the entrypoint/class definition.
     for report in app.state.extension_reports:
         if report.get('status') == 'loaded' and any(row['kind'] == kind and row['name'] == name for row in report.get('providers', [])):
-            paths = sorted(p for p in Path(report['path']).rglob('*') if p.is_file() and '__pycache__' not in p.parts)
+            paths = sorted(set(paths) | {p for p in Path(report['path']).rglob('*') if p.is_file() and '__pycache__' not in p.parts})
             break
-    records = [(str(path), hashlib.sha256(path.read_bytes()).hexdigest()) for path in paths]
+    owners = [type(provider)]
+    if isinstance(provider, RuntimeExecutor):
+        owners.append(type(provider.app.state.executor))
+    # Walk each MRO declaration explicitly: a subclass must not hide a helper
+    # required by an inherited implementation, nor may a wrapper hide delegates.
+    for owner in owners:
+        for cls in owner.__mro__:
+            declared = vars(cls).get('source_dependencies', ())
+            if not isinstance(declared, (tuple, list)):
+                raise ValueError('Execution source dependencies must be explicit source-file paths')
+            for dependency in declared:
+                dependency = Path(dependency)
+                if not dependency.is_absolute() or dependency.suffix != '.py' or dependency.is_symlink() or not dependency.is_file():
+                    raise ValueError('Invalid execution source dependency')
+                paths.append(dependency.resolve())
+    records = [(str(path), hashlib.sha256(path.read_bytes()).hexdigest()) for path in sorted(set(paths))]
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
+
+
+def execution_credential_binding(app):
+    from .execution import TARGETS
+    from .execution_credentials import credential_configuration, credential_configuration_fingerprint
+    try:
+        configuration = credential_configuration(app.state.state_dir, TARGETS)
+        selected = None
+        if configuration and configuration['enabled']:
+            name = app.state.provider_bindings['secrets']
+            resolve_provider(app, 'secrets', name)
+            selected = {'name': name, 'provenance': provider_provenance(app, 'secrets', name)}
+        return credential_configuration_fingerprint(app.state.state_dir, TARGETS, selected)
+    except Exception:
+        raise HTTPException(503, 'Execution credential configuration or selected source unavailable') from None
 
 
 def execution_binding(app, name=None):
@@ -206,15 +241,45 @@ OPTIONAL = [
 ]
 
 
+def invoke_approved_execution(app, provider, operation, job, emit):
+    """Apply the same approval guards to optional and built-in executors."""
+    def check():
+        pinned = job['approved_execution_provider']
+        if execution_binding(app, pinned['name']) != pinned:
+            raise RuntimeError('Approved execution source changed')
+        if job.get('approved_credentials') != execution_credential_binding(app):
+            raise RuntimeError('Approved execution credential mapping changed')
+        if any(app.state.catalog.fingerprint(identity) != expected
+               for identity, expected in job.get('approved_source_hashes', {}).items()):
+            raise RuntimeError('Approved plugin source changed')
+    check()
+    runner = getattr(provider, 'runner', None)
+    if runner is None:
+        return getattr(provider, operation)(job, emit)
+    def guarded_runner(*args, **kwargs):
+        check()
+        return runner(*args, **kwargs)
+    provider.runner = guarded_runner
+    try:
+        return getattr(provider, operation)(job, emit)
+    finally:
+        provider.runner = runner
+
+
 class RuntimeExecutor:
+    source_dependencies = (Path(__file__).with_name("execution_credentials.py").resolve(),)
     """Stable registry contract with an injectable execution implementation."""
     def __init__(self, app):
         self.app = app
 
     def _invoke(self, operation, job, emit):
         implementation = self.app.state.executor
+        if hasattr(implementation, 'secret_resolver'):
+            implementation.secret_resolver = lambda reference: resolve_provider(self.app, 'secrets').resolve(reference)
 
         def check_sources():
+            if job.get('approved_credentials') != execution_credential_binding(self.app):
+                raise RuntimeError('Approved execution credential mapping changed')
             pinned = job['approved_execution_provider']
             if (execution_binding(self.app, pinned['name']) != pinned or
                     any(self.app.state.catalog.fingerprint(plugin_id) != fingerprint
@@ -256,6 +321,8 @@ def register_builtins(registry, app):
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
     registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
+    from .notifications import register_notifications
+    register_notifications(registry, app)
     config = app.state.state_dir / 'config' / 'secrets.json'
     try:
         secrets_config = json.loads(config.read_text()) if config.exists() else {}

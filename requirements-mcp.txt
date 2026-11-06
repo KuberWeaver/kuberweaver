@@ -1,0 +1,3 @@
+# Optional external-agent stdio adapter; install after requirements.txt.
+# SDK 1.x public FastMCP/ClientSession API, not the incompatible 2.x API.
+mcp==1.30.0

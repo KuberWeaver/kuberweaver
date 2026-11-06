@@ -1,0 +1,59 @@
+groups:
+  - name: kuberweaver-local
+    rules:
+      - alert: KuberWeaverTargetMissing
+        expr: absent(up{job="kuberweaver",service="kuberweaver"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: KuberWeaver target or required scrape labels are missing
+      - alert: KuberWeaverScrapeFailed
+        expr: up{job="kuberweaver",service="kuberweaver"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: KuberWeaver metrics scrape failed
+      - alert: KuberWeaverTelemetryMissing
+        expr: up{job="kuberweaver",service="kuberweaver"} == 1 unless on(job,instance,service) kuberweaver_operational_healthy{job="kuberweaver",service="kuberweaver"}
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Scrape succeeded but operational telemetry is missing or app build is old
+      - alert: KuberWeaverLocalHealthDegraded
+        expr: kuberweaver_operational_healthy{job="kuberweaver",service="kuberweaver"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Local storage worker or provider bindings need inspection
+      - alert: KuberWeaverManualReviewRequired
+        expr: kuberweaver_jobs_manual_review{job="kuberweaver",service="kuberweaver"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Persisted jobs require manual review; never automatically reapply
+      - alert: KuberWeaverPersistedFailures
+        expr: sum by(job,instance,service) (kuberweaver_jobs{job="kuberweaver",service="kuberweaver",status=~"failed|rollback_failed"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Persisted failed jobs exist; this is not a new failure rate
+      - alert: KuberWeaverQueueBacklog
+        expr: kuberweaver_queue_depth{job="kuberweaver",service="kuberweaver"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: In-memory queue has remained nonempty for ten minutes
+      - alert: KuberWeaverInventoryEvidenceNotFresh
+        expr: kuberweaver_provider_probe_success{job="kuberweaver",service="kuberweaver",kind="inventory"} == 0 or kuberweaver_provider_probe_observed{job="kuberweaver",service="kuberweaver",kind="inventory"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Inventory has no recent verified observation; health reads do not initiate probes

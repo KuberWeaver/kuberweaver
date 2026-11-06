@@ -1,0 +1,8 @@
+id: redis-runtime
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Trusted isolated-lab Redis lifecycle provider; review host package and blueprint before enabling.
+capabilities:
+  - providers:execution
+  - data:read-write

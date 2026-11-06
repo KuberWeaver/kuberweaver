@@ -1,0 +1,8 @@
+id: opentofu-runtime
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Opt-in saved-plan OpenTofu boundary for one stopped libvirt lab VM. Not live-certified.
+capabilities:
+  - providers:execution
+  - data:read-write

@@ -166,8 +166,8 @@
       "titre": "Recette de EXG-021",
       "statut": "propose",
       "exigence": "EXG-021",
-      "protocole": "l'agent cite ses événements sources, exprime l'incertitude et ne possède aucun outil de mutation ; toute correction passe par une nouvelle demande approuvée.",
-      "resultat_attendu": "l'agent cite ses événements sources, exprime l'incertitude et ne possède aucun outil de mutation ; toute correction passe par une nouvelle demande approuvée."
+      "protocole": "Des appels MCP réels lisent et soumettent via l'API ; les actions hors scopes et l'approbation par un opérateur sont refusées ; expiration et révocation bloquent immédiatement les accès ; les mutations autorisées restent approuvées et auditées.",
+      "resultat_attendu": "Des appels MCP réels lisent et soumettent via l'API ; les actions hors scopes et l'approbation par un opérateur sont refusées ; expiration et révocation bloquent immédiatement les accès ; les mutations autorisées restent approuvées et auditées."
     },
     {
       "id": "CRT-022",
