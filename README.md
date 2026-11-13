@@ -2,7 +2,10 @@
 
 ## Documents du projet
 
-- [Présentation et cahier des charges](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md), avec répartition de l'équipe EFREI Paris.
+- [Note de cadrage, deux pages avec infographie](docs/note-cadrage/KuberWeaver_note_de_cadrage.pdf), avec [version texte](docs/note-cadrage/KuberWeaver_note_de_cadrage.txt).
+- [Architecture cible et gestion des plugins](docs/ARCHITECTURE_CIBLE.md), propositions pour PostgreSQL, le cycle de vie des services et le catalogue, distinctes des fonctions déjà livrées.
+
+- [Cahier des charges simplifié](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md), également disponible en [PDF](docs/CAHIER_DES_CHARGES_KUBERWEAVER.pdf), avec périmètre, tests d’acceptation et répartition de l’équipe EFREI Paris.
 - [Cadrage original](docs/cadrage-original/), vision initiale et infographie, à distinguer des fonctions effectivement livrées.
 - [Recette et limites](docs/ACCEPTANCE.md) et [résultats de vérification](docs/VERIFICATION.md).
 - [Contrats des extensions](docs/EXTENSIONS.md) et [cycle d'exécution](docs/EXECUTION.md).

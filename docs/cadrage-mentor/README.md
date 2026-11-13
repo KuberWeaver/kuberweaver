@@ -1,7 +1,7 @@
-# Export documentaire de cadrage
+# Export documentaire historique
 
-Les 24 exigences et critères sont extraits de la section 8 du document ../CAHIER_DES_CHARGES_KUBERWEAVER.md. Ce dossier est une annexe technique, pas un second cahier des charges.
+Ce dossier conserve l’export des 24 exigences et critères de la version 1.3 du cahier des charges, archivée dans ../archives/CAHIER_DES_CHARGES_KUBERWEAVER_v1.3.md.
 
-Le campus est EFREI Paris, codé paris dans l’outil. Le fichier de calendrier est présent mais ses jalons restent vides tant que les dates institutionnelles ne sont pas confirmées. Le contrôle porte sur la structure et les références, pas sur la faisabilité ou la complétude métier.
+Le document courant est ../CAHIER_DES_CHARGES_KUBERWEAVER.md, version 2.0 simplifiée. Ses identifiants d’exigences sont conservés, mais cet export n’est pas synchronisé avec sa nouvelle rédaction. Le rapport de cohérence présent ici concerne uniquement l’ancien export ; il ne valide pas la version 2.0.
 
-Après modification du document principal, synchroniser cet export avant un nouveau contrôle. Pas de preuve brute ni de secret embarqué.
+Le campus est EFREI Paris, codé paris dans l’outil. Les dates institutionnelles restent à confirmer. Une éventuelle réutilisation de cet export exige une synchronisation et un nouveau contrôle. Aucune preuve brute ni aucun secret n’est embarqué.

@@ -1,4 +1,5 @@
 .venv/
+.venv-docs/
 data/
 node_modules/
 frontend/dist/
@@ -28,3 +29,7 @@ id_ed25519
 coverage/
 .coverage
 htmlcov/
+
+# Generated document review images, final PDFs remain publishable
+docs/note-cadrage/apercu-page-*.png
+docs/note-cadrage/cahier-apercu-*.png

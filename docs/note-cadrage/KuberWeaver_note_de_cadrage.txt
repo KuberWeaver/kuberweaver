@@ -1,0 +1,71 @@
+KuberWeaver, note de cadrage
+
+KUBERWEAVER  /  NOTE DE CADRAGE
+
+Déployer sans improviser
+
+EFREI Paris · Proposition à valider · Rédaction assistée par IA
+
+Une plateforme interne pour demander un service informatique,le faire approuver et vérifier son déploiement.
+
+01  Le besoin
+
+Installer un serveur ou modifier un environnement mobilise souvent plusieurs outils et des procédures manuelles. KuberWeaver vise à transformer les procédures validées de l’organisation en services réutilisables, accessibles depuis un même portail.
+
+02  Pour qui, et pour quoi ?
+
+L’opérateur prépare une demande. L’administrateur contrôle les droits, les règles et le coût estimé avant d’autoriser l’exécution. Le lecteur consulte les résultats. Objectif : moins de répétitions, des responsabilités claires et une trace de chaque changement.
+
+03  De la demande au résultat
+
+Composer
+
+Choisir un service dans le catalogue et renseigner ses paramètres.
+
+Contrôler
+
+Vérifier les règles et afficher une estimation du coût.
+
+Approuver
+
+Faire examiner le plan par un administrateur avant exécution.
+
+Déployer
+
+Sauvegarder, tester sur une première cible, puis poursuivre.
+
+Vérifier
+
+Contrôler le service obtenu et conserver les preuves du résultat.
+
+Si une vérification échoue : tenter de restaurer l’état précédent. Si le rétablissement reste incertain, demander une intervention humaine.
+
+KUBERWEAVER  /  NOTE DE CADRAGE
+
+Un périmètre maîtrisé
+
+EFREI Paris · Proposition à valider · Rédaction assistée par IA
+
+04  Le point de départ
+
+Un prototype existe. Le compte rendu des essais du 6 novembre 2026 rapporte des déploiements réels de NGINX et Apache, deux serveurs web, dans un laboratoire virtualisé, avec approbation, contrôles et retour à la version précédente. Ce n’est pas encore une plateforme prête pour la production.
+
+05  La suite proposée
+
+Consolider ce parcours, puis ajouter une catégorie de service différente pour éprouver la modularité. Les extensions, appelées plugins en anglais, servent à ajouter des capacités sans réécrire le cœur de la plateforme.La création de machines virtuelles, les équipements réseau Cisco et pfSense, ainsi que les services d’infrastructure en ligne restent à valider sur des cibles réelles. Ils ne doivent pas être présentés comme acquis.
+
+06  Les limites à garder visibles
+
+Le coût affiché est une estimation interne, pas une facture. Un schéma de dépendances ne configure pas le réseau. Malgré son nom, le prototype ne pilote pas Kubernetes, un outil de gestion de conteneurs.Un agent d’intelligence artificielle externe peut utiliser la plateforme avec des droits limités, accordés par un administrateur. Aucun modèle d’IA intégré n’est nécessaire. L’agent reste soumis aux mêmes contrôles d’accès et d’approbation que le portail.
+
+07  Comment juger la réussite ?
+
+La démonstration devra montrer : une demande interdite bloquée ; un service approuvé réellement accessible ; un échec suivi d’une restauration vérifiée ; l’ajout d’un nouveau service sans modification du cœur. Les livrables attendus sont le prototype, sa procédure d’installation et les preuves de ces essais.
+
+08  Les décisions à prendre
+
+Choisir le prochain service, confirmer la répartition des tâches et des validations, puis fixer le calendrier et les moyens disponibles. Ces engagements restent à confirmer.
+
+Repère de vocabulaire : « rollback » est le terme anglais pour « retour à l’état précédent ». Cette note privilégie les équivalents français.
+
+Sources : vision initiale, README et docs/COMPLETION_STATUS.md du projet.État rapporté par ces documents, sans nouveaux essais techniques pour cette note.
