@@ -116,4 +116,4 @@ jobs:
       - name: Test backend and real PostgreSQL contracts
         # The optional OpenTofu registry-download check stays opt-in: no
         # unpinned external installer or VM/deployment operation in this CI.
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q --tb=short

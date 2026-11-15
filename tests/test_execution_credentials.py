@@ -14,6 +14,36 @@ from kuberweaver.execution import Executor, SSH_CONFIG
 from kuberweaver.secrets import RestrictedFileProvider
 
 
+def configure_ssh(tmp_path, monkeypatch):
+    """Disposable routing/trust inputs; ssh -G never connects or reads lab keys."""
+    from kuberweaver import execution, redis_execution
+    host_key = tmp_path / 'host-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(host_key)],
+                   check=True, capture_output=True)
+    known_hosts = tmp_path / 'known_hosts'
+    known_hosts.write_text('infra-app,infra-branch-client ' + host_key.with_suffix('.pub').read_text())
+    config = tmp_path / 'ssh_config'
+    config.write_text(
+        'Host *\n'
+        '    StrictHostKeyChecking yes\n'
+        f'    UserKnownHostsFile {known_hosts}\n'
+        f'    IdentityFile {tmp_path / "unused-identity"}\n'
+        f'    IdentityAgent {tmp_path / "unused-agent"}\n'
+        f'    CertificateFile {tmp_path / "unused-certificate"}\n'
+        'Host infra-app infra-branch-client\n'
+        '    User fixture-user\n'
+        '    ProxyCommand ssh -W %h:%p gns3@192.168.10.55\n')
+    # Both executors import the constant; the test module also uses it in assertions.
+    for module in (execution, redis_execution, sys.modules[__name__]):
+        monkeypatch.setattr(module, 'SSH_CONFIG', config)
+    return config
+
+
+@pytest.fixture(autouse=True)
+def isolated_ssh_config(tmp_path, monkeypatch):
+    return configure_ssh(tmp_path, monkeypatch)
+
+
 def configure(state, value=None):
     path = state / 'config/execution-credentials.json'
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,6 +243,7 @@ def test_selected_key_excludes_configured_and_agent_identities(tmp_path):
         assert [value for name, value in options if name == 'identityfile'] == [kwargs['env']['ANSIBLE_PRIVATE_KEY_FILE']]
         assert ['identityagent', 'none'] in options
         assert ['stricthostkeychecking', 'true'] in options
+        assert ['userknownhostsfile', str(SSH_CONFIG.parent / 'known_hosts')] in options
         assert any(name == 'proxycommand' and 'gns3@192.168.10.55' in value for name, value in options)
         params = json.loads(Path(argv[-1][1:]).read_text())
         Path(params['kw_result_path']).write_text('{"healthy": true}')
