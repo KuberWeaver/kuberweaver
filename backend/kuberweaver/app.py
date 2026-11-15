@@ -29,24 +29,33 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                plugins_dir: Path | str | None = None, frontend_dir: Path | str | None = None,
                executor=None):
     state_dir = Path(state_dir or os.environ.get('KUBERWEAVER_STATE_DIR', ROOT / 'data'))
-    store = Store(state_dir)
+    store = Store(state_dir, exclusive=not testing)
+    try:
+        return _create_app(store, state_dir, testing, plugins_dir=plugins_dir,
+                           frontend_dir=frontend_dir, executor=executor)
+    except BaseException:
+        if store.backend == 'postgresql':
+            store.conn.close()
+        raise
+
+
+def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executor):
     agent_tokens = AgentTokens(store)
 
     @asynccontextmanager
     async def lifespan(app):
         import fcntl
         lock = None
-        if not testing:
-            lock = open(state_dir / '.server.lock', 'a')
-            os.chmod(state_dir / '.server.lock', 0o600)
-            try:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                lock.close()
-                raise RuntimeError('KuberWeaver is already running for this state directory; use one server worker')
         started = []
         worker_started = False
         try:
+            if not testing:
+                lock = open(state_dir / '.server.lock', 'a')
+                os.chmod(state_dir / '.server.lock', 0o600)
+                try:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    raise RuntimeError('KuberWeaver is already running for this state directory; use one server worker')
             app.state.worker.start()
             worker_started = True
             for service in app.state.background_services:
@@ -65,8 +74,12 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                         for service in started:
                             cleanup.callback(service.close)
                 finally:
-                    if lock is not None:
-                        lock.close()
+                    try:
+                        if store.backend == 'postgresql':
+                            store.conn.close()
+                    finally:
+                        if lock is not None:
+                            lock.close()
 
     app = FastAPI(title='KuberWeaver', version='0.1.0', lifespan=lifespan)
     app.state.store = store

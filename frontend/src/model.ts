@@ -3,6 +3,8 @@ export type Schema = {
   title?: string;
   description?: string;
   enum?: unknown[];
+  enumNames?: string[];
+  "x-options-source"?: string;
   default?: unknown;
   minimum?: number;
   maximum?: number;
@@ -49,6 +51,12 @@ export type Event = {
   level: string;
   message: string;
 };
+export type PreparedPlan = {
+  plan_digest: string;
+  actions: Record<string, unknown> | unknown[];
+  summary: Record<string, unknown>;
+  bindings: Record<string, unknown>;
+};
 export type Job = {
   id: string;
   name: string;
@@ -65,6 +73,8 @@ export type Job = {
   error?: string;
   can_rollback?: boolean;
   requires_manual_review?: boolean;
+  prepared_plan?: PreparedPlan;
+  requires_saved_plan?: boolean;
 };
 export function canRollback(job: {
   status: string;
@@ -134,6 +144,7 @@ export const statuses: Record<string, string> = {
   pending_approval: "À approuver",
   approving: "Approbation et publication",
   queued: "En file",
+  planning: "Préparation du plan",
   running: "En cours",
   rolling_back: "Restauration",
   succeeded: "Réussi",

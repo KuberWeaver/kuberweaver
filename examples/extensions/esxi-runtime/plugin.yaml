@@ -1,0 +1,7 @@
+id: esxi-runtime
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Read-only discovery of a standalone VMware ESXi host.
+capabilities:
+  - providers:hypervisor

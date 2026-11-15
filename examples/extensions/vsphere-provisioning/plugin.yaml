@@ -1,0 +1,8 @@
+id: vsphere-provisioning
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Opt-in private saved-plan vSphere executor. Stopped-create contract blocked by provider 2.18.0; not ESXi-certified.
+capabilities:
+  - providers:execution
+  - data:read-write

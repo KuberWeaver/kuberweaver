@@ -7,6 +7,7 @@ import {
   Package,
   Play,
   Network,
+  Server,
   ShieldCheck,
   ChartNoAxesCombined,
   Stethoscope,
@@ -26,6 +27,7 @@ import type { User, Plugin } from "./model";
 import { Canvas } from "./Canvas";
 import { Operations } from "./Operations";
 import { AgentAccess } from "./AgentAccess";
+import { Connections } from "./Connections";
 import {
   Catalogue,
   Jobs,
@@ -42,6 +44,7 @@ const nav = [
   { id: "catalogue", label: "Catalogue", icon: Package },
   { id: "jobs", label: "Déploiements", icon: Play },
   { id: "infrastructure", label: "Infrastructure", icon: Network },
+  { id: "connections", label: "Connexions", icon: Server },
   { id: "governance", label: "Gouvernance", icon: ShieldCheck },
   { id: "finops", label: "FinOps", icon: ChartNoAxesCombined },
   { id: "diagnostics", label: "Diagnostic", icon: Stethoscope },
@@ -296,10 +299,10 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
         </div>
         <div className="nav-caption">PLATEFORME</div>
         <nav aria-label="Navigation principale">
-          {nav.map((n, i) => (
+          {nav.map((n) => (
             <button
               key={n.id}
-              className={`${page === n.id ? "active" : ""} ${i === 4 ? "nav-separated" : ""}`}
+              className={`${page === n.id ? "active" : ""} ${n.id === "governance" ? "nav-separated" : ""}`}
               onClick={() => navigate(n.id)}
               aria-current={page === n.id ? "page" : undefined}
             >
@@ -390,6 +393,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           )}
           {page === "jobs" && <Jobs user={user} />}
           {page === "infrastructure" && <Infrastructure />}
+          {page === "connections" && <Connections user={user} />}
           {page === "governance" && <Governance user={user} />}
           {page === "finops" && <FinOps />}
           {page === "diagnostics" && <Diagnostics user={user} />}

@@ -91,6 +91,8 @@ READ_ROUTES = {
     'get_operations': '/api/operations', 'list_jobs': '/api/jobs',
     'list_blueprints': '/api/blueprints',
     'get_notification_deliveries': '/api/operations/notifications',
+    'list_connection_drivers': '/api/connection-drivers',
+    'list_connections': '/api/connections',
 }
 
 
@@ -107,6 +109,9 @@ def test_complete_domain_surface_exact_paths_types_and_annotations(tmp_path):
     server = module().create_server(module().ServerConfig('http://127.0.0.1:8000', token),
                                      transport=httpx.MockTransport(respond))
     identity = 'a' * 32
+    connection = {'label': 'Lab', 'driver': 'esxi', 'endpoint': 'https://192.0.2.10',
+                  'secret_ref': 'esxi-lab', 'secrets_provider': 'openbao-local',
+                  'tls_sha256': None, 'enabled': True}
     mutations = {
         'validate_plan': ({'graph': graph()}, 'POST', '/api/plans/validate', graph()),
         'save_blueprint': ({'name': 'Saved', 'graph': graph()}, 'POST', '/api/blueprints', {'name': 'Saved', 'graph': graph()}),
@@ -121,15 +126,18 @@ def test_complete_domain_surface_exact_paths_types_and_annotations(tmp_path):
         'run_diagnostics': ({}, 'POST', '/api/diagnostics/run', None),
         'retry_notifications': ({}, 'POST', '/api/operations/notifications/retry', None),
         'issue_chatops_action': ({'job_id': identity, 'decision': 'reject'}, 'POST', '/api/chatops/actions', {'job_id': identity, 'decision': 'reject'}),
+        'discover_connection': ({'identity': identity}, 'POST', f'/api/connections/{identity}/discover', None),
+        'create_connection': ({'connection': connection}, 'POST', '/api/connections', connection),
+        'update_connection': ({'identity': identity, 'patch': {'revision': 1, 'enabled': False}}, 'PATCH', f'/api/connections/{identity}', {'revision': 1, 'enabled': False}),
     }
     async def check():
         tools = {t.name: t for t in await server.list_tools()}
-        assert set(tools) == set(READ_ROUTES) | set(mutations) | {'get_job', 'get_blueprint'}
+        assert set(tools) == set(READ_ROUTES) | set(mutations) | {'get_job', 'get_blueprint', 'get_connection'}
         for name, path in READ_ROUTES.items():
             await server.call_tool(name, {})
             assert requests[-1].url.path == path
             assert tools[name].annotations.readOnlyHint
-        for name, path in [('get_job', '/api/jobs/'), ('get_blueprint', '/api/blueprints/')]:
+        for name, path in [('get_job', '/api/jobs/'), ('get_blueprint', '/api/blueprints/'), ('get_connection', '/api/connections/')]:
             await server.call_tool(name, {'identity': identity})
             assert requests[-1].url.path == path + identity
         for name, (args, method, path, body) in mutations.items():
@@ -139,7 +147,7 @@ def test_complete_domain_surface_exact_paths_types_and_annotations(tmp_path):
             import json
             assert (json.loads(request.content) if request.content else None) == body
             assert not tools[name].annotations.readOnlyHint
-            assert tools[name].annotations.destructiveHint == (name != 'validate_plan')
+            assert tools[name].annotations.destructiveHint == (name not in {'validate_plan', 'discover_connection'})
         assert all(t.inputSchema['additionalProperties'] is False for t in tools.values())
     asyncio.run(check())
 
@@ -160,7 +168,9 @@ def test_real_stdio_discovery_and_unauthenticated_http_denial(tmp_path):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     listing = await session.list_tools()
-                    assert len(listing.tools) == 29
+                    names = {tool.name for tool in listing.tools}
+                    assert len(names) == len(listing.tools)
+                    assert {'list_plugins', 'list_connections', 'discover_connection'} <= names
                     denied = await session.call_tool('list_plugins', {})
                     assert denied.isError
                     assert 'HTTP 401' in denied.content[0].text
@@ -269,7 +279,9 @@ def test_real_stdio_bearer_read_mutation_and_scoped_approval_denial(tmp_path):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     tools = (await session.list_tools()).tools
-                    assert len(tools) == 29
+                    names = {tool.name for tool in tools}
+                    assert len(names) == len(tools)
+                    assert {'list_plugins', 'list_connections', 'discover_connection'} <= names
                     plugins = await session.call_tool('list_plugins', {})
                     assert not plugins.isError
                     assert plugins.structuredContent['data'][0]['id'] == 'sample-service'

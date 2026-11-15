@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ReactFlow, Background, Controls, MarkerType } from "@xyflow/react";
 import {
   Plus,
@@ -214,7 +214,7 @@ function JobStatus({ status }: { status: string }) {
               status === "rollback_failed" ||
               status === "rejected"
             ? "danger"
-            : status === "running" || status === "rolling_back"
+            : status === "running" || status === "rolling_back" || status === "planning"
               ? "info"
               : status === "pending_approval"
                 ? "warning"
@@ -225,6 +225,41 @@ function JobStatus({ status }: { status: string }) {
     </Badge>
   );
 }
+
+const planRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const planPrimitive = (value: unknown): value is string | number | boolean =>
+  typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
+function validPreparedPlan(value: unknown): value is NonNullable<Job["prepared_plan"]> {
+  return planRecord(value) && typeof value.plan_digest === "string" && value.plan_digest.trim().length > 0 &&
+    (planRecord(value.actions) || Array.isArray(value.actions)) && planRecord(value.summary) && planRecord(value.bindings);
+}
+function planText(value: unknown, lists = false): string | null {
+  if (planPrimitive(value)) return String(value);
+  return lists && Array.isArray(value) && value.every(planPrimitive) ? value.map(String).join(" · ") : null;
+}
+function PlanFields({ value, lists = false }: { value: unknown; lists?: boolean }) {
+  const fields = planRecord(value) ? Object.entries(value)
+    .map(([key, item]) => [key, planText(item, lists)] as const).filter(([, item]) => item !== null) : [];
+  return fields.length ? <dl className="definition-grid">
+    {fields.map(([key, item]) => <div key={key}><dt>{key}</dt><dd>{item}</dd></div>)}
+  </dl> : <p className="muted">Aucun détail lisible disponible.</p>;
+}
+function PreparedPlanSummary({ plan }: { plan: NonNullable<Job["prepared_plan"]> }) {
+  return <section className="deployment-cost" aria-label="Plan sauvegardé">
+    <h3>Plan sauvegardé</h3>
+    <p className="muted">Préparation uniquement : ce plan n’atteste ni l’exécution ni l’installation d’un système d’exploitation.</p>
+    <p>Empreinte du plan : <code className="mono">{plan.plan_digest}</code></p>
+    <h4>Actions prévues</h4>
+    <ul>{Object.entries(plan.actions).map(([key, action]) => <li key={key}>
+      {!Array.isArray(plan.actions) && <strong>{key} : </strong>}
+      {planText(action, true) ?? <PlanFields value={action} lists />}
+    </li>)}</ul>
+    <h4>Résumé</h4>
+    <PlanFields value={plan.summary} />
+  </section>;
+}
+
 export function Jobs({ user }: { user: User }) {
   const jobs = useResource<Job[]>("/jobs", 2000);
   const [selected, setSelected] = useState<string | null>(() =>
@@ -286,7 +321,7 @@ export function Jobs({ user }: { user: User }) {
               ))}
             </section>
             {selected ? (
-              <JobDetail id={selected} user={user} onChange={jobs.refresh} />
+              <JobDetail key={selected} id={selected} user={user} onChange={jobs.refresh} />
             ) : (
               <section className="panel">
                 <Empty title="Sélectionnez une demande">
@@ -300,6 +335,8 @@ export function Jobs({ user }: { user: User }) {
     </>
   );
 }
+const jobIdentityError = "Réponse incohérente : l’identifiant ne correspond pas à la demande sélectionnée. Actions bloquées.";
+
 function JobDetail({
   id,
   user,
@@ -313,11 +350,21 @@ function JobDetail({
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const active = useRef(false);
   useEffect(() => {
+    active.current = true;
     setError("");
     setMessage("");
+    return () => { active.current = false; };
   }, [id]);
-  async function action(name: string) {
+  const j = r.data?.id === id ? r.data : null;
+  const identityError = error === jobIdentityError || (!r.loading && !r.error && !j) ? jobIdentityError : "";
+  const preparedPlan = validPreparedPlan(j?.prepared_plan) ? j.prepared_plan : null;
+  const invalidPreparedPlan = j?.prepared_plan != null && !preparedPlan;
+  const approvalBlocked = j?.requires_manual_review || invalidPreparedPlan || (j?.requires_saved_plan && !preparedPlan);
+  const canMutate = !!j && !r.loading && !r.error && !identityError && !busy && user.role === "admin";
+  async function action(name: "approve" | "reject" | "rollback") {
+    if (!active.current || !canMutate || r.data?.id !== id || (name === "approve" && approvalBlocked)) return;
     if (
       name === "rollback" &&
       !window.confirm("Restaurer la version précédente de ce déploiement ?")
@@ -327,8 +374,12 @@ function JobDetail({
     setError("");
     setMessage("");
     try {
-      await api(`/jobs/${encodeURIComponent(id)}/${name}`, { method: "POST" });
+      const result = await api<Job>(`/jobs/${encodeURIComponent(id)}/${name}`, { method: "POST" });
+      if (!active.current) return;
+      if (result?.id !== id) throw new Error(jobIdentityError);
       const exact = await api<Job>(`/jobs/${encodeURIComponent(id)}`);
+      if (!active.current) return;
+      if (exact?.id !== id) throw new Error(jobIdentityError);
       r.setData(exact);
       onChange();
       setMessage(
@@ -339,19 +390,18 @@ function JobDetail({
             : "Restauration demandée. Suivi en cours.",
       );
     } catch (e) {
-      setError(errorMessage(e));
+      if (active.current) setError(errorMessage(e));
     } finally {
-      setBusy("");
+      if (active.current) setBusy("");
     }
   }
-  const j = r.data;
   const groups = [...new Set((j?.events || []).map((e) => e.phase))];
   return (
     <section className="panel job-detail">
       <ResourceBoundary
         loading={r.loading && !j}
-        error={r.error}
-        retry={r.refresh}
+        error={identityError || r.error}
+        retry={() => { setError(""); r.setData(null); r.refresh(); }}
       >
         {j && (
           <>
@@ -405,6 +455,11 @@ function JobDetail({
               />
             )}
             <DeploymentCost cost={j.cost} />
+            {preparedPlan && <PreparedPlanSummary plan={preparedPlan} />}
+            {invalidPreparedPlan && <ErrorNotice message="Plan sauvegardé invalide : approbation bloquée." />}
+            {j.status === "pending_approval" && approvalBlocked && !invalidPreparedPlan && <ErrorNotice message={j.requires_manual_review
+              ? "Revue manuelle requise : approbation bloquée."
+              : "Plan sauvegardé indisponible : approbation bloquée."} />}
             {j.status === "pending_approval" && (
               <div className="approval-box">
                 <ShieldCheck size={22} />
@@ -420,20 +475,20 @@ function JobDetail({
                   <div className="approval-actions">
                     <button
                       className="danger"
-                      disabled={!!busy}
+                      disabled={!canMutate}
                       onClick={() => action("reject")}
                     >
                       <XCircle size={15} />
                       Refuser
                     </button>
-                    <button
+                    {!approvalBlocked && <button
                       className="primary"
-                      disabled={!!busy}
+                      disabled={!canMutate}
                       onClick={() => action("approve")}
                     >
                       <CheckCircle2 size={15} />
                       {busy === "approve" ? "Approbation…" : "Approuver"}
-                    </button>
+                    </button>}
                   </div>
                 )}
               </div>
@@ -512,7 +567,7 @@ function JobDetail({
                   </div>
                   <button
                     className="danger"
-                    disabled={!!busy}
+                    disabled={!canMutate}
                     onClick={() => action("rollback")}
                   >
                     <RotateCcw size={15} />
