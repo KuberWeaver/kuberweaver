@@ -4,7 +4,8 @@
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
-    "feature": "feat/<id>-<slug>"
+    "track": "feat/production-track",
+    "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only"
   },
   "known_failures": [],
   "tasks": [
@@ -206,5 +207,9 @@
       "attempts": 0,
       "note": ""
     }
+  ],
+  "constraints": [
+    "no GitHub API token is available on the host: no pull request creation, no branch protection change",
+    "data/ and docs/prompt/ stay untracked"
   ]
 }

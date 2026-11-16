@@ -37,12 +37,15 @@ nothing.
 
 ## Commit and branch protocol
 
-13. Branch name: `feat/<task-id>-<slug>`, created from `develop`.
+13. Work on the single long-lived branch `feat/production-track`. `develop` and
+    `main` are protected: merging requires a pull request and the CI check, so
+    the loop never merges. It rebases on `origin/develop` at the start of each
+    iteration and pushes the track branch.
 14. Commit subjects: `feat(<area>): <what>`, `fix(<area>): <what>`,
     `test(<area>): <what>`, `docs(<area>): <what>`, `chore: <what>`.
-15. Push the feature branch, then merge into `develop` with `--no-ff` once green,
-    then push `develop`.
-16. Update `STATE.json` in the same iteration, in its own commit.
+15. Push after every green iteration. A human merges the track branch into
+    `develop` through a pull request when they choose to.
+16. Update `STATE.json` in the same iteration, in the same commit as the work.
 
 ## Stopping
 
