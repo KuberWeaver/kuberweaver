@@ -111,7 +111,7 @@ The failure modes `canary` and `rolling` deliberately reject the managed service
 | `app` | `infra-app` | `192.168.122.40` |
 | `branch-client` | `infra-branch-client` | `192.168.122.60` |
 
-SSH uses `/home/ubu/Desktop/infra-platform-lab/ssh_config`, BatchMode, existing host-key verification and noninteractive sudo. No private key/password is copied into the repository. Only `branch-client` needed Docker installed (`docker.io` via apt); no other guest was restarted/reconfigured.
+SSH uses the OpenSSH config selected by `KUBERWEAVER_SSH_CONFIG` (default `~/.ssh/config`), BatchMode, existing host-key verification and noninteractive sudo. No private key/password is copied into the repository. Only `branch-client` needed Docker installed (`docker.io` via apt); no other guest was restarted/reconfigured.
 
 Guest mutations are confined to `/opt/kuberweaver`, container names `kw-<node_id>`, and container lifecycle operations for graph-owned labels. No routing, LAN interface, existing `/opt` workload, firewall, host management or legacy port 8080 changes are made. No KuberWeaver networks/volumes are created. Images may be pulled into Docker's shared image cache, but existing images are not deleted.
 

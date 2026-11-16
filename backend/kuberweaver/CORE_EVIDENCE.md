@@ -57,4 +57,4 @@ Final complete backend/SDK/executor/secrets suite:
 
 A real Uvicorn subprocess was started on an ephemeral numeric-loopback port with an isolated scratch state directory, authenticated without printing credentials, exercised over real HTTP and terminated in `finally`. It returned 6 plugins, an allowed normalized NGINX plan, actual read-only GNS3 inventory of 12 nodes / 20 links, and HTTP 200 for overview, FinOps, rules diagnostics, extension discovery, integrations and metrics. No deployment was sent to the live lab by the core agent; remote deployment acceptance belongs to the parent/executor owner.
 
-Raw HTTP smoke evidence: `/home/ubu/.hermes/cache/scratch/kw-core-smoke-38dzhvnw/evidence.json` (scratch evidence is subject to normal pruning).
+Raw HTTP smoke evidence lives in a scratch directory outside the repository and is subject to normal pruning.

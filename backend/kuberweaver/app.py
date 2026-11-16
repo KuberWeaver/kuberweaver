@@ -15,8 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .storage import Store, check_password
 from .agent_auth import AgentTokens, install_agent_tokens, required_scope, permits
-
-ROOT = Path(__file__).resolve().parents[2]
+from .configuration import frontend_dir as configured_frontend_dir
+from .configuration import plugins_dir as configured_plugins_dir
+from .configuration import state_dir as configured_state_dir
 
 
 class Login(BaseModel):
@@ -28,7 +29,7 @@ class Login(BaseModel):
 def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                plugins_dir: Path | str | None = None, frontend_dir: Path | str | None = None,
                executor=None):
-    state_dir = Path(state_dir or os.environ.get('KUBERWEAVER_STATE_DIR', ROOT / 'data'))
+    state_dir = Path(state_dir or configured_state_dir())
     store = Store(state_dir, exclusive=not testing)
     try:
         return _create_app(store, state_dir, testing, plugins_dir=plugins_dir,
@@ -202,9 +203,9 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         return {'status': 'ok', 'service': 'kuberweaver'}
 
     from .api import install_api
-    install_api(app, Path(plugins_dir or ROOT / 'plugins'), executor=executor)
+    install_api(app, Path(plugins_dir or configured_plugins_dir()), executor=executor)
     from fastapi.responses import FileResponse
-    frontend = Path(frontend_dir or ROOT / 'frontend' / 'dist').resolve()
+    frontend = Path(frontend_dir or configured_frontend_dir()).resolve()
 
     @app.get('/{asset_path:path}', include_in_schema=False)
     def frontend_asset(asset_path: str):

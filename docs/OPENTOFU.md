@@ -28,7 +28,7 @@ or registering the extension does not make the catalogue entry executable.
 Authorized transport is exclusively:
 
 ```sh
-ssh -F /home/ubu/Desktop/infra-platform-lab/ssh_config infra-hypervisor \
+ssh -F "$KUBERWEAVER_SSH_CONFIG" infra-hypervisor \
   'virsh -c qemu:///system version'
 ```
 

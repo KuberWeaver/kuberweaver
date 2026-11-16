@@ -8,7 +8,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [VMware Ubuntu deployment](examples/extensions/esxi-ovf/README.md): create-only OVF import through an approved OpenTofu plan.
 - [SSH keys](docs/SSH_KEYS.md): create, select, disable and explicitly export managed keys.
 - [PostgreSQL](docs/POSTGRESQL.md) and [local encrypted vault](examples/extensions/local-vault/README.md): durable state, backup requirements and threat model.
-- [Execution](docs/EXECUTION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts and operating limits.
+- [Execution](docs/EXECUTION.md), [configuration](docs/CONFIGURATION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts, environment settings and operating limits.
 - [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
 - [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
 - [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.

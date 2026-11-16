@@ -25,8 +25,13 @@ try:
 except ImportError:  # Standalone loading used by the executor safety tests.
     from backend.kuberweaver.execution_credentials import operation_credentials
 
+try:
+    from .configuration import require_ssh_config, ssh_config
+except ImportError:  # Standalone loading used by the executor safety tests.
+    from backend.kuberweaver.configuration import require_ssh_config, ssh_config
+
 ROOT = Path(__file__).resolve().parents[2]
-SSH_CONFIG = Path('/home/ubu/Desktop/infra-platform-lab/ssh_config')
+SSH_CONFIG = ssh_config()
 TARGETS = {'app': {'alias': 'infra-app', 'ip': '192.168.122.40'},
            'branch-client': {'alias': 'infra-branch-client', 'ip': '192.168.122.60'}}
 IDENTIFIER = re.compile(r'^[a-z0-9][a-z0-9-]{0,63}$')
@@ -167,6 +172,7 @@ class Executor:
 
     def _operation(self, job_id, entry, action, emit, inject=False):
         folder = self.state_dir / 'jobs' / job_id
+        require_ssh_config(SSH_CONFIG)
         token = f"{entry['node_id']}-{entry['target']}-{action}"
         result_path = folder / f'{token}.result.json'
         result_path.unlink(missing_ok=True)

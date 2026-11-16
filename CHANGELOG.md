@@ -21,6 +21,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Autopilot loop on `feat/production-track`: bounded iterations, backlog in `ops/autopilot/STATE.json`, contract in `ops/autopilot/RULES.md`.
 - CI workflow covering the backend suite, frontend typecheck/test/build, a secret scan over tracked files and history, and repository hygiene checks.
 - Contributor guide and release tooling: `CONTRIBUTING.md` and `scripts/release.py`.
+- Environment-based configuration for the state, plugins, frontend and OpenSSH paths, with drift-free defaults, absolute-path validation and a refusal that names the missing variable.
 
 ### Security
 

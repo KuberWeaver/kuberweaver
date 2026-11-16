@@ -4,16 +4,31 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+SSH_CONFIG_PATH = None
 
 
-def load_executor():
+@pytest.fixture(autouse=True)
+def isolated_ssh_config(tmp_path):
+    """Every execution test owns its routing input; no machine file is trusted."""
+    global SSH_CONFIG_PATH
+    path = tmp_path / 'ssh_config'
+    path.write_text('Host infra-app infra-branch-client\n  StrictHostKeyChecking yes\n')
+    SSH_CONFIG_PATH = path
+
+
+def load_executor_module():
     path = ROOT / 'backend/kuberweaver/execution.py'
     assert path.exists(), 'The manifest-driven Executor is not implemented'
     spec = importlib.util.spec_from_file_location('execution', path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.Executor
+    setattr(module, 'SSH_CONFIG', SSH_CONFIG_PATH)
+    return module
+
+
+def load_executor():
+    return load_executor_module().Executor
 
 
 def test_unknown_plugin_rejected_before_commands(tmp_path):
@@ -22,6 +37,17 @@ def test_unknown_plugin_rejected_before_commands(tmp_path):
         executor.execute({'id': 'test-job', 'graph': {'nodes': [
             {'id': 'web', 'plugin_id': 'unknown', 'config': {}}
         ]}}, lambda *_: None)
+
+
+def test_missing_ssh_config_refused_before_any_command(tmp_path):
+    module = load_executor_module()
+    setattr(module, 'SSH_CONFIG', tmp_path / 'absent-ssh-config')
+    executor = module.Executor(tmp_path)
+    runner = SimulatedAnsible()
+    executor.runner = runner
+    with pytest.raises(ValueError, match='KUBERWEAVER_SSH_CONFIG'):
+        executor.execute({'id': 'missing-ssh-config', 'graph': graph()}, lambda *_: None)
+    assert runner.calls == []
 
 
 class SimulatedAnsible:

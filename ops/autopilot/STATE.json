@@ -1,7 +1,7 @@
 {
-  "iteration": 2,
+  "iteration": 3,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T00:20:00",
+  "updated_at": "2026-11-17T00:42:29",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -40,9 +40,9 @@
       "title": "Configuration from environment",
       "detail": "Remove remaining hardcoded absolute paths from backend modules, read them from environment with documented defaults, fail fast with a clear message when required values are missing.",
       "acceptance": "Tests cover missing and invalid configuration, no absolute developer path remains in backend/.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "configuration.py reads state/plugins/frontend/SSH paths from the environment with checkout defaults; explicit values must be absolute; require_ssh_config refuses a missing file before any remote command in the container, Redis and OpenTofu executors; docs/CONFIGURATION.md; 18 tests cover defaults, overrides, blank, relative refusal, missing file and the backend tree carrying no developer path, plus a runner-untouched refusal in the container executor"
     },
     {
       "id": "A4",

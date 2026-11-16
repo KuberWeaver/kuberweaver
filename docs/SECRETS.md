@@ -98,8 +98,8 @@ are redacted and never become substitute credentials.
 
 Owned guest resources only:
 
-- SSH target `infra-operations` (`192.168.122.10`) via the existing
-  `/home/ubu/Desktop/infra-platform-lab/ssh_config`, using `sudo -n`.
+- SSH target `infra-operations` (`192.168.122.10`) via the existing OpenSSH
+  config selected by `KUBERWEAVER_SSH_CONFIG`, using `sudo -n`.
 - Root-owned configuration directory `/opt/kuberweaver-secrets` (0700).
 - Container `kw-openbao`, volume `kw-openbao-data`, both labelled
   `io.kuberweaver.owner=secrets`; existing unlabelled resources are refused.

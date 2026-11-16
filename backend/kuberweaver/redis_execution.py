@@ -16,6 +16,7 @@ from pathlib import Path
 import jsonschema
 import yaml
 
+from .configuration import require_ssh_config
 from .execution import Executor, SSH_CONFIG, TARGETS, _identifier, _private_json
 from .execution_credentials import operation_credentials
 
@@ -77,6 +78,7 @@ class RedisExecutor(Executor):
 
     def _operation(self, job_id, entry, action, emit, inject=False):
         self._assert_sources()
+        require_ssh_config(SSH_CONFIG)
         _identifier(job_id, 'job id')
         _identifier(entry['node_id'], 'node id')
         if entry['target'] not in TARGETS or action not in ('snapshot', 'apply', 'verify', 'restore'):
