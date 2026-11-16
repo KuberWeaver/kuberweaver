@@ -1,7 +1,7 @@
 id: cloud-vm
 name: Cloud VM
 version: 1.0.0
-description: Planned blueprint; deployment is disabled.
+description: Planned cloud VM provisioning; deployment is disabled pending a validated cloud adapter and account configuration.
 category: compute
 icon: cloud
 price_monthly: 20

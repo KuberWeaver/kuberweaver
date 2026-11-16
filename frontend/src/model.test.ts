@@ -6,9 +6,10 @@ import {
   mayEdit,
   sortPlugins,
   canRollback,
+  reconcileDraft,
 } from "./model";
 describe("Contrat du blueprint", () => {
-  it("commence sans ressource et conserve les valeurs exactes", () => {
+  it("commence sans resource et conserve les valeurs exactes", () => {
     const graph = emptyGraph();
     expect(graph.nodes).toEqual([]);
     expect(graph.environment).toBe("dev");
@@ -89,5 +90,58 @@ describe("manual rollback eligibility", () => {
     [{ status: "succeeded", can_rollback: "true" }, false],
   ])("uses authoritative eligibility and fails closed for manual review: %j", (job, eligible) => {
     expect(canRollback(job)).toBe(eligible);
+  });
+});
+
+describe("Brouillon face à un schéma qui évolue", () => {
+  const plugin = {
+    id: "vmware-vm",
+    name: "VMware VM",
+    description: "",
+    category: "compute",
+    icon: "server",
+    price_monthly: 0,
+    capability: "live",
+    resources: { cpu: 2, memory_mb: 2048, disk_gb: 20 },
+    defaults: { cpu_sockets: 1, cores_per_socket: 2 },
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        cpu_sockets: { type: "integer" },
+        cores_per_socket: { type: "integer" },
+      },
+    },
+    security: { status: "local_checks", checks: [] },
+  } as never;
+  const draft = {
+    ...emptyGraph(),
+    nodes: [
+      {
+        id: "vm",
+        plugin_id: "vmware-vm",
+        label: "VM",
+        position: { x: 0, y: 0 },
+        config: { cpu: 2, cpu_sockets: 1, cores_per_socket: 4 },
+      },
+    ],
+  };
+  it("retire un champ que le manifeste ne déclare plus", () => {
+    const out = reconcileDraft(draft, [plugin]);
+    expect(out.nodes[0].config).toEqual({ cpu_sockets: 1, cores_per_socket: 4 });
+  });
+  it("renvoie le même graphe quand tout est déclaré", () => {
+    const clean = {
+      ...draft,
+      nodes: [{ ...draft.nodes[0], config: { cpu_sockets: 1, cores_per_socket: 4 } }],
+    };
+    expect(reconcileDraft(clean, [plugin])).toBe(clean);
+  });
+  it("laisse intact un noeud dont le plugin est inconnu", () => {
+    const orphan = {
+      ...draft,
+      nodes: [{ ...draft.nodes[0], plugin_id: "absent" }],
+    };
+    expect(reconcileDraft(orphan, [plugin])).toBe(orphan);
   });
 });

@@ -7,6 +7,10 @@ export type Schema = {
   "x-options-source"?: string;
   default?: unknown;
   minimum?: number;
+  minItems?: number;
+  maxItems?: number;
+  pattern?: string;
+  maxLength?: number;
   maximum?: number;
   items?: Schema;
   properties?: Record<string, Schema>;
@@ -86,7 +90,7 @@ export function canRollback(job: {
   return job.status === "succeeded" || job.status === "rollback_failed";
 }
 export const emptyGraph = (): Graph => ({
-  name: "Mon blueprint",
+  name: "My blueprint",
   environment: "dev",
   nodes: [],
   edges: [],
@@ -104,6 +108,31 @@ export function defaultsFor(
     ),
     ...plugin.defaults,
   });
+}
+/** Drop configuration keys the current manifest no longer declares.
+ *  A draft stored before a schema change would otherwise keep an obsolete
+ *  field and be refused at admission with no way to remove it from the form. */
+export function reconcileDraft(graph: Graph, plugins: Plugin[]): Graph {
+  const declared = new Map(
+    plugins.map((plugin) => [
+      plugin.id,
+      new Set(Object.keys(plugin.schema?.properties || {})),
+    ]),
+  );
+  let dropped = false;
+  const nodes = graph.nodes.map((node) => {
+    const keys = declared.get(node.plugin_id);
+    if (!keys) return node;
+    const config: Record<string, unknown> = {};
+    let removed = false;
+    for (const [key, value] of Object.entries(node.config || {}))
+      if (keys.has(key)) config[key] = value;
+      else removed = true;
+    if (!removed) return node;
+    dropped = true;
+    return { ...node, config };
+  });
+  return dropped ? { ...graph, nodes } : graph;
 }
 export function serializeGraph(graph: Graph): Graph {
   return {
@@ -129,27 +158,27 @@ export const sortPlugins = (plugins: Plugin[]) =>
   [...plugins].sort(
     (a, b) =>
       Number(b.capability === "live") - Number(a.capability === "live") ||
-      a.name.localeCompare(b.name, "fr"),
+      a.name.localeCompare(b.name, "en"),
   );
 export const mayEdit = (role: string) => ["admin", "operator"].includes(role);
 export const money = (value: unknown) =>
-  new Intl.NumberFormat("fr-FR", {
+  new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 2,
   }).format(Number(value) || 0);
 export const date = (value: string) =>
-  value ? new Date(value).toLocaleString("fr-FR") : "—";
+  value ? new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
 export const statuses: Record<string, string> = {
-  pending_approval: "À approuver",
-  approving: "Approbation et publication",
-  queued: "En file",
-  planning: "Préparation du plan",
-  running: "En cours",
-  rolling_back: "Restauration",
-  succeeded: "Réussi",
-  failed: "Échec",
-  rolled_back: "Restauré",
-  rollback_failed: "Échec restauration",
-  rejected: "Refusé",
+  pending_approval: "Awaiting approval",
+  approving: "Approval and publication",
+  queued: "Queued",
+  planning: "Preparing plan",
+  running: "Running",
+  rolling_back: "Rolling back",
+  succeeded: "Succeeded",
+  failed: "Failed",
+  rolled_back: "Rolled back",
+  rollback_failed: "Rollback failed",
+  rejected: "Rejected",
 };

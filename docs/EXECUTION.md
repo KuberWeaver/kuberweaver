@@ -3,7 +3,7 @@
 ## Implemented and exercised
 
 - **NGINX and Apache are live**: Ansible provisions real Docker containers on both allowlisted GNS3 guests.
-- Development stack, Cisco IOS, pfSense, and Cloud VM are **planned/disabled**. OpenTofu is deliberately unsupported here; there is no simulated `terraform_data` provisioning.
+- Frontend/backend stack, Cisco IOS, pfSense, and Cloud VM are **planned/disabled**. OpenTofu is deliberately unsupported here; there is no simulated `terraform_data` provisioning.
 - The kernel has no per-plugin ID dispatch. Discovery is data-only; every reviewed live container blueprint uses the same lifecycle protocol. The image, document root, port, schema, defaults and playbook paths come from its manifest.
 - Core owns authentication, admission, explicit approval, queueing and audit. This provider additionally serializes execution and enforces remote/local resource ownership.
 
@@ -26,7 +26,7 @@ uv pip install --python .venv/bin/python -r requirements-execution.txt
 .venv/bin/python scripts/execution_live.py
 ```
 
-The live script intentionally mutates only prototype services and leaves a working v1 NGINX baseline. Do not run it concurrently with another operator's acceptance sequence: the provider serializes individual jobs, not a multi-job test scenario.
+The live script intentionally mutates only KuberWeaver-owned services and leaves a working v1 NGINX baseline. Do not run it concurrently with another operator's acceptance sequence: the provider serializes individual jobs, not a multi-job test scenario.
 
 For safe tests only, assign `executor.runner` a callable with the `subprocess.run(argv, **kwargs)` interface. Unit-test simulation is explicitly separate from `execution-live.json`; production defaults to real `subprocess.run` and real Ansible.
 
@@ -89,20 +89,20 @@ Defaults are identical for NGINX and Apache. To place multiple services on the s
 
 Executor IDs use 1–64 lowercase alphanumeric/hyphen characters. Graph names/environments use 1–80 alphanumeric, space, underscore, period, colon or hyphen characters and start alphanumerically. The API may be more permissive syntactically; provider checks still apply. Use the exact baseline graph name/environment/node above to update that owned baseline, or use a fresh node and free port for isolated API acceptance. Do not rename a graph to bypass ownership.
 
-Edges impose real **topological deployment ordering**: a dependency completes its canary and rollout before its dependent is deployed. Cycles and missing/self dependencies are denied. Edges **do not create network wiring**, discovery, firewall rules, backend URLs or inter-container application dependencies. Both services are currently static versioned web payloads; they are not a development frontend/backend stack.
+Edges impose real **topological deployment ordering**: a dependency completes its canary and rollout before its dependent is deployed. Cycles and missing/self dependencies are denied. Edges **do not create network wiring**, discovery, firewall rules, backend URLs or inter-container application dependencies. Both services are currently static versioned web payloads; they are not a frontend/backend application stack.
 
 ## Real transaction semantics
 
 1. Validate every node, manifest, graph dependency, strategy and target/port claim.
 2. Acquire a per-user process-safe global executor lock. Core separately has a single queue consumer.
-3. Snapshot **every node/target before any workload change**. Capture the actual prototype configuration tar archive, content hashes and permissions, full actual Docker inspect state, immutable image ID, running/stopped state and old HTTP payload/port. Initial container/config absence is explicit.
+3. Snapshot **every node/target before any workload change**. Capture the actual managed configuration tar archive, content hashes and permissions, full actual Docker inspect state, immutable image ID, running/stopped state and old HTTP payload/port. Initial container/config absence is explicit.
 4. Deploy to the first configured target as the one-host canary. Read the actual management HTTP version payload and compare exact desired bytes.
 5. Only after that succeeds, apply and healthcheck remaining targets in rolling batches. `batch_size` 1–2 is accepted; execution within a batch is conservative/sequential, not parallel.
 6. On any apply/healthcheck error, restore **all modified entries in reverse order**, including earlier successful nodes/canaries and an apply that only partially completed. Continue attempting other restorations after an individual restore failure.
 7. Restore the real old files and recreate the real old container with Docker Engine API using the saved immutable image ID, Config and HostConfig. Verify file hashes/modes, absence if originally absent, actual image, running state, CPU/memory, bindings, mounts, restart/security settings, environment/command/entrypoint/user/labels and the exact old HTTP payload. A running process alone is insufficient.
 8. Persist per-host restoration progress and ownership so failed restoration remains visible and can be reviewed/retried. The previous snapshot is not replaced with desired-state assumptions.
 
-The failure modes `canary` and `rolling` deliberately reject the prototype service's HTTP payload healthcheck **after a real HTTP readback succeeds**. They never change physical networking or damage unrelated services. `rolling` requires more than one target to reach a rolling phase.
+The failure modes `canary` and `rolling` deliberately reject the managed service's HTTP payload healthcheck **after a real HTTP readback succeeds**. They never change physical networking or damage unrelated services. `rolling` requires more than one target to reach a rolling phase.
 
 ## Ownership and operational boundaries
 
@@ -113,9 +113,9 @@ The failure modes `canary` and `rolling` deliberately reject the prototype servi
 
 SSH uses `/home/ubu/Desktop/infra-platform-lab/ssh_config`, BatchMode, existing host-key verification and noninteractive sudo. No private key/password is copied into the repository. Only `branch-client` needed Docker installed (`docker.io` via apt); no other guest was restarted/reconfigured.
 
-Guest mutations are confined to `/opt/kuberweaver`, container names `kw-<node_id>`, and container lifecycle operations for graph-owned labels. No routing, LAN interface, existing `/opt` workload, firewall, host management or legacy port 8080 changes are made. No prototype networks/volumes are created. Images may be pulled into Docker's shared image cache, but existing images are not deleted.
+Guest mutations are confined to `/opt/kuberweaver`, container names `kw-<node_id>`, and container lifecycle operations for graph-owned labels. No routing, LAN interface, existing `/opt` workload, firewall, host management or legacy port 8080 changes are made. No KuberWeaver networks/volumes are created. Images may be pulled into Docker's shared image cache, but existing images are not deleted.
 
-Ownership is a stable fingerprint of graph name, environment and node ID. Local persistent claims cover target/node and target/port, and remote container labels plus an owner marker prevent adoption/deletion of foreign resources even with another state directory. A foreign listener or unsupported foreign mount blocks snapshot/preflight. Port reservations can outlive a port-changing deployment because old snapshots may still require them; this prototype has no automated ownership/snapshot garbage collection.
+Ownership is a stable fingerprint of graph name, environment and node ID. Local persistent claims cover target/node and target/port, and remote container labels plus an owner marker prevent adoption/deletion of foreign resources even with another state directory. A foreign listener or unsupported foreign mount blocks snapshot/preflight. Port reservations can outlive a port-changing deployment because old snapshots may still require them; there is no automated ownership/snapshot garbage collection.
 
 Docker binds only to each guest's management IP, **not `0.0.0.0` and not the LAN IP**. `public_cidr` is restricted to its local-only intent default, but is **not implemented as a guest firewall rule**; management-plane reachability is the network security boundary. CPU and memory are actual Docker limits. `disk_gb` is admission/cost metadata, **not an enforced filesystem quota**. Prices are local estimates, not provider billing.
 
@@ -138,6 +138,6 @@ The acceptance script verified, with real Ansible and independent SSH `curl` on 
 5. Apache serves a real version payload on both guests, then manual rollback restores initial container/config absence.
 6. The final NGINX baseline remains available at both management-IP port-18090 endpoints, and the unrelated app port-8080 workload still returns HTTP 200.
 
-TDD red observations were exercised before the corresponding fixes: missing Executor; missing orchestration return; retry incorrectly rejecting a host already restored to an earlier job; restoration accepting a different container environment; schema references accepted; and NaN bypassing numeric bounds. The final execution test suite passes **28 tests**. The injected runner only tests orchestration boundaries; the live JSON is generated solely by actual deployments and readbacks.
+Regression coverage includes executor orchestration, retry after prior restoration, exact container-environment restoration, rejected schema references and rejected NaN numeric bypasses. The historical execution suite reported 28 passing tests; that is not a current-tree result. Injected runners test orchestration boundaries; live JSON requires actual deployments and independent readbacks. Passing tests does not establish production maturity.
 
-This is a local prototype, not a general Docker backup engine. It snapshots managed config and container definitions, not arbitrary container writable-layer/application database data. Configuration symlinks/hardlinks and unsupported mounts are rejected. Images must remain available locally for rollback; snapshots reference immutable image IDs but do not export image tarballs. Interrupted controller processes are handled by the core's manual-review recovery policy; they are not silently resumed/reapplied. Neither signed marketplace validation nor OpenTofu/cloud/router provisioning is claimed.
+This executor manages a narrow web-container lifecycle, not general Docker backup. It snapshots managed config and container definitions, not arbitrary container writable-layer/application database data. Configuration symlinks/hardlinks and unsupported mounts are rejected. Images must remain available locally for rollback; snapshots reference immutable image IDs but do not export image tarballs. Interrupted controller processes are handled by the core's manual-review recovery policy; they are not silently resumed/reapplied. Neither signed marketplace validation nor OpenTofu/cloud/router provisioning is claimed.

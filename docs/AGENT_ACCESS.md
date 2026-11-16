@@ -22,7 +22,7 @@ Role and integer lifetime are required. Lifetime is 60–2592000 seconds (30 day
 
 ## Machine HTTP contract
 
-Use `Authorization: Bearer <token>` alone, without session cookies or CSRF header. `GET /api/auth/me` returns `{"user":{"id":"agent:<id>","username":"agent:<id>","role":"operator","label":"deploy-controller","principal_type":"agent","token_id":"<id>","scopes":[...]},"csrf_token":null}`. Stable `agent:<id>` actors distinguish machine audit records from human accounts; the label is descriptive and cannot spoof actor identity.
+Use the `Authorization` header with a Bearer token alone, without session cookies or a CSRF header. `GET /api/auth/me` returns `{"user":{"id":"agent:<id>","username":"agent:<id>","role":"operator","label":"deploy-controller","principal_type":"agent","token_id":"<id>","scopes":[...]},"csrf_token":null}`. Stable `agent:<id>` actors distinguish machine audit records from human accounts; the label is descriptive and cannot spoof actor identity.
 
 Invalid, expired, revoked, malformed, duplicate Authorization or mixed session/Bearer credentials return 401 and never fall back to browser authentication. Missing scope or unrecognized route/method returns 403. Normal endpoint role dependencies and approval/admission/provenance checks still run after scope validation. No agent gets automatic approval.
 
@@ -30,18 +30,18 @@ Invalid, expired, revoked, malformed, duplicate Authorization or mixed session/B
 
 | Scope | Routes | Eligible roles |
 |---|---|---|
-| read | Toutes les lectures métier autorisées par le rôle, périmètre large et volontaire | all |
-| read:finops | GET /api/finops uniquement | all |
-| read:jobs | GET /api/jobs et détail/événements | all |
-| read:catalog | GET /api/plugins et /openapi.json | all |
-| read:settings | GET /api/settings, politiques/prix et métadonnées d’intégration | all |
+| read | All business reads allowed by the role; deliberately broad access | all |
+| read:finops | GET /api/finops only | all |
+| read:jobs | GET /api/jobs and job details/events | all |
+| read:catalog | GET /api/plugins and /openapi.json | all |
+| read:settings | GET /api/settings, policies/pricing and integration metadata | all |
 | read:infrastructure | GET /api/infrastructure | all |
 | read:integrations | GET /api/integrations, /api/providers, /api/extensions | all |
 | read:diagnostics | GET /api/diagnostics | all |
-| read:blueprints | GET /api/blueprints et détail | all |
+| read:blueprints | GET /api/blueprints and blueprint details | all |
 | read:audit | GET /api/audit | all |
-| read:overview | GET /api/overview, vue agrégée incluant coûts et jobs récents | all |
-| read:operations | GET /api/operations, /api/operations/notifications et /metrics ; rôle admin sur les opérations | all, avec restrictions de rôle des routes |
+| read:overview | GET /api/overview, aggregate view including costs and recent jobs | all |
+| read:operations | GET /api/operations, /api/operations/notifications and /metrics; operations require admin role | all, subject to route role restrictions |
 | plan | POST /api/plans/validate | all |
 | submit | POST /api/jobs, /api/blueprints | operator/admin |
 | approve | POST /api/jobs/{id}/approve or /reject | admin only |
@@ -52,9 +52,9 @@ Invalid, expired, revoked, malformed, duplicate Authorization or mixed session/B
 | extensions | POST /api/extensions/{id}/enable or /disable | admin only |
 | chatops | POST /api/chatops/actions | admin only |
 
-Exemple strict FinOps : `{"label":"finops-reader","role":"viewer","scopes":["read:finops"],"expires_in_seconds":3600}`. Ne pas ajouter `read` ni `read:overview` : ils élargiraient volontairement la lecture. Ce jeton lit les coûts mais reçoit 403 pour les jobs, l’infrastructure, l’audit et toute mutation. La page Accès agents ne sélectionne aucun scope automatiquement.
+Strict FinOps example: `{"label":"finops-reader","role":"viewer","scopes":["read:finops"],"expires_in_seconds":3600}`. Do not add `read` or `read:overview`: they deliberately broaden access. This token reads costs but receives 403 for jobs, infrastructure, audit and all mutations. Agent access does not automatically select any scope.
 
-`GET /api/auth/me` et `/healthz` acceptent un jeton valide sans scope supplémentaire. Les flux SSE revalident expiration, révocation et `read:jobs`/`read` à chaque itération.
+`GET /api/auth/me` and `/healthz` accept a valid token without an additional scope. SSE streams revalidate expiry, revocation and `read:jobs`/`read` on every iteration.
 
 Existing endpoints may require stricter roles (e.g. operations is admin-only); scopes never elevate roles. Future endpoints must be added explicitly to `agent_auth.required_scope`, with HTTP tests. Query parameters do not change authority; unsupported methods and trailing aliases fail closed.
 
@@ -64,7 +64,7 @@ ChatOps actions still require their separately signed human-mapped gateway callb
 
 Store the one-time value in a user-owned 0600 file inside a 0700 directory, never localStorage, command arguments, logs, URLs, examples, or tool results. A CLI/MCP client reads that file and attaches the Bearer header to each request, maintaining no cookie jar. Do not expose token-management tools to agents. Prefer viewer/read for inspection and operator/read+plan+submit for deployment proposals. Only deliberately issued admin+approve tokens can approve through the API. Rotate by issuing replacement, validating `/api/auth/me`, switching clients, then revoking the old ID and reading back its metadata.
 
-The dedicated SQLite `agent_tokens` table stores only a SHA-256 digest of 256-bit random credentials. Metadata/list/audit contain no clear token or digest. Private state and SQLite DB/WAL/SHM permissions are 0700/0600. Revocation/expiry are checked against SQLite on every new authenticated request, including after restart.
+The dedicated `agent_tokens` table in the selected durable store contains only a SHA-256 digest of 256-bit random credentials. Metadata/list/audit contain no clear token or digest. Private state uses 0700/0600 permissions; in SQLite mode this also applies to DB/WAL/SHM files. Revocation/expiry are checked against the selected store on every new authenticated request, including after restart. See `POSTGRESQL.md` for the documented local backend selection.
 
 ## Background services
 

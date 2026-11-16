@@ -1,0 +1,210 @@
+{
+  "iteration": 1,
+  "started_at": "2026-11-17T00:00:00",
+  "branch_policy": {
+    "prod": "main",
+    "integration": "develop",
+    "feature": "feat/<id>-<slug>"
+  },
+  "known_failures": [],
+  "tasks": [
+    {
+      "id": "A1",
+      "title": "Repo hygiene and CI",
+      "detail": "Add docs/prompt/ and data/ to ignore rules, remove prototype leftovers listed in CLEANUP.md, add .github/workflows/ci.yml running backend tests, frontend typecheck/build and a secret scan.",
+      "acceptance": "CI workflow runs on push, backend suite green, no prototype TODO markers left in tracked files.",
+      "status": "done",
+      "attempts": 1,
+      "note": "CI extended (secret scan, hygiene, feat branches), ignore rules, CLEANUP.md inventory"
+    },
+    {
+      "id": "A2",
+      "title": "Branch and release policy",
+      "detail": "Document main/develop/feat flow in CONTRIBUTING.md, add CHANGELOG.md with an Unreleased section, add a release script that tags from develop.",
+      "acceptance": "CONTRIBUTING.md describes the flow, CHANGELOG exists, release script tested in dry-run.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "A3",
+      "title": "Configuration from environment",
+      "detail": "Remove remaining hardcoded absolute paths from backend modules, read them from environment with documented defaults, fail fast with a clear message when required values are missing.",
+      "acceptance": "Tests cover missing and invalid configuration, no absolute developer path remains in backend/.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "A4",
+      "title": "Health and readiness split",
+      "detail": "/healthz stays liveness, add /readyz that checks PostgreSQL, vault and plugin directory, with a structured body.",
+      "acceptance": "Tests cover each dependency failing and the aggregate result.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "B1",
+      "title": "User store and password policy",
+      "detail": "Add users table with argon2 hashes, roles admin/operator/viewer, creation and rotation of the bootstrap admin, password strength validation.",
+      "acceptance": "Tests cover hashing, role checks, weak password refusal, duplicate user refusal.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "B2",
+      "title": "Session security",
+      "detail": "Replace the ad-hoc session with httpOnly SameSite=Strict cookies, absolute and idle timeouts, CSRF token bound to the session, logout invalidation, rate limited login.",
+      "acceptance": "Tests cover cookie flags, expiry, CSRF mismatch, brute-force throttling.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "B3",
+      "title": "API tokens for agents",
+      "detail": "Scope-limited tokens with expiry, rotation and revocation, audit entry per use, read-only scope still enforced for infrastructure reads.",
+      "acceptance": "Tests cover expiry, revocation, scope denial and audit records.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "B4",
+      "title": "OIDC-ready authentication",
+      "detail": "Add a provider abstraction so an external identity provider (Authentik, Keycloak, Entra) can be configured without touching the login path; disabled by default.",
+      "acceptance": "Tests cover disabled provider, discovery failure, and successful claim mapping with a stub.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "C1",
+      "title": "Black and light theme",
+      "detail": "CSS variables for both themes, persisted preference, no flash of wrong theme, no remote fonts.",
+      "acceptance": "Frontend tests cover preference persistence and default; build passes.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "C2",
+      "title": "Navigation and empty states",
+      "detail": "Restructure navigation, remove prototype wording from every page, add empty states and loading states.",
+      "acceptance": "Snapshot-level tests for the page registry, no French or prototype wording in tracked UI strings.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "D1",
+      "title": "External dashboard registry",
+      "detail": "Model external observability tools (Grafana, Uptime Kuma, Prometheus, Netdata) as integrations with URL, kind, health probe and optional embed flag; no built-in dashboard code.",
+      "acceptance": "Schema validated, CRUD tested, refusal for non-http URLs and for embed without allowlist.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "D2",
+      "title": "Dashboard embedding policy",
+      "detail": "Serve an embed page that only frames allowlisted origins, with CSP frame-src derived from the registry, falling back to a deep link when embedding is not allowed.",
+      "acceptance": "Tests cover CSP header content and the fallback link.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "D3",
+      "title": "Integration health and drift",
+      "detail": "Periodic read-only probe of each integration, stored result, surfaced as a status column, never auto-remediated.",
+      "acceptance": "Tests cover healthy, unreachable and malformed responses.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E1",
+      "title": "Durable environment state",
+      "detail": "Add state per environment and stack, encrypted at rest, with generation and resource list, replacing per-job state as the source of truth.",
+      "acceptance": "Tests cover concurrent apply refusal, generation increment, and state surviving restart.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E2",
+      "title": "Import existing resources",
+      "detail": "Adopt an existing VM into state by UUID and ownership marker without recreating it.",
+      "acceptance": "Tests cover adoption, refusal when the marker mismatches, and idempotent re-import.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E3",
+      "title": "Destroy with ownership proof",
+      "detail": "Destroy action with annotation and UUID proof, quarantine window, cancellation, and rollback_failed semantics.",
+      "acceptance": "Tests cover refusal on foreign VM, quarantine cancel, and failed destroy state.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E4",
+      "title": "Drift report",
+      "detail": "Nightly read-only comparison of declared versus live resources, producing a diff report with no remediation.",
+      "acceptance": "Tests cover drift detection per field and the absence of any write call.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E5",
+      "title": "Git-backed declarations",
+      "detail": "Load a stack declaration from a repository path with revision pinning, and execute the CI-produced plan artifact as-is.",
+      "acceptance": "Tests cover digest mismatch refusal and pinned-revision execution.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F1",
+      "title": "Workload bricks in the portal",
+      "detail": "Wire the workload executor into job preparation so a workload node can be planned, approved and executed from the UI, with evidence visible.",
+      "acceptance": "Tests cover the full path with a stub playbook and refusal for unpinned roles.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F2",
+      "title": "Zabbix preset",
+      "detail": "Compose the PostgreSQL, Zabbix server, web and agent bricks as a preset graph on one VM.",
+      "acceptance": "Preset validates, plan ordering respects dependencies, no new code path.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F3",
+      "title": "Backup and restore",
+      "detail": "Nightly PostgreSQL dump plus vault copy, restore procedure documented and exercised against a scratch database.",
+      "acceptance": "Restore test proves data equality on a scratch instance.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F4",
+      "title": "Observability",
+      "detail": "Structured logs, request ids, basic metrics endpoint, and error budget documentation.",
+      "acceptance": "Tests cover log shape and metrics exposure.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    }
+  ]
+}

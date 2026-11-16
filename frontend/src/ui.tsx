@@ -52,7 +52,7 @@ export function useResource<T = any>(path: string, interval = 0) {
 export function Spinner() {
   return (
     <span className="loading">
-      <LoaderCircle className="spin" size={17} /> Chargement…
+      <LoaderCircle className="spin" size={17} /> Loading…
     </span>
   );
 }
@@ -70,7 +70,7 @@ export function ErrorNotice({
       {retry && (
         <button className="text-button" onClick={retry}>
           <RefreshCw size={14} />
-          Réessayer
+          Retry
         </button>
       )}
     </div>
@@ -151,7 +151,7 @@ export function PageTitle({
   return (
     <div className="page-heading">
       <div>
-        <div className="eyebrow">{eyebrow || "ESPACE DE TRAVAIL"}</div>
+        <div className="eyebrow">{eyebrow || "WORKSPACE"}</div>
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
@@ -161,7 +161,7 @@ export function PageTitle({
 }
 export function Details({
   data,
-  title = "Détails techniques",
+  title = "Technical details",
 }: {
   data: unknown;
   title?: string;

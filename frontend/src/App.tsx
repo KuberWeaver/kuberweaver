@@ -20,13 +20,13 @@ import {
   LockKeyhole,
   ChevronDown,
   Command,
-  FlaskConical,
 } from "lucide-react";
 import { api, setCsrf, ApiError } from "./api";
 import type { User, Plugin } from "./model";
 import { Canvas } from "./Canvas";
 import { Operations } from "./Operations";
 import { AgentAccess } from "./AgentAccess";
+import { Keys } from "./Keys";
 import { Connections } from "./Connections";
 import {
   Catalogue,
@@ -42,16 +42,17 @@ import { ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
 const nav = [
   { id: "canvas", label: "Canvas", icon: LayoutDashboard },
   { id: "catalogue", label: "Catalogue", icon: Package },
-  { id: "jobs", label: "Déploiements", icon: Play },
+  { id: "jobs", label: "Deployments", icon: Play },
   { id: "infrastructure", label: "Infrastructure", icon: Network },
-  { id: "connections", label: "Connexions", icon: Server },
-  { id: "governance", label: "Gouvernance", icon: ShieldCheck },
+  { id: "keys", label: "Keys", icon: LockKeyhole },
+  { id: "connections", label: "Connections", icon: Server },
+  { id: "governance", label: "Governance", icon: ShieldCheck },
   { id: "finops", label: "FinOps", icon: ChartNoAxesCombined },
   { id: "diagnostics", label: "Diagnostic", icon: Stethoscope },
   { id: "audit", label: "Audit", icon: History },
-  { id: "integrations", label: "Intégrations", icon: Blocks },
-  { id: "operations", label: "Opérations", icon: Command },
-  { id: "agents", label: "Accès agents", icon: LockKeyhole },
+  { id: "integrations", label: "Integrations", icon: Blocks },
+  { id: "operations", label: "Operations", icon: Command },
+  { id: "agents", label: "Agent access", icon: LockKeyhole },
 ];
 export function App() {
   const [user, setUser] = useState<User | null>(null),
@@ -155,18 +156,18 @@ function Login({
       <aside className="login-story">
         <Brand />
         <div className="login-message">
-          <div className="eyebrow">DE L’INTENTION À L’INFRASTRUCTURE</div>
+          <div className="eyebrow">FROM INTENT TO INFRASTRUCTURE</div>
           <h1>
-            Composez.
+            Compose.
             <br />
-            Vérifiez.
+            Verify.
             <br />
-            <span>Déployez.</span>
+            <span>Deploy.</span>
           </h1>
           <p>
-            Un noyau léger. Des extensions explicites.
+            A small core. Explicit extensions.
             <br />
-            Votre infrastructure, sous contrôle.
+            Your infrastructure, under control.
           </p>
           <div className="login-diagram">
             <div>
@@ -176,17 +177,17 @@ function Login({
             <span>→</span>
             <div>
               <ShieldCheck size={22} />
-              Politiques
+              Policies
             </div>
             <span>→</span>
             <div>
               <Network size={22} />
-              Laboratoire
+              Workspace
             </div>
           </div>
         </div>
         <div className="login-foot">
-          <FlaskConical size={16} /> Espace laboratoire · Opérations traçables
+          <ShieldCheck size={16} /> Infrastructure workspace · Auditable operations
         </div>
       </aside>
       <main className="login-form">
@@ -197,41 +198,40 @@ function Login({
           <span className="login-lock">
             <LockKeyhole size={23} />
           </span>
-          <h2>Bienvenue dans votre espace.</h2>
-          <p>Connectez-vous pour accéder à la plateforme.</p>
+          <h2>Welcome to your workspace.</h2>
+          <p>Sign in to access the platform.</p>
           {error && <ErrorNotice message={error} retry={onRetry} />}
           <form onSubmit={submit}>
-            <label htmlFor="username">Identifiant</label>
+            <label htmlFor="username">Username</label>
             <input
               id="username"
               name="username"
               autoComplete="username"
               autoFocus
               required
-              placeholder="Votre identifiant"
+              placeholder="Your username"
             />
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">Password</label>
             <input
               id="password"
               name="password"
               type="password"
               autoComplete="current-password"
               required
-              placeholder="Votre mot de passe"
+              placeholder="Your password"
             />
             {failure && <ErrorNotice message={failure} />}
             <button className="primary login-submit" disabled={busy}>
-              {busy ? "Connexion…" : "Se connecter"}
+              {busy ? "Signing in…" : "Sign in"}
               <ArrowRight size={17} />
             </button>
           </form>
           <div className="login-hint">
-            <ShieldCheck size={16} /> Accès nominatif · Droits définis par votre
-            rôle
+            <ShieldCheck size={16} /> Individual access · Role-based permissions
           </div>
         </div>
         <footer>
-          KuberWeaver <span>Portail d’infrastructure modulaire</span>
+          KuberWeaver <span>Modular infrastructure portal</span>
         </footer>
       </main>
     </div>
@@ -275,7 +275,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
       {drawer && (
         <button
           className="drawer-overlay"
-          aria-label="Fermer la navigation"
+          aria-label="Close navigation"
           onClick={() => setDrawer(false)}
         />
       )}
@@ -284,21 +284,21 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Brand />
           <button
             className="icon-button mobile-close"
-            aria-label="Fermer le menu"
+            aria-label="Close menu"
             onClick={() => setDrawer(false)}
           >
             <X size={20} />
           </button>
         </div>
         <div className="workspace-switch">
-          <span className="workspace-avatar">L</span>
+          <span className="workspace-avatar">W</span>
           <div>
-            Laboratoire<small>Espace d’infrastructure</small>
+            Workspace<small>Infrastructure workspace</small>
           </div>
           <ChevronDown size={14} />
         </div>
-        <div className="nav-caption">PLATEFORME</div>
-        <nav aria-label="Navigation principale">
+        <div className="nav-caption">PLATFORM</div>
+        <nav aria-label="Main navigation">
           {nav.map((n) => (
             <button
               key={n.id}
@@ -316,8 +316,8 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="kernel-label">
-            <span /> Noyau modulaire
-            <small>Capacités déclarées par les extensions</small>
+            <span /> Modular core
+            <small>Capabilities declared by extensions</small>
           </div>
           <div className="user-block">
             <span className="user-avatar">
@@ -327,16 +327,16 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
               {user.username}
               <small>
                 {user.role === "admin"
-                  ? "Administrateur"
+                  ? "Administrator"
                   : user.role === "viewer"
-                    ? "Lecture seule"
-                    : "Opérateur"}
+                    ? "Read only"
+                    : "Operator"}
               </small>
             </div>
             <button
               className="icon-button"
-              aria-label="Se déconnecter"
-              title="Se déconnecter"
+              aria-label="Sign out"
+              title="Sign out"
               disabled={loggingOut}
               onClick={logout}
             >
@@ -350,20 +350,16 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           <div className="breadcrumbs">
             <button
               className="icon-button mobile-menu"
-              aria-label="Ouvrir le menu"
+              aria-label="Open menu"
               onClick={() => setDrawer(true)}
             >
               <Menu size={22} />
             </button>
-            <span className="breadcrumb-home">Plateforme</span>
+            <span className="breadcrumb-home">Platform</span>
             <span className="breadcrumb-slash">/</span>
             <strong>{current.label}</strong>
           </div>
           <div className="topbar-right">
-            <span className="scope">
-              <FlaskConical size={14} />
-              Laboratoire
-            </span>
             <span className="role-pill">{user.role}</span>
           </div>
         </header>
@@ -393,6 +389,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           )}
           {page === "jobs" && <Jobs user={user} />}
           {page === "infrastructure" && <Infrastructure />}
+          {page === "keys" && <Keys user={user} />}
           {page === "connections" && <Connections user={user} />}
           {page === "governance" && <Governance user={user} />}
           {page === "finops" && <FinOps />}
@@ -403,19 +400,18 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           {page === "agents" && <AgentAccess user={user} />}
           {!nav.some((n) => n.id === page) && (
             <div className="panel">
-              Page introuvable.{" "}
+              Page not found.{" "}
               <button onClick={() => navigate("canvas")}>
-                Revenir au canvas
+                Return to canvas
               </button>
             </div>
           )}
         </main>
         <footer className="app-footer">
           <span>
-            KuberWeaver <span className="footer-dot">·</span> Infrastructure par
-            composition
+            KuberWeaver <span className="footer-dot">·</span> Infrastructure by composition
           </span>
-          <span>Laboratoire isolé · EUR / mois</span>
+          <span>EUR / month</span>
         </footer>
       </div>
     </div>

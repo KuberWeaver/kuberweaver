@@ -17,7 +17,7 @@ function parseSnapshot(value: unknown): Snapshot | null {
 }
 
 export function Operations({ user }: { user: User }) {
-  return user.role === "admin" ? <AdministrativeOperations /> : <section className="panel"><h1>Opérations</h1><p>Réservé aux administrateurs : configuration et reprise des intégrations.</p></section>;
+  return user.role === "admin" ? <AdministrativeOperations /> : <section className="panel"><h1>Operations</h1><p>Administrators only: integration configuration and recovery.</p></section>;
 }
 
 function AdministrativeOperations() {
@@ -34,26 +34,26 @@ function AdministrativeOperations() {
     try {
       const response = await api<{ result: { delivered?: number; failed?: number } }>("/operations/notifications/retry", { method: "POST" });
       const exact = parseSnapshot(await api<unknown>("/operations"));
-      if (!exact) throw new Error("Lecture de contrôle indisponible.");
+      if (!exact) throw new Error("Readback unavailable.");
       resource.setData(exact);
       const delivered = response.result?.delivered;
-      setResult(typeof delivered === "number" ? `${delivered} livraison confirmée, ${response.result.failed ?? 0} échec. Les livraisons incertaines demandent une vérification du destinataire.` : "Tentative terminée. Vérifiez les statuts de livraison ; une requête acceptée ne prouve pas la réception.");
+      setResult(typeof delivered === "number" ? `${delivered} confirmed delivery, ${response.result.failed ?? 0} failed. Uncertain deliveries require verification with the recipient.` : "Attempt complete. Check delivery statuses; an accepted request does not prove receipt.");
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <>
-    <div className="page-heading"><div><h1>Opérations et intégrations</h1><p className="muted">Capacités réelles, configuration explicite et reprise contrôlée.</p></div></div>
+    <div className="page-heading"><div><h1>Operations and integrations</h1><p className="muted">Actual capabilities, explicit configuration and controlled recovery.</p></div></div>
     {error && <ErrorNotice message={error} />}
     {result && <p className="notice" role="status">{result}</p>}
-    {resource.loading ? <Spinner /> : resource.error || !valid ? <ErrorNotice message={resource.error || "Réponse serveur non prise en charge."} /> : <section className="panel settings-panel">
-      <div className="panel-title"><h2>État des capacités</h2><button disabled={busy} onClick={() => resource.refresh()}>Actualiser</button></div>
+    {resource.loading ? <Spinner /> : resource.error || !valid ? <ErrorNotice message={resource.error || "Unsupported server response."} /> : <section className="panel settings-panel">
+      <div className="panel-title"><h2>Capability status</h2><button disabled={busy} onClick={() => resource.refresh()}>Refresh</button></div>
       {data.capabilities.map((row) => <div className="setting-row" key={row.id}>
         <div><strong>{row.label}</strong><small>{row.kind} / {row.provider}</small></div>
-        <div><Badge tone={row.configured ? "success" : "warning"}>{row.configured ? row.selected ? "Configuré et sélectionné" : "Configuré, non sélectionné" : "À configurer"}</Badge><small>Configuration administrateur : <code>{row.config_file}</code></small></div>
+        <div><Badge tone={row.configured ? "success" : "warning"}>{row.configured ? row.selected ? "Configured and selected" : "Configured, not selected" : "Configuration required"}</Badge><small>Administrator configuration: <code>{row.config_file}</code></small></div>
       </div>)}
-      <p className="muted">Les fichiers de configuration se trouvent dans le répertoire privé data/config. Utilisez des références vers le fournisseur de secrets sélectionné, jamais des clés ou tokens dans les blueprints. Après modification, rechargez le service puis sélectionnez le fournisseur dans Intégrations.</p>
-      <button disabled={busy || !delivery || !delivery.configured || !delivery.selected} onClick={retry}>{busy ? "Livraison en cours…" : "Réessayer les notifications en attente"}</button>
+      <p className="muted">Configuration files are in the private data/config directory. Use references to the selected secret provider, never keys or tokens in blueprints. After changes, reload the service and select the provider in Integrations.</p>
+      <button disabled={busy || !delivery || !delivery.configured || !delivery.selected} onClick={retry}>{busy ? "Delivering…" : "Retry pending notifications"}</button>
     </section>}
-    <section className="panel"><h2>Des garanties distinctes</h2><p>Une notification n’est pas une approbation ChatOps. Un diagnostic IA ne peut pas exécuter une correction. Une intégration non configurée n’utilise pas de remplacement silencieux.</p></section>
+    <section className="panel"><h2>Separate guarantees</h2><p>A notification is not a ChatOps approval. AI diagnostics cannot execute a fix. Unconfigured integrations do not silently fall back to another provider.</p></section>
   </>;
 }

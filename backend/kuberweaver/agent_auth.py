@@ -114,6 +114,9 @@ def install_agent_tokens(app):
 def required_scope(method, path):
     if method == 'GET' and path == '/api/auth/me':
         return ''
+    if method == 'GET' and (path == '/api/ssh-keys' or re.fullmatch(r'/api/ssh-keys/[0-9a-f]{32}', path)):
+        return 'read:infrastructure'
+    # SSH key writes and private export deliberately have no agent scope mapping.
     # Connection configuration never grants secret ingestion to machine clients.
     connection = r'/api/connections/[0-9a-f]{32}'
     if method == 'GET' and (path in {'/api/connections', '/api/connection-drivers'}

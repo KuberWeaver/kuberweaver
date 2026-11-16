@@ -121,6 +121,21 @@ class InventoryStub:
         self.disconnected.append(si)
 
 
+def test_discovery_accepts_real_sdk_integer_types():
+    from pyVmomi.VmomiSupport import long as sdk_long
+    module = load_driver()
+    inventory = InventoryStub()
+    summary = inventory.properties[("ds-2", "summary")]
+    summary.capacity = sdk_long(4096)
+    summary.freeSpace = sdk_long(1024)
+    result = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect).discover(
+        CONNECTION, CREDENTIALS)
+    datastore = next(row for row in result["datastores"] if row["id"] == "ds-2")
+    assert datastore["capacity_bytes"] == 4096
+    assert type(datastore["capacity_bytes"]) is int
+    assert type(datastore["free_bytes"]) is int
+
+
 def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
     module = load_driver()
     inventory = InventoryStub()

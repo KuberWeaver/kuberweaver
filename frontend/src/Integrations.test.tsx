@@ -31,7 +31,7 @@ it("lists API-driven choices per kind and marks unavailable active bindings", as
   expect(within(inventory).queryByRole("option", { name: /rules/ })).toBeNull();
   expect((within(inventory).getByRole("option", { name: /offline/ }) as HTMLOptionElement).disabled).toBe(true);
   expect(screen.getByText("Selected provider unavailable")).toBeTruthy();
-  expect(screen.getByText(/missing · Indisponible/, { selector: "small" })).toBeTruthy();
+  expect(screen.getByText(/missing · Unavailable/, { selector: "small" })).toBeTruthy();
 });
 it.each([
   [null, 200],
@@ -40,8 +40,8 @@ it.each([
 ])("keeps integrations usable when optional provider config is unavailable: %j", async (value, status) => {
   serve(value, status as number);
   render(<Integrations user={admin} />);
-  expect(await screen.findByText(/Configuration des providers indisponible/)).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Registre des extensions" })).toBeTruthy();
+  expect(await screen.findByText(/Provider configuration unavailable/)).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Extension registry" })).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
 });
 
@@ -56,23 +56,23 @@ it("saves only changed bindings using CSRF then verifies a fresh GET before succ
   setCsrf("provider-csrf");
   render(<Integrations user={admin} />);
   fireEvent.change(await screen.findByRole("combobox", { name: "Provider inventory" }), { target: { value: "replacement" } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer les providers" }));
-  await screen.findByText("Liaisons enregistrées et vérifiées depuis le serveur.");
+  fireEvent.click(screen.getByRole("button", { name: "Save providers" }));
+  await screen.findByText("Bindings saved and verified from the server.");
   const calls = fetcher.mock.calls.filter(([path]) => path === "/api/providers") as unknown as [string, RequestInit][];
   expect(calls.map(([, options]) => options?.method || "GET")).toEqual(["GET", "PATCH", "GET"]);
   expect(JSON.parse(calls[1][1].body as string)).toEqual({ bindings: { inventory: "replacement" } });
   expect(calls[1][1].headers).toMatchObject({ "X-CSRF-Token": "provider-csrf" });
   expect(calls[1][1].credentials).toBe("include");
-  expect(screen.getByText("replacement · Actif")).toBeTruthy();
+  expect(screen.getByText("replacement · Active")).toBeTruthy();
 });
 
 it("does not claim success when provider readback differs", async () => {
   const fetcher = serve();
   render(<Integrations user={admin} />);
   fireEvent.change(await screen.findByRole("combobox", { name: "Provider inventory" }), { target: { value: "replacement" } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer les providers" }));
-  expect(await screen.findByText(/Vérification des liaisons échouée/)).toBeTruthy();
-  expect(screen.queryByText("Liaisons enregistrées et vérifiées depuis le serveur.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save providers" }));
+  expect(await screen.findByText(/Binding verification failed/)).toBeTruthy();
+  expect(screen.queryByText("Bindings saved and verified from the server.")).toBeNull();
   await waitFor(() => expect(fetcher.mock.calls.filter(([path]) => path === "/api/providers")).toHaveLength(3));
 });
 
@@ -81,5 +81,5 @@ it.each(["viewer", "operator"])("reserves provider mutation for administrators, 
   render(<Integrations user={{ ...admin, role }} />);
   const input = await screen.findByRole("combobox", { name: "Provider inventory" });
   expect((input as HTMLSelectElement).disabled).toBe(true);
-  expect(screen.queryByRole("button", { name: "Enregistrer les providers" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Save providers" })).toBeNull();
 });

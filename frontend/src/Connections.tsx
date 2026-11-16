@@ -98,37 +98,37 @@ function isConnection(value: unknown): value is Connection {
 
 function ObservedConnection({ connection }: { connection: Connection }) {
   const observation = connection.observation;
-  if (!observation) return <p className="muted">Aucune observation enregistrée. Accès non vérifié.</p>;
+  if (!observation) return <p className="muted">No observations recorded. Access has not been verified.</p>;
   const observedDate = new Date(typeof observation.observed_at === "number" ? observation.observed_at * 1000 : observation.observed_at);
   const inventory = observation.inventory;
   return <>
-    <div className="panel-title"><h3>Dernier résultat enregistré</h3><Badge tone={observation.status === "reachable" ? "success" : "warning"}>{observation.status === "reachable" ? "Accessible" : "Indisponible"}</Badge></div>
-    <p>Observé le <time dateTime={typeof observation.observed_at === "string" ? observation.observed_at : observedDate.toISOString()}>{observedDate.toLocaleString("fr-FR")}</time></p>
-    <p className="muted">Révision observée : {observation.revision} · Révision de configuration : {connection.revision}</p>
-    <p className="muted">Instantané ponctuel, sans surveillance automatique. La date ne garantit pas un accès actuel.</p>
-    {observation.revision !== connection.revision && <p className="notice">Observation périmée : configuration modifiée depuis cette observation.</p>}
+    <div className="panel-title"><h3>Last recorded result</h3><Badge tone={observation.status === "reachable" ? "success" : "warning"}>{observation.status === "reachable" ? "Accessible" : "Unavailable"}</Badge></div>
+    <p>Observed at <time dateTime={typeof observation.observed_at === "string" ? observation.observed_at : observedDate.toISOString()}>{observedDate.toLocaleString("en-GB")}</time></p>
+    <p className="muted">Observed revision: {observation.revision} · Configuration revision: {connection.revision}</p>
+    <p className="muted">Point-in-time snapshot, without automatic monitoring. The timestamp does not guarantee current access.</p>
+    {observation.revision !== connection.revision && <p className="notice">Stale observation: configuration has changed since this observation.</p>}
     {observation.error && <ErrorNotice message={observation.error} />}
-    {!inventory ? <p className="muted">Aucun inventaire retourné par le serveur.</p> : <>
+    {!inventory ? <p className="muted">No inventory returned by the server.</p> : <>
       <dl className="integration-details">
-        <div><dt>Serveur observé</dt><dd>{inventory.server.name}</dd></div>
-        <div><dt>Version</dt><dd>{inventory.server.version || "Non renseignée"}</dd></div>
-        <div><dt>Type d’API</dt><dd>{inventory.server.api_type || "Non renseigné"}</dd></div>
+        <div><dt>Observed server</dt><dd>{inventory.server.name}</dd></div>
+        <div><dt>Version</dt><dd>{inventory.server.version || "Not specified"}</dd></div>
+        <div><dt>API type</dt><dd>{inventory.server.api_type || "Not specified"}</dd></div>
       </dl>
-      <p>Écriture API : {inventory.server.write_api_supported === null ? "capacité inconnue" : inventory.server.write_api_supported ? "prise en charge déclarée" : "non prise en charge"}</p>
+      <p>API writes: {inventory.server.write_api_supported === null ? "unknown capability" : inventory.server.write_api_supported ? "declared supported" : "not supported"}</p>
       <h3>Datastores</h3><div className="table-wrap"><table aria-label="Datastores">
-        <thead><tr><th>Identifiant</th><th>Nom</th><th>Capacité (octets)</th><th>Libre (octets)</th><th>Accessibilité</th></tr></thead>
-        <tbody>{inventory.datastores.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td><td>{row.capacity_bytes}</td><td>{row.free_bytes}</td><td>{row.accessible ? "Oui" : "Non"}</td></tr>)}{!inventory.datastores.length && <tr><td colSpan={5}>Aucun datastore observé.</td></tr>}</tbody>
+        <thead><tr><th>ID</th><th>Name</th><th>Capacity (bytes)</th><th>Free (bytes)</th><th>Accessibility</th></tr></thead>
+        <tbody>{inventory.datastores.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td><td>{row.capacity_bytes}</td><td>{row.free_bytes}</td><td>{row.accessible ? "Yes" : "No"}</td></tr>)}{!inventory.datastores.length && <tr><td colSpan={5}>No datastores observed.</td></tr>}</tbody>
       </table></div>
-      <h3>Réseaux</h3><div className="table-wrap"><table aria-label="Réseaux">
-        <thead><tr><th>Identifiant</th><th>Nom</th></tr></thead><tbody>{inventory.networks.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td></tr>)}{!inventory.networks.length && <tr><td colSpan={2}>Aucun réseau observé.</td></tr>}</tbody>
+      <h3>Networks</h3><div className="table-wrap"><table aria-label="Networks">
+        <thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>{inventory.networks.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td></tr>)}{!inventory.networks.length && <tr><td colSpan={2}>No networks observed.</td></tr>}</tbody>
       </table></div>
-      <h3>Pools de ressources</h3><div className="table-wrap"><table aria-label="Pools de ressources">
-        <thead><tr><th>Identifiant</th><th>Nom</th></tr></thead><tbody>{inventory.resource_pools.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td></tr>)}{!inventory.resource_pools.length && <tr><td colSpan={2}>Aucun pool observé.</td></tr>}</tbody>
+      <h3>Resource pools</h3><div className="table-wrap"><table aria-label="Resource pools">
+        <thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>{inventory.resource_pools.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td></tr>)}{!inventory.resource_pools.length && <tr><td colSpan={2}>No pools observed.</td></tr>}</tbody>
       </table></div>
-      <h3>Machines virtuelles</h3><p className="muted">L’inventaire n’atteste ni l’installation ni l’état d’un système d’exploitation invité.</p>
-      <div className="table-wrap"><table aria-label="Machines virtuelles">
-        <thead><tr><th>Identifiant</th><th>Nom</th><th>UUID</th><th>Alimentation</th><th>CPU</th><th>Mémoire (Mo)</th></tr></thead>
-        <tbody>{inventory.virtual_machines.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td><td>{row.uuid ?? "Non renseigné"}</td><td>{row.power_state}</td><td>{row.cpu ?? "Non renseigné"}</td><td>{row.memory_mb ?? "Non renseigné"}</td></tr>)}{!inventory.virtual_machines.length && <tr><td colSpan={6}>Aucune machine virtuelle observée.</td></tr>}</tbody>
+      <h3>Virtual machines</h3><p className="muted">Inventory does not establish guest operating system installation or health.</p>
+      <div className="table-wrap"><table aria-label="Virtual machines">
+        <thead><tr><th>ID</th><th>Name</th><th>UUID</th><th>Power</th><th>CPU</th><th>Memory (MB)</th></tr></thead>
+        <tbody>{inventory.virtual_machines.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.name}</td><td>{row.uuid ?? "Not specified"}</td><td>{row.power_state}</td><td>{row.cpu ?? "Not specified"}</td><td>{row.memory_mb ?? "Not specified"}</td></tr>)}{!inventory.virtual_machines.length && <tr><td colSpan={6}>No virtual machines observed.</td></tr>}</tbody>
       </table></div>
     </>}
   </>;
@@ -157,7 +157,7 @@ function validDraft(value: Spec, registry: Registry) {
 }
 async function readConnection(id: string): Promise<Connection> {
   const result = await api<unknown>(`/connections/${id}`);
-  if (!isConnection(result) || result.id !== id) throw new Error("Relecture de la connexion : réponse serveur non prise en charge ou cible incohérente.");
+  if (!isConnection(result) || result.id !== id) throw new Error("Connection readback: unsupported server response or mismatched target.");
   return result;
 }
 function ConnectionForm({ registry, initial, busy, onSave, onCancel }: {
@@ -166,34 +166,34 @@ function ConnectionForm({ registry, initial, busy, onSave, onCancel }: {
   const [draft, setDraft] = useState<Spec>(() => initial ? connectionSpec(initial) : { label: "", driver: "", endpoint: "", secret_ref: "", secrets_provider: "", tls_sha256: null, enabled: true });
   const source = registry.secret_sources.find((item) => item.id === draft.secrets_provider);
   const valid = validDraft(draft, registry) && (!initial || !sameSpec(draft, initial));
-  const invalid = draft.endpoint && !validEndpoint(draft.endpoint) ? "Endpoint invalide : origine https:// sur une adresse IP, sans chemin ni identifiants."
-    : draft.secret_ref && !logicalReference(draft.secret_ref) ? "Référence logique invalide : segments minuscules séparés par /, lettres, chiffres, tirets et underscores uniquement."
-      : !tlsFingerprint(draft.tls_sha256) ? "Empreinte TLS invalide : 64 caractères hexadécimaux minuscules, sans séparateur." : "";
+  const invalid = draft.endpoint && !validEndpoint(draft.endpoint) ? "Invalid endpoint: use an https:// origin with an IP address, without a path or credentials."
+    : draft.secret_ref && !logicalReference(draft.secret_ref) ? "Invalid logical reference: lowercase segments separated by /, using letters, digits, hyphens and underscores only."
+      : !tlsFingerprint(draft.tls_sha256) ? "Invalid TLS fingerprint: 64 lowercase hexadecimal characters without separators." : "";
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!busy && valid) onSave(connectionSpec(draft));
   }
   return <section className="panel settings-panel">
-    <h2>{initial ? "Modifier la référence de connexion" : "Nouvelle connexion"}</h2>
-    <p className="muted">Enregistrer une configuration ne teste pas l’accès. Utilisez un nom logique de secret, jamais sa valeur.</p>
-    <form aria-label="Configuration de connexion" onSubmit={submit}>
+    <h2>{initial ? "Edit connection reference" : "New connection"}</h2>
+    <p className="muted">Saving configuration does not test access. Use a logical secret name, never its value.</p>
+    <form aria-label="Connection configuration" onSubmit={submit}>
       <fieldset disabled={busy}>
-        <legend>Référence de connexion</legend>
-        <div className="setting-row"><label htmlFor="connection-label">Libellé</label><input id="connection-label" required maxLength={80} value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} /></div>
-        <div className="setting-row"><label htmlFor="connection-driver">Pilote de connexion</label><select id="connection-driver" required value={draft.driver} onChange={(e) => setDraft({ ...draft, driver: e.target.value })}>
-          <option value="">Choisir un pilote</option>{draft.driver && !registry.drivers.some((item) => item.id === draft.driver) && <option value={draft.driver} disabled>{draft.driver} · Indisponible</option>}{registry.drivers.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.label}{item.available ? "" : " · Indisponible"}</option>)}
+        <legend>Connection reference</legend>
+        <div className="setting-row"><label htmlFor="connection-label">Label</label><input id="connection-label" required maxLength={80} value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} /></div>
+        <div className="setting-row"><label htmlFor="connection-driver">Connection driver</label><select id="connection-driver" required value={draft.driver} onChange={(e) => setDraft({ ...draft, driver: e.target.value })}>
+          <option value="">Choose a driver</option>{draft.driver && !registry.drivers.some((item) => item.id === draft.driver) && <option value={draft.driver} disabled>{draft.driver} · Unavailable</option>}{registry.drivers.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.label}{item.available ? "" : " · Unavailable"}</option>)}
         </select></div>
-        <div className="setting-row"><div><label htmlFor="connection-endpoint">Endpoint HTTPS (adresse IP)</label><small>Origine HTTPS IPv4 ou IPv6, port facultatif, sans chemin ni identifiants.</small></div><input id="connection-endpoint" required type="url" value={draft.endpoint} placeholder="https://192.0.2.10" onChange={(e) => setDraft({ ...draft, endpoint: e.target.value })} /></div>
-        <div className="setting-row"><label htmlFor="connection-source">Source de secrets</label><select id="connection-source" required value={draft.secrets_provider} onChange={(e) => setDraft({ ...draft, secrets_provider: e.target.value, secret_ref: "" })}>
-          <option value="">Choisir une source</option>{draft.secrets_provider && !source && <option value={draft.secrets_provider} disabled>{draft.secrets_provider} · Indisponible</option>}{registry.secret_sources.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.id}{item.available ? "" : " · Indisponible"}</option>)}
+        <div className="setting-row"><div><label htmlFor="connection-endpoint">HTTPS endpoint (IP address)</label><small>IPv4 or IPv6 HTTPS origin, optional port, without a path or credentials.</small></div><input id="connection-endpoint" required type="url" value={draft.endpoint} placeholder="https://192.0.2.10" onChange={(e) => setDraft({ ...draft, endpoint: e.target.value })} /></div>
+        <div className="setting-row"><label htmlFor="connection-source">Secret source</label><select id="connection-source" required value={draft.secrets_provider} onChange={(e) => setDraft({ ...draft, secrets_provider: e.target.value, secret_ref: "" })}>
+          <option value="">Choose a source</option>{draft.secrets_provider && !source && <option value={draft.secrets_provider} disabled>{draft.secrets_provider} · Unavailable</option>}{registry.secret_sources.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.id}{item.available ? "" : " · Unavailable"}</option>)}
         </select></div>
-        {source && <p className="muted">Références déclarées : {source.references.join(", ") || "aucune"}. La disponibilité réelle du secret reste à vérifier.</p>}
-        <div className="setting-row"><label htmlFor="connection-secret-ref">Référence logique du secret</label><div><input id="connection-secret-ref" required list="connection-secret-references" value={draft.secret_ref} onChange={(e) => setDraft({ ...draft, secret_ref: e.target.value })} /><datalist id="connection-secret-references">{source?.references.map((ref) => <option key={ref} value={ref} />)}</datalist></div></div>
-        <div className="setting-row"><div><label htmlFor="connection-tls">Empreinte TLS SHA-256 (facultative)</label><small>64 caractères hexadécimaux minuscules, sans séparateur.</small></div><input id="connection-tls" value={draft.tls_sha256 ?? ""} onChange={(e) => setDraft({ ...draft, tls_sha256: e.target.value === "" ? null : e.target.value })} /></div>
-        <div className="setting-row"><label htmlFor="connection-enabled">Connexion activée</label><input id="connection-enabled" type="checkbox" checked={draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} /></div>
+        {source && <p className="muted">Declared references: {source.references.join(", ") || "aucune"}. Actual secret availability must still be verified.</p>}
+        <div className="setting-row"><label htmlFor="connection-secret-ref">Logical secret reference</label><div><input id="connection-secret-ref" required list="connection-secret-references" value={draft.secret_ref} onChange={(e) => setDraft({ ...draft, secret_ref: e.target.value })} /><datalist id="connection-secret-references">{source?.references.map((ref) => <option key={ref} value={ref} />)}</datalist></div></div>
+        <div className="setting-row"><div><label htmlFor="connection-tls">TLS SHA-256 fingerprint (optional)</label><small>64 lowercase hexadecimal characters without separators.</small></div><input id="connection-tls" value={draft.tls_sha256 ?? ""} onChange={(e) => setDraft({ ...draft, tls_sha256: e.target.value === "" ? null : e.target.value })} /></div>
+        <div className="setting-row"><label htmlFor="connection-enabled">Connection enabled</label><input id="connection-enabled" type="checkbox" checked={draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} /></div>
       </fieldset>
       {invalid && <ErrorNotice message={invalid} />}
-      <div className="heading-actions"><button className="primary" disabled={busy || !valid}>{initial ? "Enregistrer la connexion" : "Ajouter la connexion"}</button><button type="button" disabled={busy} onClick={onCancel}>Annuler</button></div>
+      <div className="heading-actions"><button className="primary" disabled={busy || !valid}>{initial ? "Save connection" : "Add connection"}</button><button type="button" disabled={busy} onClick={onCancel}>Cancel</button></div>
     </form>
   </section>;
 }
@@ -211,15 +211,15 @@ function CredentialsForm({ busy, onStore, onClose }: {
     onStore(values);
     values.delete("password");
   }
-  return <section className="panel settings-panel" aria-label="Dépôt d’identifiants">
-    <h3>Déposer dans la source de secrets</h3>
-    <p className="muted">Session administrateur humaine uniquement, contrôlée par le serveur. Aucun mot de passe n’est relu ni conservé par ce panneau. Un dépôt ne teste pas l’accès hyperviseur.</p>
+  return <section className="panel settings-panel" aria-label="Credential storage">
+    <h3>Store in secret source</h3>
+    <p className="muted">Human administrator session only, enforced by the server. This panel never reads back or retains passwords. Storing credentials does not test hypervisor access.</p>
     <form autoComplete="off" onSubmit={submit}>
-      <fieldset disabled={busy}><legend>Identifiants pour la référence sélectionnée</legend>
-        <div className="setting-row"><label htmlFor="hypervisor-username">Identifiant hyperviseur</label><input id="hypervisor-username" name="username" required autoComplete="off" /></div>
-        <div className="setting-row"><label htmlFor="hypervisor-password">Mot de passe hyperviseur</label><input id="hypervisor-password" name="password" type="password" required autoComplete="off" /></div>
+      <fieldset disabled={busy}><legend>Credentials for selected reference</legend>
+        <div className="setting-row"><label htmlFor="hypervisor-username">Hypervisor username</label><input id="hypervisor-username" name="username" required autoComplete="off" /></div>
+        <div className="setting-row"><label htmlFor="hypervisor-password">Hypervisor password</label><input id="hypervisor-password" name="password" type="password" required autoComplete="off" /></div>
       </fieldset>
-      <div className="heading-actions"><button className="primary" disabled={busy}>Enregistrer les identifiants</button><button type="button" disabled={busy} onClick={onClose}>Fermer le dépôt</button></div>
+      <div className="heading-actions"><button className="primary" disabled={busy}>Save credentials</button><button type="button" disabled={busy} onClick={onClose}>Close credential storage</button></div>
     </form>
   </section>;
 }
@@ -257,13 +257,13 @@ export function Connections({ user }: { user: User }) {
       });
       if (!isConnection(created) || !sameSpec(created, spec)
         || (previous && (created.id !== previous.id || created.revision <= previous.revision))
-        || (!previous && connections?.some((item) => item.id === created.id))) throw new Error("Écriture : réponse serveur non prise en charge ou configuration incohérente.");
+        || (!previous && connections?.some((item) => item.id === created.id))) throw new Error("Write: unsupported server response or mismatched configuration.");
       const exact = await readConnection(created.id);
-      if (exact.revision !== created.revision || !sameSpec(exact, created)) throw new Error("Configuration non confirmée par la relecture du serveur.");
-      accept(exact); setEditor(null); setNotice("Configuration enregistrée et vérifiée par relecture.");
+      if (exact.revision !== created.revision || !sameSpec(exact, created)) throw new Error("Configuration was not confirmed by server readback.");
+      accept(exact); setEditor(null); setNotice("Configuration saved and verified by readback.");
     } catch (error) {
       if (previous) setUnconfirmedId(previous.id);
-      setError(`Écriture non confirmée. Actualisez les connexions avant de réessayer. ${errorMessage(error)}`);
+      setError(`Write not confirmed. Refresh connections before trying again. ${errorMessage(error)}`);
     }
     finally { lock.current = false; setBusy(false); }
   }
@@ -272,10 +272,10 @@ export function Connections({ user }: { user: User }) {
     lock.current = true; setBusy(true); setError(""); setNotice("");
     try {
       const result = await api<unknown>(`/connections/${target.id}/${action}`, { method: "POST" });
-      if (!isObservation(result) || result.connection_id !== target.id || result.revision !== target.revision) throw new Error("Observation : réponse serveur non prise en charge ou résultat incohérent.");
+      if (!isObservation(result) || result.connection_id !== target.id || result.revision !== target.revision) throw new Error("Observation: unsupported server response or inconsistent result.");
       const exact = await readConnection(target.id);
-      if (exact.revision !== target.revision || !sameSpec(exact, target) || !sameValue(exact.observation, result)) throw new Error("Observation non confirmée par la relecture du serveur.");
-      accept(exact); setNotice("Observation enregistrée et vérifiée par relecture.");
+      if (exact.revision !== target.revision || !sameSpec(exact, target) || !sameValue(exact.observation, result)) throw new Error("Observation was not confirmed by server readback.");
+      accept(exact); setNotice("Observation saved and verified by readback.");
     } catch (error) { setUnconfirmedId(target.id); setError(errorMessage(error)); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -293,51 +293,51 @@ export function Connections({ user }: { user: User }) {
       if (!isRecord(result) || result.stored !== true || result.connection_id !== target.id) throw new Error("Invalid credential acknowledgement");
       const exact = await readConnection(target.id);
       if (exact.revision < target.revision || !sameSpec(exact, target)) throw new Error("Credential target changed during readback");
-      accept(exact); setNotice("Dépôt déclaré par le coffre ; connexion relue, accès hyperviseur non testé.");
+      accept(exact); setNotice("Vault reports credentials stored; connection read back, hypervisor access not tested.");
     } catch {
       // This endpoint might echo submitted values in an error. Never render
       // its body, exception message, or raw response in the interface.
-      setUnconfirmedId(target.id); setError("Dépôt non confirmé. Vérifiez la source de secrets et vos droits avant de réessayer. Le mot de passe a été effacé.");
+      setUnconfirmedId(target.id); setError("Storage not confirmed. Check the secret source and your permissions before trying again. The password has been cleared.");
     } finally { password = null; lock.current = false; setBusy(false); }
   }
   return <>
-    <PageTitle title="Connexions hyperviseur" description="Références de connexion et observations explicites de vos hyperviseurs." actions={<>
-      <button disabled={busy} onClick={() => { setCredentialsFor(""); setEditor(null); setError(""); setNotice(""); resource.refresh(); drivers.refresh(); }}><RefreshCw size={15} /> Actualiser les connexions</button>
-      {user.role === "admin" && connections && registry && !resource.loading && !drivers.loading && <button className="primary" disabled={busy} onClick={() => { setCredentialsFor(""); setEditor("new"); setError(""); setNotice(""); }}>Nouvelle connexion</button>}
+    <PageTitle title="Hypervisor connections" description="Connection references and explicit observations of your hypervisors." actions={<>
+      <button disabled={busy} onClick={() => { setCredentialsFor(""); setEditor(null); setError(""); setNotice(""); resource.refresh(); drivers.refresh(); }}><RefreshCw size={15} /> Refresh connections</button>
+      {user.role === "admin" && connections && registry && !resource.loading && !drivers.loading && <button className="primary" disabled={busy} onClick={() => { setCredentialsFor(""); setEditor("new"); setError(""); setNotice(""); }}>New connection</button>}
     </>} />
-    <p className="notice">Une référence de coffre n’atteste pas la présence d’identifiants valides. Aucun test ni découverte automatique.</p>
+    <p className="notice">A vault reference does not establish valid credentials. No automatic tests or discovery.</p>
     {error && <ErrorNotice message={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}
-    {resource.loading || drivers.loading ? <Spinner /> : resource.error || drivers.error || !connections || !registry ? <ErrorNotice message={resource.error || drivers.error || "Réponse serveur non prise en charge."} /> : <>
+    {resource.loading || drivers.loading ? <Spinner /> : resource.error || drivers.error || !connections || !registry ? <ErrorNotice message={resource.error || drivers.error || "Unsupported server response."} /> : <>
       {editor && user.role === "admin" && <ConnectionForm key={editor === "new" ? "new" : `${editor.id}:${editor.revision}`} registry={registry} initial={editor === "new" ? undefined : editor} busy={busy} onSave={(spec) => save(spec, editor === "new" ? undefined : editor)} onCancel={() => setEditor(null)} />}
-      <section className="panel" aria-label="Connexions enregistrées">
-        <div className="panel-title"><h2><Server size={18} /> Connexions enregistrées</h2></div>
-        {!connections.length && <Empty title="Aucune connexion enregistrée" icon={<Server size={27} />}>Ajoutez une référence de connexion, puis testez-la explicitement.</Empty>}
+      <section className="panel" aria-label="Saved connections">
+        <div className="panel-title"><h2><Server size={18} /> Saved connections</h2></div>
+        {!connections.length && <Empty title="No saved connections" icon={<Server size={27} />}>Add a connection reference, then test it explicitly.</Empty>}
         {connections.map((item) => <div className="setting-row" key={item.id}>
-          <div><strong>{item.label}</strong><small>{item.driver} · Révision {item.revision}</small></div>
-          <div><Badge tone={item.enabled ? "info" : "warning"}>{item.enabled ? "Activée" : "Désactivée"}</Badge> <button disabled={busy} onClick={() => { setCredentialsFor(""); setSelectedId(item.id); setEditor(null); setError(""); setNotice(""); }}>Consulter {item.label}</button></div>
+          <div><strong>{item.label}</strong><small>{item.driver} · Revision {item.revision}</small></div>
+          <div><Badge tone={item.enabled ? "info" : "warning"}>{item.enabled ? "Enabled" : "Disabled"}</Badge> <button disabled={busy} onClick={() => { setCredentialsFor(""); setSelectedId(item.id); setEditor(null); setError(""); setNotice(""); }}>View {item.label}</button></div>
         </div>)}
       </section>
-      {selected && <section className="panel settings-panel" aria-label="Détails de la connexion">
-        <div className="panel-title"><h2>{selected.label}</h2><Badge>Révision {selected.revision}</Badge></div>
+      {selected && <section className="panel settings-panel" aria-label="Connection details">
+        <div className="panel-title"><h2>{selected.label}</h2><Badge>Revision {selected.revision}</Badge></div>
         <dl className="integration-details">
-          <div><dt>Endpoint HTTPS</dt><dd>{selected.endpoint}</dd></div>
-          <div><dt>Pilote</dt><dd>{selected.driver}</dd></div>
-          <div><dt>Source de secrets</dt><dd>{selected.secrets_provider}</dd></div>
-          <div><dt>Référence logique</dt><dd>{selected.secret_ref}</dd></div>
-          <div><dt>Empreinte TLS SHA-256</dt><dd>{selected.tls_sha256 ?? "Non renseignée"}</dd></div>
+          <div><dt>HTTPS endpoint</dt><dd>{selected.endpoint}</dd></div>
+          <div><dt>Driver</dt><dd>{selected.driver}</dd></div>
+          <div><dt>Secret source</dt><dd>{selected.secrets_provider}</dd></div>
+          <div><dt>Logical reference</dt><dd>{selected.secret_ref}</dd></div>
+          <div><dt>TLS SHA-256 fingerprint</dt><dd>{selected.tls_sha256 ?? "Not specified"}</dd></div>
         </dl>
         {user.role === "admin" && <div className="heading-actions">
-          <button disabled={busy} onClick={() => { setCredentialsFor(""); setEditor(selected); setError(""); setNotice(""); }}>Modifier la connexion</button>
-          <button disabled={busy || !selected.enabled} onClick={() => save({ ...connectionSpec(selected), enabled: false }, selected)}>Désactiver la connexion</button>
-          {canStore && <button disabled={busy} onClick={() => { setEditor(null); setCredentialsFor(selected.id); setError(""); setNotice(""); }}>Déposer des identifiants</button>}
+          <button disabled={busy} onClick={() => { setCredentialsFor(""); setEditor(selected); setError(""); setNotice(""); }}>Edit connection</button>
+          <button disabled={busy || !selected.enabled} onClick={() => save({ ...connectionSpec(selected), enabled: false }, selected)}>Disable connection</button>
+          {canStore && <button disabled={busy} onClick={() => { setEditor(null); setCredentialsFor(selected.id); setError(""); setNotice(""); }}>Store credentials</button>}
         </div>}
         {canStore && credentialsFor === selected.id && <CredentialsForm key={`${selected.id}:${selected.revision}`} busy={busy} onStore={(values) => store(selected, values)} onClose={() => setCredentialsFor("")} />}
         {["admin", "operator"].includes(user.role) && <div className="heading-actions">
-          <button disabled={busy || !selected.enabled} onClick={() => observe(selected, "test")}>Tester la connexion</button>
-          <button disabled={busy || !selected.enabled} onClick={() => observe(selected, "discover")}>Découvrir l’inventaire</button>
+          <button disabled={busy || !selected.enabled} onClick={() => observe(selected, "test")}>Test connection</button>
+          <button disabled={busy || !selected.enabled} onClick={() => observe(selected, "discover")}>Discover inventory</button>
         </div>}
-        {unconfirmedId === selected.id && <p className="notice">Résultat de l’action non confirmé. Données affichées : dernière lecture validée.</p>}
+        {unconfirmedId === selected.id && <p className="notice">Action result not confirmed. Showing the last validated read.</p>}
         <ObservedConnection connection={selected} />
       </section>}
     </>}

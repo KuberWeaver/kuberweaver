@@ -4,7 +4,7 @@ name: CI
   pull_request:
     branches: [develop, main]
   push:
-    branches: [develop, main]
+    branches: [develop, main, 'feat/**']
 
 permissions:
   contents: read
@@ -14,6 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan tracked files and history
+        run: python3 ops/ci/secret_scan.py --history
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refuse conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>) ' -- . ; then
+            echo "conflict markers found"; exit 1
+          fi
+      - name: Refuse private notes and runtime state
+        run: |
+          if git ls-files | grep -E '^(data/|docs/prompt/)' ; then
+            echo "runtime state or private notes are tracked"; exit 1
+          fi
+
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30

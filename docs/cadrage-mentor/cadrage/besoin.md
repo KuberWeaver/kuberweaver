@@ -4,7 +4,8 @@ type: besoin
 statut: propose
 ---
 
-# Besoin
-Proposer une plateforme visuelle et modulaire de demandes d’infrastructure gouvernées, avec exécution vérifiable et restauration adaptée.
+# Need
 
-Source : besoin initial du porteur de projet, documents de vision et documentation du prototype, référencés dans le cahier des charges principal. Voir ses sections 1 à 3 pour le périmètre.
+Provide a visual, modular platform for governed infrastructure requests, with verifiable execution and service-appropriate recovery.
+
+Source: the project owner's original need, vision documents and implementation documentation, referenced by the main requirements document. See its sections 1–3 for scope. Frontmatter values are retained for compatibility with the historical export tooling.

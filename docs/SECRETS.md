@@ -208,7 +208,7 @@ re-seeds the demo). With an existing supervised tunnel, add `--external-tunnel`.
 Consumers reload that file on their next resolution. No silent renewal or root
 credential use is performed by the application provider.
 
-This is a single-node prototype: **no production HA, auto-unseal, hardware-backed
+This is a single-node lab deployment: **no production HA, auto-unseal, hardware-backed
 custody, automated encrypted off-host backups, identity federation, or claimed
 state-of-the-art secret handling**. The protected-file provider remains useful
 for explicit existing SSH keys without spreading those keys into a second store.

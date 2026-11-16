@@ -27,6 +27,8 @@ def install_api(app, plugins_dir, executor=None):
     app.state.worker = Worker(app)
     from .runtime import configure
     configure(app)
+    from .ssh_keys import install_ssh_keys_api
+    install_ssh_keys_api(app)
     from .connections import install_connections_api
     install_connections_api(app)
     if hasattr(app.state.executor, 'secret_resolver'):

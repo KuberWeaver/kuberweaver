@@ -1,4 +1,4 @@
-"""Generic, manifest-driven Ansible executor for the isolated GNS3 prototype.
+"""Generic, manifest-driven Ansible executor for explicitly configured GNS3 targets.
 
 Only reviewed local playbooks run. No graph-provided host, executable, shell, image,
 or filesystem path is accepted. The injected ``runner`` follows subprocess.run.
@@ -84,6 +84,8 @@ class Executor:
             raise ValueError('Manifest plugin identity mismatch')
         if manifest.get('capability') != 'live' or manifest.get('engine') != 'ansible':
             raise ValueError(f'Plugin {plugin_id} is planned or has an unsupported engine')
+        if manifest.get('executor') == 'ansible-workload-v1':
+            raise ValueError('Workload bricks run through the workload runner, not the container executor')
         if manifest.get('executor') != 'ansible-container-v1':
             raise ValueError('Unsupported executor protocol')
         for action in ('snapshot', 'apply', 'verify', 'restore'):

@@ -1,62 +1,52 @@
-# Complétion du prototype : preuves et limites
+# Capability evidence and limitations
 
-État vérifié le 6 novembre 2026. Les résultats ci-dessous décrivent la recette locale avant publication GitHub. Les secrets et états d'exécution sont exclus de la publication.
+This is an index of **historical acceptance records**, not a new test run or a production-readiness certification. Earlier records describe the local acceptance of 6 November 2026; later PostgreSQL, vault and hypervisor records are indexed in `V2_HYPERVISORS.md`. Secrets and runtime state are excluded from publication.
 
-## Besoin IA retenu
+## External-agent access
 
-KuberWeaver est pilotable par des agents externes via son API et un adaptateur MCP stdio. Il n'a pas besoin d'embarquer un modèle, de clé de fournisseur IA ou d'abonnement de modèle. Le fournisseur de diagnostic LLM développé séparément demeure optionnel et n'est pas enregistré par défaut.
+KuberWeaver exposes its business API through an optional stdio MCP adapter without embedding a model, AI-provider key or mandatory model subscription. Optional LLM diagnostics is separate and not registered by default.
 
-- Jetons émis, listés et révoqués uniquement depuis une session administrateur humaine.
-- Rôle maximal et scopes cumulatifs, expiration et révocation persistantes.
-- Scopes de lecture ciblés, notamment `read:finops`, sans lecture implicite des jobs ou de l'infrastructure.
-- Approbation déléguée uniquement avec rôle admin et scope `approve` explicite.
-- Aucun outil MCP pour créer ses propres privilèges, résoudre directement un secret, appeler une URL arbitraire ou lancer une commande système.
-- Jeton affiché une seule fois dans la page Accès agents ; aucune persistance dans localStorage/sessionStorage.
-- Les flux d'événements revalident le jeton à chaque itération ; les sessions navigateur gardent leur protection CSRF.
+- Only human administrator sessions issue, list and revoke tokens.
+- Maximum role and scopes are cumulative; expiry and revocation persist.
+- Targeted reads such as `read:finops` do not implicitly grant job or inventory access.
+- Delegated approval requires admin role and explicit `approve` scope.
+- MCP cannot mint its own privileges, resolve raw secrets, fetch arbitrary URLs or run shell commands.
+- Tokens are shown once in Agent access, not persisted in browser localStorage/sessionStorage.
+- Event streams revalidate tokens; browser sessions retain CSRF protection.
 
-Guides : [droits API](AGENT_ACCESS.md), [MCP](MCP.md).
+See [API rights](AGENT_ACCESS.md) and [MCP](MCP.md).
 
-## Vérifications exécutées
+## Historical verification
 
-Commande backend : `.venv/bin/python -m pytest -q --tb=short --junitxml=/home/ubu/.hermes/cache/scratch/kuberweaver-final-backend.xml`.
+The earlier backend command was `.venv/bin/python -m pytest -q --tb=short --junitxml=/home/ubu/.hermes/cache/scratch/kuberweaver-final-backend.xml`.
 
-- 527 tests backend passants, 1 ignoré, aucun échec.
-- Le seul test ignoré exige un exécutable local `redis-server`, absent du poste. Il ne prouve donc pas une persistance Redis réelle.
-- 47 tests frontend passants dans 9 fichiers.
-- Build TypeScript/Vite réussi.
-- Vrais échanges MCP : SDK ClientSession → processus stdio → véritable API Uvicorn isolée ; lecture, validation, sauvegarde de blueprint avec relecture HTTP indépendante, soumission restant en attente, refus d'approbation 403 sans scope et refus 401 après révocation dans la même session.
-- Vrais échanges HTTP locaux pour livraison de notifications, y compris validation sans job, et approbation ChatOps signée ; replay refusé.
-- Publication Git et relecture de SHA réellement exercées sur des dépôts bare jetables, pas sur un hébergeur externe.
-- Revue indépendante API/MCP/UI approuvée ; relecture finale qualité/conformité des correctifs GitOps, credentials/Redis, notifications et OpenTofu également approuvée pour leur périmètre implémenté et testé, sans certification distante.
-- Scan Gitleaks sur un instantané de 176 fichiers source, hors données privées et présentations : aucune fuite détectée.
+That record reported 527 passing backend tests and one skip for missing `redis-server`, 47 frontend tests in nine files and a successful TypeScript/Vite build. These counts are historical, not results for the current tree. The skipped test does not prove Redis persistence.
 
-Les comptes, tokens, configurations et destinations de ces tests sont jetables et isolés de `data/` et des services externes réels.
+Recorded protocol evidence covered real SDK ClientSession → stdio → isolated Uvicorn API exchanges, independent blueprint HTTP readback, pending submissions, 403 approval denial without scope and 401 after revocation. Local notification and signed ChatOps exchanges exercised replay denial. Remote Git publication used disposable bare repositories and SHA readback, not an external hosting service. Independent reviews covered the implemented scope, not remote certification. A historical Gitleaks scan covered a 176-source-file snapshot, excluding private data and presentations; it is not a current or universal secret-safety guarantee.
 
-## État des fonctions ajoutées
+Test accounts, tokens, settings and destinations were disposable and isolated from live `data/` and real external services.
 
-| Fonction | Implémentation et preuve | Limite persistante |
+## Capability matrix
+
+| Capability | Implementation/evidence | Remaining boundary |
 | --- | --- | --- |
-| API et MCP agents | 29 outils métier typés, jetons révocables, rôles et scopes, protocole réel exercé | Pas de configuration automatique d'un client Hermes, pas d'exposition Internet ajoutée |
-| Notifications | Outbox durable, dispatcher séparé du worker, retry borné, états uncertain non rejoués automatiquement, relecture API | Aucun SaaS destinataire réel configuré ; pas de promesse exactly-once côté destinataire |
-| GitOps distant | Destination explicite, commit exact et SHA distant vérifié ; publication hors verrou partagé ; réservation durable d'approbation et revalidation avant queue | Dépôts de test uniquement ; configuration Git/SSH et politique distante réelles restent à fournir |
-| Secrets d'exécution | Références administrées serveur, clé éphémère 0600, isolation d'identité/environnement, suppression des résultats sensibles, cleanup ; mapping et sources épinglés avant chaque commande | Pas de remplacement des clés du laboratoire ni de recette OpenBao → invité réel dans cette tranche |
-| ChatOps | Action liée au plan, callback HMAC horodaté, acteur externe mappé à un admin, nonce durable ; réutilisation des services d'approbation | Adaptateur générique, pas d'authentification Slack/Teams certifiée ni de passerelle externe déployée |
-| Supervision | Snapshot authentifié et métriques raccordés ; règles Prometheus et dashboard Grafana validés avec promtool | Stack de collecte/visualisation non déployée ; configuration n'est pas preuve de joignabilité |
-| Redis persistant | Cycle spécifique, propriété, AOF, sauvegarde arrêtée, restauration et retry partiel ; injection SSH corrigée et testée | Manifeste planned, extension désactivée, précondition de pare-feu non modifiée ; aucune validation distante |
-| OpenTofu/libvirt | Plans sauvegardés et digests, garde CLI/provider/transport, suppression séparée et contrôle disques live/persistants ; 41 tests dédiés passants | Manifeste planned, non raccordé à un parcours de création autorisé ; transport SSH actuel refusé par le garde de confiance ; aucune VM créée ou supprimée |
-| Cisco/pfSense, stack front/back | Besoin et emplacements conservés | Pas d'adaptateur/cible validés, pas de câblage réseau automatique |
-| FinOps mesuré | Estimation existante et source indiquée | Pas de métriques de facturation cloud, paiement ou allocation complète de consommation réelle |
+| Agent API/MCP | Typed tools, revocable tokens, roles/scopes, real local protocol exchanges. | No automatic Hermes setup or Internet exposure. Historical tool counts may differ from the current adapter. |
+| Notifications | Durable outbox, worker-independent dispatcher, bounded retry, uncertain deliveries not automatically replayed, API readback. | No real external SaaS recipient configured; no receiver-side exactly-once guarantee. |
+| Remote GitOps | Explicit destination, exact commit and remote SHA, publication outside the shared lock, durable approval reservation and queue revalidation. | Test repositories only; actual Git/SSH and remote policy still require configuration. |
+| Execution secrets | Server-controlled references, ephemeral 0600 key, identity/environment isolation, result suppression and cleanup; mapping/source revalidation at command boundaries. | Does not imply existing lab keys were replaced or vault-to-real-guest acceptance completed. |
+| ChatOps | Exact-plan action, timestamped HMAC callback, external actor mapped to admin, durable nonce, shared approval services. | Generic gateway adapter, not certified Slack/Teams authentication or a deployed external gateway. |
+| Observability | Authenticated snapshot and process/job metrics; Prometheus rules and Grafana dashboard validation. | Collection/visualization stack not deployed; configuration is not reachability evidence. |
+| Persistent Redis | Ownership, AOF, stopped backup, restore and partial retry tests; SSH isolation tests. | Manifest remains planned, extension disabled, firewall prerequisite unchanged; no remote acceptance. |
+| OpenTofu/libvirt | Saved plans/digests, CLI/provider/transport guards, separate deletion and live/persistent disk checks. | Planned; current SSH trust guard blocks transport; no authorized real create/delete acceptance. |
+| Blank-disk vSphere | Saved-plan protocol and local provider checks. | Planned/blocked by PKI and powered-off-create contract; separate from OVF import. |
+| VMware OVF | Separate create-only composition documented in the extension guide. | Local tests do not prove target OS/SSH startup; no update/delete/rollback or automatic ambiguous-failure cleanup. |
+| Cisco/pfSense and frontend/backend stack | Requirements and catalogue placeholders retained. | No validated adapter/target; no automatic network wiring. |
+| Measured FinOps | Existing estimates identify their source. | No cloud billing, payments or comprehensive actual consumption allocation. |
 
-Un état planned, une déclaration disponible, une configuration présente ou un test simulé ne valent jamais acceptation distante.
+A planned flag, available registration, configuration file or mocked test is never remote acceptance. Passing tests do not establish production maturity.
 
-## Serveur local après intégration
+## Historical local service readbacks
 
-Le service utilisateur `kuberweaver.service` a été redémarré après constat d'absence de jobs actifs et sauvegarde privée de SQLite. Relectures effectuées :
+The earlier integration record reports a restart of `kuberweaver.service` after checking for active jobs and privately backing up SQLite, followed by active/running status, `/healthz` returning `{"status":"ok","service":"kuberweaver"}`, portal HTTP 200, agent/ChatOps/operations routes and readable storage/live-worker metrics. This is a historical observation, not an assertion of current service state; see PostgreSQL documentation for the later backend selection.
 
-- service active/running ;
-- `http://127.0.0.1:8088/healthz` : `{"status":"ok","service":"kuberweaver"}` ;
-- portail HTTP 200 ;
-- schéma API contenant les routes agents, ChatOps et opérations ;
-- métriques confirmant stockage lisible et worker vivant.
-
-Aucun jeton réel n'a été émis automatiquement, aucun connecteur externe activé, aucune VM ou règle réseau modifiée. Les données et présentations existantes sont conservées. Les approbations ambiguës restent bloquées pour revue manuelle, sans nettoyage ou reprise automatique.
+No real agent token was automatically issued and no external connector, VM or network rule was changed by that acceptance. Ambiguous approvals remain blocked for manual review rather than automatic cleanup or replay.

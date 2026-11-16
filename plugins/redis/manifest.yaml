@@ -1,7 +1,7 @@
 id: redis
-name: Redis persistent lab cache
+name: Redis persistent cache
 version: 1.0.0
-description: Controller-only isolated-lab Redis with persistent snapshots and RESP probes. Requires the trusted redis runtime extension.
+description: Planned controller-only Redis for an isolated lab, with persistent snapshots and RESP probes. Requires the trusted redis runtime extension and real-target acceptance.
 category: database
 icon: database
 price_monthly: 5

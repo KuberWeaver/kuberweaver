@@ -1,7 +1,7 @@
 id: cisco-ios
 name: Cisco IOS
 version: 1.0.0
-description: Planned blueprint; deployment is disabled.
+description: Planned Cisco IOS configuration; deployment is disabled pending a validated adapter, authorized image and target.
 category: network
 icon: network
 price_monthly: 25

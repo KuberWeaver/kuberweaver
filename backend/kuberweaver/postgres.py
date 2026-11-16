@@ -21,12 +21,13 @@ COLUMNS = {
     'sessions': ('token_hash', 'user_id', 'csrf', 'expires'),
     'audit': ('id', 'time', 'actor', 'action', 'resource', 'detail'),
     'jobs': ('id', 'body'), 'blueprints': ('id', 'body'),
-    'settings': ('key', 'body'), 'connections': ('id', 'body'),
+    'settings': ('key', 'body'), 'connections': ('id', 'body'), 'ssh_keys': ('id', 'body'),
     'agent_tokens': ('id', 'token_hash', 'label', 'role', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'issued_by'),
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
 }
 ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries'}
 DDL = {
+    'ssh_keys': 'id TEXT PRIMARY KEY, body TEXT NOT NULL',
     'users': 'id TEXT PRIMARY KEY, username TEXT UNIQUE, role TEXT, password_hash TEXT',
     'sessions': 'token_hash TEXT PRIMARY KEY, user_id TEXT, csrf TEXT, expires DOUBLE PRECISION',
     'audit': 'id BIGSERIAL PRIMARY KEY, time TEXT, actor TEXT, action TEXT, resource TEXT, detail TEXT',

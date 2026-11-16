@@ -21,7 +21,7 @@ const schema = {
   properties: {
     connection_id: { type: "string", title: "Connexion", "x-options-source": "connections" },
     datastore_id: { type: "string", title: "Stockage", "x-options-source": "datastores" },
-    network_ids: { type: "array", title: "Réseaux", items: { type: "string", "x-options-source": "networks" } },
+    network_ids: { type: "array", title: "Networks", items: { type: "string", "x-options-source": "networks" } },
     resource_pool_id: { type: "string", title: "Groupe de ressources", "x-options-source": "resource_pools" },
   },
 } as Schema;
@@ -37,7 +37,7 @@ const connection = { id: "connection-5", label: "Atelier", enabled: true, revisi
 const user = { id: "editor", username: "editor", role: "operator" };
 function mountCanvas(fieldSchema = schema, config: Record<string, unknown> = { connection_id: connection.id }, response: unknown = [connection]) {
   const plugin: Plugin = {
-    id: "generic-compute", name: "Ressource générique", version: "1", description: "Test de contrat",
+    id: "generic-compute", name: "Resource générique", version: "1", description: "Test de contrat",
     category: "compute", price_monthly: 0, capability: "live", engine: "manifest-engine",
     schema: fieldSchema, defaults: config,
   };
@@ -61,9 +61,9 @@ function mountFields(response: unknown = [connection], value: Record<string, unk
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 it("ne propose que les connexions activées", async () => {
-  mountFields([connection, { ...connection, id: "disabled", label: "Désactivée", enabled: false }]);
+  mountFields([connection, { ...connection, id: "disabled", label: "Disabled", enabled: false }]);
   await screen.findByRole("option", { name: "Atelier" });
-  expect(screen.queryByRole("option", { name: "Désactivée" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "Disabled" })).toBeNull();
 });
 
 it.each([
@@ -73,7 +73,7 @@ it.each([
   { ...connection, enabled: false },
 ])("n’utilise aucun inventaire sans observation joignable à la révision active : %j", async (entry) => {
   const { fetcher, onChange } = mountFields([entry]);
-  await screen.findByText(/Ouvrez Connexions et lancez une découverte/);
+  await screen.findByText(/Open Connections and run explicit discovery/);
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
   expect(screen.queryByRole("option", { name: "Stockage principal" })).toBeNull();
   expect(screen.queryByRole("checkbox", { name: "Réseau atelier" })).toBeNull();
@@ -101,25 +101,25 @@ it.each([
   ["date non valide", [{ ...connection, observation: { ...observation, observed_at: "not-a-date" } }]],
 ])("rejette une enveloppe de connexions malformée (%s) avec une erreur lisible", async (_label, response) => {
   mountFields(response);
-  expect((await screen.findByRole("alert")).textContent).toMatch(/connexions.*invalide/i);
+  expect((await screen.findByRole("alert")).textContent).toMatch(/invalid connections/i);
   expect(screen.queryByRole("option", { name: "Stockage principal" })).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
-  expect(screen.getByText(/Options indisponibles.*Ouvrez Connexions/)).toBeTruthy();
+  expect(screen.getByText(/Options unavailable.*Open Connections/)).toBeTruthy();
 });
 
 it.each([
   ["nom absent", [{ id: "net-bad", name: null }]],
-  ["identifiant vide", [{ id: "", name: "Réseau invalide" }]],
+  ["identifiant vide", [{ id: "", name: "Réseau invalid" }]],
   ["identifiants dupliqués", [{ id: "net-bad", name: "Un" }, { id: "net-bad", name: "Deux" }]],
   ["collection nulle", null],
   ["collection objet", {}],
   ["collection texte", "not-an-array"],
   ["entrée nulle", [null]],
   ["entrée scalaire", ["not-an-entry"]],
-  ["liste partiellement invalide", [{ id: "net-valid", name: "Choix partiel interdit" }, null]],
-])("refuse une collection d’inventaire invalide (%s) sans choix partiel ni saisie libre", async (_label, networks) => {
+  ["liste partiellement invalid", [{ id: "net-valid", name: "Choix partiel interdit" }, null]],
+])("refuse une collection d’inventaire invalid (%s) sans choix partiel ni saisie libre", async (_label, networks) => {
   mountFields([{ ...connection, observation: { ...observation, inventory: { ...observation.inventory, networks } } }]);
-  expect((await screen.findByRole("alert")).textContent).toMatch(/inventaire.*networks.*invalide/i);
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Inventory.*networks.*invalid/i);
   expect(screen.getByRole("option", { name: "Stockage principal" })).toBeTruthy();
   expect(screen.queryByRole("checkbox")).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
@@ -131,22 +131,22 @@ it.each(["virtual_machines", "https://invalid.example/inventory", ""])("traite l
     properties: { arbitrary: { type: "string", title: "Source inconnue", "x-options-source": source } },
   });
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Source d’options inconnue/);
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Unknown options source/);
   expect(screen.queryByRole("option", { name: "Choix interdit" })).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(fetcher.mock.calls.map(([path]) => path)).toEqual(["/api/connections"]);
 });
 
-it.each([{}, { datastore_id: "store-removed", network_ids: ["net-removed"] }])("garde un placeholder obligatoire et préserve les valeurs non modifiées : %j", async (saved) => {
+it.each([{}, { datastore_id: "store-removed", network_ids: ["net-removed"] }])("garde le placeholder sans mutation implicite et retire les réseaux fantômes à la saisie : %j", async (saved) => {
   const value = { connection_id: connection.id, ...saved };
   const { onChange } = mountFields([connection], value);
   await screen.findByRole("option", { name: "Stockage principal" });
   const storage = screen.getByRole("combobox", { name: /Stockage/ });
   expect(storage).toHaveProperty("value", "");
-  expect(within(storage).getByRole("option", { name: "Sélectionner" })).toHaveProperty("selected", true);
+  expect(within(storage).getByRole("option", { name: "Select" })).toHaveProperty("selected", true);
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("checkbox", { name: "Réseau atelier" }));
-  expect(onChange).toHaveBeenLastCalledWith({ ...value, network_ids: [...(saved.network_ids || []), "net-42"] });
+  expect(onChange).toHaveBeenLastCalledWith({ ...value, network_ids: ["net-42"] });
 });
 
 it("résout aussi les annotations imbriquées sans perdre les props de SchemaFields", async () => {
@@ -172,7 +172,7 @@ it("revient au formulaire historique sans message ni observation de découverte 
   rerender(<DiscoverySchemaFields schema={{ properties: { version: { type: "string", title: "Version" } } }} value={{ version: "1" }} onChange={() => {}} />);
   expect(screen.getByLabelText("Version")).toHaveProperty("value", "1");
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.queryByText(/Ouvrez Connexions/)).toBeNull();
+  expect(screen.queryByText(/Open Connections/)).toBeNull();
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
@@ -183,7 +183,7 @@ it("ne lit pas les connexions pour un formulaire historique sans annotation", as
   expect(fetcher.mock.calls.map(([path]) => path)).toEqual(["/api/blueprints"]);
 });
 
-it("suit config.connection_id sans réécrire les sélections ni refaire une découverte lors du changement", async () => {
+it("réinitialise les sélections découvertes en changeant de connexion sans relancer la découverte", async () => {
   const other = { ...connection, id: "connection-other", label: "Autre atelier", observation: { ...observation, inventory: {
     datastores: [{ id: "store-other", name: "Autre stockage" }],
     networks: [{ id: "net-other", name: "Autre réseau" }], resource_pools: [],
@@ -198,7 +198,7 @@ it("suit config.connection_id sans réécrire les sélections ni refaire une dé
   expect(screen.getByRole("combobox", { name: /Stockage/ })).toHaveProperty("value", "");
   await waitFor(() => {
     const saved = JSON.parse(localStorage.getItem(`kuberweaver.draft.${user.id}`)!);
-    expect(saved.nodes[0].config).toEqual({ ...original, connection_id: other.id });
+    expect(saved.nodes[0].config).toEqual({ connection_id: other.id, datastore_id: "", network_ids: [], resource_pool_id: "" });
   });
   expect(fetcher.mock.calls.filter(([path]) => path !== "/api/blueprints").map(([path]) => path)).toEqual(["/api/connections"]);
 });

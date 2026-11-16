@@ -1,11 +1,10 @@
 # Extension SDK (protocol v1)
 
-KuberWeaver borrows the **small host + explicit provider registries + lifecycle
-hooks + separately installed packages** approach from [Nous Hermes's plugin
-architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/).
-This is a KuberWeaver protocol, **not Hermes-native API compatibility**. It imports
-no Hermes modules. Product integrations belong in standalone extensions, not
-vendor-specific branches in the kernel.
+KuberWeaver uses a **small host, explicit provider registries, lifecycle hooks
+and separately installed packages**. This is KuberWeaver's own versioned
+extension protocol, not API compatibility with another agent framework.
+Product integrations belong in standalone extensions, not vendor-specific
+branches in the kernel.
 
 ## Choose the smallest extension surface
 

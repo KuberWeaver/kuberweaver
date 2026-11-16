@@ -1,0 +1,8 @@
+id: esxi-ovf
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Opt-in create-only Ubuntu OVA import using saved OpenTofu plans and native OVF Tool SHA256 pinning.
+capabilities:
+  - providers:execution
+  - data:read-write

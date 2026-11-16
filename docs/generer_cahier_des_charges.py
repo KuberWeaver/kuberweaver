@@ -16,7 +16,7 @@ PDF=SRC.with_suffix('.pdf')
 for name,filename in [('Regular','DejaVuSans.ttf'),('Bold','DejaVuSans-Bold.ttf')]:
     pdfmetrics.registerFont(TTFont(name,'/usr/share/fonts/truetype/dejavu/'+filename))
 styles={
- 'body':ParagraphStyle('body',fontName='Regular',fontSize=10,leading=14,spaceAfter=7,textColor=HexColor('#172C40')),
+ 'body':ParagraphStyle('body',fontName='Regular',fontSize=9.5,leading=13,spaceAfter=6,textColor=HexColor('#172C40')),
  'h1':ParagraphStyle('h1',fontName='Bold',fontSize=22,leading=27,spaceAfter=10,textColor=HexColor('#172C40')),
  'h2':ParagraphStyle('h2',fontName='Bold',fontSize=17,leading=22,spaceAfter=12,textColor=HexColor('#087F82'),keepWithNext=True),
  'h3':ParagraphStyle('h3',fontName='Bold',fontSize=11,leading=15,spaceBefore=7,spaceAfter=5,textColor=HexColor('#172C40'),keepWithNext=True),
@@ -59,7 +59,7 @@ while i<len(lines):
         continue
     if line.startswith('### '):
         heading=line[4:]
-        small=heading=='Repères et sources'
+        small=heading=='Terms and references'
         story.append(para(heading,'h3'));i+=1;continue
     if line.startswith('## '): story.append(para(line[3:],'h2'));i+=1;continue
     if line.startswith('# '): story.append(para(line[2:],'h1'));i+=1;continue
@@ -68,17 +68,17 @@ while i<len(lines):
     paragraph=[line];i+=1
     while i<len(lines) and lines[i].strip() and not lines[i].startswith(('#','|','<!--','- ')) and not re.match(r'^\d+\. ',lines[i]):
         paragraph.append(lines[i].strip());i+=1
-    story.append(para(' '.join(paragraph),'small' if small or line.startswith(('Version 2.0','Proposition à valider')) else 'body'))
+    story.append(para(' '.join(paragraph),'small' if small or line.startswith(('Version 2.0','Proposal subject to approval')) else 'body'))
 
 def footer(c,doc):
     w,h=doc.pagesize
     c.setFillColor(HexColor('#087F82')); c.rect(0,h-7,w,7,fill=1,stroke=0)
     c.setStrokeColor(HexColor('#DCE4E9')); c.line(48,42,w-48,42)
     c.setFillColor(HexColor('#526577')); c.setFont('Regular',7)
-    c.drawString(48,28,'KuberWeaver · Cahier des charges v2.0 · EFREI Paris · Proposition à valider')
+    c.drawString(48,28,'KuberWeaver · Requirements v2.0 · EFREI Paris · Proposal subject to approval')
     c.drawRightString(w-48,28,str(doc.page))
 
-doc=SimpleDocTemplate(str(PDF),pagesize=(595.276,841.89),leftMargin=48,rightMargin=48,topMargin=32,bottomMargin=56,title='KuberWeaver, cahier des charges',author='Équipe projet, rédaction assistée par IA')
+doc=SimpleDocTemplate(str(PDF),pagesize=(595.276,841.89),leftMargin=48,rightMargin=48,topMargin=32,bottomMargin=56,title='KuberWeaver requirements',author='Project team, AI-assisted writing')
 doc.build(story,onFirstPage=footer,onLaterPages=footer)
 pdf=pymupdf.open(PDF)
 expected=set(range(1,25))

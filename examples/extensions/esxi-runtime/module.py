@@ -32,9 +32,10 @@ def _text(value):
 
 
 def _integer(value, minimum=0):
-    if type(value) is not int or value < minimum:
+    # The SOAP deserializer returns VmomiSupport.long (an int subclass).
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise _InvalidInventory
-    return value
+    return int(value)
 
 
 def _vm(entity):
