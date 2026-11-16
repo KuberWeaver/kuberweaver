@@ -1,0 +1,8 @@
+id: openbao-local
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Opt-in local OpenBao for new V2 connections only; no global binding change.
+capabilities:
+  - providers:secrets
+  - data:read-write

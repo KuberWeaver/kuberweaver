@@ -1,5 +1,6 @@
 """Built-in providers. Inventory is GET-only; diagnostics are deterministic rules."""
 from __future__ import annotations
+import copy
 import json
 import os
 from pathlib import Path
@@ -23,8 +24,11 @@ def resolve_provider(app, kind, name=None):
         raise HTTPException(503, 'Provider binding configuration is invalid')
     name = name if name is not None else app.state.provider_bindings[kind]
     provider = registered_provider(app.state.registry, kind, name)
-    if kind == 'execution' and hasattr(provider, 'secret_resolver'):
-        provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
+    if kind == 'execution':
+        if hasattr(provider, 'secret_resolver'):
+            provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
+        if hasattr(provider, 'connections'):
+            provider.connections = getattr(app.state, 'connections', None)
     return provider
 
 
@@ -34,7 +38,10 @@ def registered_provider(registry, kind, name):
     except KeyError:
         provider = None
     methods = CONSUMER_METHODS[kind]
-    arity = {'read': 0, 'execute': 2, 'rollback': 2, 'send': 1, 'resolve': 1}
+    if kind == 'execution' and getattr(provider, 'requires_saved_plan', False):
+        methods += ('prepare_plan', 'validate_plan')
+    arity = {'read': 0, 'execute': 2, 'rollback': 2, 'send': 1, 'resolve': 1,
+             'prepare_plan': 2, 'validate_plan': 1}
     try:
         if provider is None:
             raise TypeError('No implementation')
@@ -48,8 +55,11 @@ def registered_provider(registry, kind, name):
     return provider
 
 
-def provider_provenance(app, kind, name):
-    provider = registered_provider(app.state.registry, kind, name)
+def provider_provenance(app, kind, name, *, provider=None):
+    # Domain consumers may supply an already validated object without adding
+    # their provider family to the closed global binding configuration.
+    if provider is None:
+        provider = registered_provider(app.state.registry, kind, name)
     # Pin the actual class hierarchy as well as its extension package: an
     # entrypoint may merely import a provider implemented elsewhere.
     paths = [Path(inspect.getfile(cls)).resolve()
@@ -97,6 +107,16 @@ def execution_credential_binding(app):
         return credential_configuration_fingerprint(app.state.state_dir, TARGETS, selected)
     except Exception:
         raise HTTPException(503, 'Execution credential configuration or selected source unavailable') from None
+
+
+def graph_execution_name(app, graph):
+    """Only the trusted top-level manifest field selects registry execution."""
+    manifests = app.state.catalog.discover()
+    names = {manifests[node['plugin_id']].get('execution_provider', app.state.provider_bindings['execution'])
+             for node in graph['nodes']}
+    if len(names) != 1:
+        raise HTTPException(422, 'A job must use one execution provider')
+    return names.pop()
 
 
 def execution_binding(app, name=None):
@@ -241,17 +261,70 @@ OPTIONAL = [
 ]
 
 
+class ExecutionTrustError(RuntimeError):
+    """A dependency changed; remote state may need manual review."""
+
+
+def check_execution_pins(app, job, prefix='approved'):
+    """Check initial preparation or approved provenance without remote calls."""
+    from .jobs import digest
+    pinned = job[prefix + '_execution_provider']
+    if execution_binding(app, pinned['name']) != pinned:
+        raise RuntimeError('Execution source changed')
+    if job.get(prefix + '_credentials') != execution_credential_binding(app):
+        raise RuntimeError('Execution credential mapping changed')
+    if digest(job['graph']) != job.get(prefix + '_graph_hash'):
+        raise RuntimeError('Execution graph changed')
+    manifests = app.state.catalog.discover()
+    identities = {node['plugin_id'] for node in job['graph']['nodes']}
+    for suffix, fingerprint in (('_manifest_hashes', lambda identity: digest(manifests[identity])),
+                                ('_source_hashes', app.state.catalog.fingerprint)):
+        expected = job.get(prefix + suffix, {})
+        if set(expected) != identities or any(fingerprint(identity) != value for identity, value in expected.items()):
+            raise RuntimeError('Execution plugin dependencies changed')
+
+
+def check_prepared_plan(app, provider, job, *, approved=False):
+    from .jobs import digest, safe_prepared_plan
+    if not getattr(provider, 'requires_saved_plan', False) and 'preparation_execution_provider' not in job:
+        return
+    try:
+        clean = safe_prepared_plan(job.get('prepared_plan'))
+        expected = digest(clean)
+        if clean != job['prepared_plan'] or expected != job.get('prepared_plan_hash'):
+            raise RuntimeError('Prepared plan changed')
+        if approved and expected != job.get('approved_prepared_plan'):
+            raise RuntimeError('Approved prepared plan changed')
+        if provider.validate_plan(copy.deepcopy(job)) is not None:
+            raise RuntimeError('Prepared plan validation must return None')
+    except Exception:
+        raise ExecutionTrustError('Prepared plan unavailable or changed; manual review required') from None
+
+
 def invoke_approved_execution(app, provider, operation, job, emit):
-    """Apply the same approval guards to optional and built-in executors."""
+    """Apply the same command-boundary guards to preparation and application."""
+    preparing = operation == 'prepare_plan'
+    trust_error = None
     def check():
-        pinned = job['approved_execution_provider']
-        if execution_binding(app, pinned['name']) != pinned:
-            raise RuntimeError('Approved execution source changed')
-        if job.get('approved_credentials') != execution_credential_binding(app):
-            raise RuntimeError('Approved execution credential mapping changed')
-        if any(app.state.catalog.fingerprint(identity) != expected
-               for identity, expected in job.get('approved_source_hashes', {}).items()):
-            raise RuntimeError('Approved plugin source changed')
+        nonlocal trust_error
+        try:
+            prefix = 'preparation' if preparing else 'approved'
+            # Re-read durable approval evidence too: the provider's isolated
+            # snapshot must not hide edits made between two commands.
+            with app.state.store.lock:
+                current = app.state.store.get('jobs', job['id'])
+                keys = {'id', 'status', 'graph', 'operation', 'approved_by', 'git_commit', 'requires_manual_review'}
+                keys.update(key for key in job if key.startswith(prefix + '_'))
+                if not preparing:
+                    keys.update(('prepared_plan', 'prepared_plan_hash', 'approved_prepared_plan'))
+                if not current or any(current.get(key) != job.get(key) for key in keys):
+                    raise RuntimeError('Durable execution evidence changed')
+            check_execution_pins(app, job, prefix)
+            if not preparing:
+                check_prepared_plan(app, provider, job, approved=True)
+        except Exception:
+            trust_error = ExecutionTrustError('Execution dependencies changed; manual review required')
+            raise trust_error from None
     check()
     runner = getattr(provider, 'runner', None)
     if runner is None:
@@ -261,7 +334,15 @@ def invoke_approved_execution(app, provider, operation, job, emit):
         return runner(*args, **kwargs)
     provider.runner = guarded_runner
     try:
-        return getattr(provider, operation)(job, emit)
+        result = getattr(provider, operation)(job, emit)
+        if trust_error is not None:
+            # Executors may catch a denied command while collecting restore
+            # evidence. Preserve that failure, but never lose manual review or
+            # accept a claimed success after a trust failure.
+            if not isinstance(result, dict) or result.get('status') not in {'failed', 'rollback_failed'}:
+                raise trust_error
+            result = {**result, 'requires_manual_review': True}
+        return result
     finally:
         provider.runner = runner
 
@@ -277,33 +358,10 @@ class RuntimeExecutor:
         if hasattr(implementation, 'secret_resolver'):
             implementation.secret_resolver = lambda reference: resolve_provider(self.app, 'secrets').resolve(reference)
 
-        def check_sources():
-            if job.get('approved_credentials') != execution_credential_binding(self.app):
-                raise RuntimeError('Approved execution credential mapping changed')
-            pinned = job['approved_execution_provider']
-            if (execution_binding(self.app, pinned['name']) != pinned or
-                    any(self.app.state.catalog.fingerprint(plugin_id) != fingerprint
-                        for plugin_id, fingerprint in job['approved_source_hashes'].items())):
-                raise RuntimeError('Approved execution dependencies changed; manual review required')
-
-        # The worker checks before dispatch; guard the command boundary too, so
-        # observer-time or mid-deployment drift cannot reach a later command.
-        # Restore is deliberately guarded as well: changed rollback code must not
-        # run, even if that leaves snapshots requiring manual recovery.
-        check_sources()
-        runner = getattr(implementation, 'runner', None)
-        if runner is None:
-            return getattr(implementation, operation)(job, emit)
-
-        def approved_runner(*args, **kwargs):
-            check_sources()
-            return runner(*args, **kwargs)
-
-        implementation.runner = approved_runner
-        try:
-            return getattr(implementation, operation)(job, emit)
-        finally:
-            implementation.runner = runner
+        # Guard the delegated command boundary with the same durable approval,
+        # graph and dependency checks as directly registered providers, including
+        # restore. The registry wrapper itself has no runner to intercept.
+        return invoke_approved_execution(self.app, implementation, operation, job, emit)
 
     def execute(self, job, emit):
         return self._invoke('execute', job, emit)

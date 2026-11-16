@@ -1,13 +1,13 @@
 [Unit]
 Description=KuberWeaver local infrastructure prototype
-After=network-online.target kuberweaver-bao-tunnel.service
-Wants=kuberweaver-bao-tunnel.service
+After=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver
 Environment=PYTHONPATH=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver/backend
 Environment=TMPDIR=/home/ubu/.hermes/cache/scratch
+Environment=KUBERWEAVER_DATABASE_URL_FILE=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver/data/config/database-url
 ExecStart=/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver/.venv/bin/uvicorn kuberweaver.app:app --host 127.0.0.1 --port 8088
 Restart=on-failure
 RestartSec=3

@@ -1,7 +1,7 @@
 # KuberWeaver MCP: external agents, platform controls
 
 This optional **stdio MCP server** lets an external agent pilot KuberWeaver using
-29 typed domain tools. It is not an embedded diagnostic model. The agent's own
+35 typed domain tools. It is not an embedded diagnostic model. The agent's own
 model and MCP host are outside KuberWeaver; the adapter makes authenticated HTTP
 calls to the existing API. No Hermes configuration is installed or changed.
 
@@ -71,7 +71,7 @@ passing a tool parameter. Human-only token management is intentionally absent.
 Every read tool has `readOnlyHint=true`, `destructiveHint=false`,
 `idempotentHint=true`. Every action has `readOnlyHint=false` and
 `idempotentHint=false` (no automatic mutation retry). Conservatively, all actions
-except plan validation have `destructiveHint=true`, including blueprint storage,
+except plan validation and read-only connection discovery have `destructiveHint=true`, including blueprint storage,
 configuration, potentially billable diagnostics and external delivery. Tools also
 publish `_meta` keys `kuberweaver/access` (`read`/`write`) and
 `kuberweaver/dangerous` (boolean). These are host hints, not authorization gates.
@@ -81,6 +81,9 @@ publish `_meta` keys `kuberweaver/access` (`read`/`write`) and
 | `list_plugins` | `read:catalog` or broad `read` | viewer |
 | `get_overview` | `read:overview` or broad `read`, includes recent jobs and costs | viewer |
 | `get_topology` | `read:infrastructure` or broad `read` | viewer |
+| `list_connection_drivers`, `list_connections`, `get_connection` | `read:infrastructure` or broad `read`; cached metadata only | viewer |
+| `discover_connection` | `read:infrastructure` or broad `read`; explicit remote observation | operator |
+| `create_connection`, `update_connection` | `configure`; references and restricted endpoint configuration only | admin |
 | `get_settings` | `read:settings` or broad `read` | viewer |
 | `get_finops` | `read:finops` or broad `read` | viewer |
 | `get_diagnostics_cache` | `read:diagnostics` or broad `read` | viewer |
@@ -118,7 +121,7 @@ its schema; platform validation, unsafe-field checks and admission still apply.
   `get_notification_deliveries` reads the API's safe delivery records; it never
   requests webhook payloads, private destinations or credentials. An older API
   without that optional inspection route returns a sanitized 404.
-* `get_job`, `get_blueprint`, `approve_job`, `reject_job`, `rollback_job`:
+* `get_job`, `get_blueprint`, `get_connection`, `discover_connection`, `approve_job`, `reject_job`, `rollback_job`:
   `{"identity": "<32 lowercase hexadecimal characters>"}`.
 * `validate_plan`, `submit_job`: `{"graph": <Graph>}`.
 * `save_blueprint`: `{"name": "Blueprint name", "graph": <Graph>}`.
@@ -131,6 +134,14 @@ its schema; platform validation, unsafe-field checks and admission still apply.
 * `enable_extension`: `{"identity": "installed-extension", "trusted": true}`.
   Explicit literal `true` is required: enabling trusted Python code is dangerous.
 * `disable_extension`: `{"identity": "installed-extension"}`.
+* `create_connection`: `{"connection": <ConnectionSpec>}`. The closed definition
+  includes `label`, registered `driver`, restricted HTTPS `endpoint`, logical
+  `secret_ref`, registered `secrets_provider`, optional `tls_sha256`, and `enabled`.
+  No password or arbitrary connection configuration is accepted.
+* `update_connection`: `{"identity": "<32 lowercase hexadecimal characters>",
+  "patch": {"revision": 1, "enabled": false}}`. Only supplied fields are patched;
+  the exact current revision is required. Credential ingestion remains a human-only
+  API workflow and is intentionally absent from MCP.
 * `issue_chatops_action`: `{"job_id": "<32 lowercase hexadecimal characters>",
   "decision": "approve"}` (or `"reject"`). This issues the existing bounded
   action descriptor; it does not forge a callback signature or bypass approval.
@@ -216,7 +227,7 @@ asyncio.run(main())
 Tests include a real SDK `ClientSession` talking over stdio to a separate adapter
 process and an isolated real KuberWeaver **Uvicorn subprocess**, with temporary
 state/plugin directories. A human session issues a scoped bearer through the real
-API. The protocol discovers 29 tools, reads the catalogue, validates a graph,
+API. The protocol discovers 35 tools, reads the catalogue, validates a graph,
 persists and reads back a blueprint, submits a production job, observes pending
 approval, receives 403 on approval without `approve` scope, verifies no state
 transition, and observes 401 after human revocation in the same MCP session.

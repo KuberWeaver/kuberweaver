@@ -1,0 +1,49 @@
+id: vsphere-vm
+name: vSphere VM (blank disk, stopped contract)
+version: 1.0.0
+description: Opt-in create-only prototype. No OS; blocked until strict PKI and a reviewed stopped-create provider contract are available. Not ESXi-certified.
+category: compute
+icon: server
+price_monthly: 0
+capability: planned
+engine: opentofu
+execution_provider: vsphere-provisioner
+admission_profile: virtual-machine
+executor: vsphere-saved-plan-v1
+schema:
+  type: object
+  additionalProperties: false
+  required: [connection_id, vm_name, datastore_id, network_ids, resource_pool_id]
+  properties:
+    connection_id:
+      type: string
+      x-options-source: connections
+      pattern: '^[0-9a-f]{32}$'
+    vm_name:
+      type: string
+      pattern: '^[a-z][a-z0-9-]{0,39}$'
+    datastore_id:
+      type: string
+      x-options-source: datastores
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
+    network_ids:
+      type: array
+      minItems: 1
+      maxItems: 4
+      uniqueItems: true
+      items:
+        type: string
+        x-options-source: networks
+        pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
+    resource_pool_id:
+      type: string
+      x-options-source: resource_pools
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
+    cpu: {type: integer, minimum: 1, maximum: 8, default: 1}
+    memory_mb: {type: integer, minimum: 128, maximum: 16384, default: 128}
+    disk_gb: {type: integer, minimum: 1, maximum: 100, default: 1}
+    guest_id: {type: string, enum: [otherLinux64Guest], default: otherLinux64Guest}
+defaults: {cpu: 1, memory_mb: 128, disk_gb: 1, guest_id: otherLinux64Guest}
+resources: {cpu: 1, memory_mb: 128, disk_gb: 1}
+security: {status: local_checks, checks: []}
+iac: {template: main.tf}

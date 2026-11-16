@@ -114,6 +114,16 @@ def install_agent_tokens(app):
 def required_scope(method, path):
     if method == 'GET' and path == '/api/auth/me':
         return ''
+    # Connection configuration never grants secret ingestion to machine clients.
+    connection = r'/api/connections/[0-9a-f]{32}'
+    if method == 'GET' and (path in {'/api/connections', '/api/connection-drivers'}
+                            or re.fullmatch(connection, path)):
+        return 'read:infrastructure'
+    if (method == 'POST' and path == '/api/connections') or (
+            method == 'PATCH' and re.fullmatch(connection, path)):
+        return 'configure'
+    if method == 'POST' and re.fullmatch(connection + r'/(test|discover)', path):
+        return 'read:infrastructure'
     if method == 'GET':
         reads = {
             '/api/jobs': 'read:jobs', '/api/plugins': 'read:catalog', '/openapi.json': 'read:catalog',

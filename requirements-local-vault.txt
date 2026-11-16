@@ -1,0 +1,2 @@
+# Optional local-vault provider only; no service or Docker requirement.
+cryptography==50.0.2

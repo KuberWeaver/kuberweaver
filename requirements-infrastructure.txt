@@ -1,0 +1,2 @@
+# Optional read-only hypervisor extension; not a kernel dependency.
+pyvmomi==9.1.1.0
