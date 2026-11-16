@@ -11,6 +11,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [Execution](docs/EXECUTION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts and operating limits.
 - [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
 - [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
+- [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.
 - [Architecture direction](docs/ARCHITECTURE_CIBLE.md) and [requirements](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md): distinguish design proposals from delivered capabilities. Historical framing documents and generated presentations are not current capability evidence.
 
 The repository contains source, tests, manifests, scripts and public documentation. Credentials, local accounts, runtime state, snapshots, IaC state and installed dependencies are excluded. A clone does not recreate existing lab VMs, system images or SSH access. Adapt systemd paths and target access to your installation.

@@ -1,13 +1,21 @@
 {
-  "iteration": 1,
+  "iteration": 2,
   "started_at": "2026-11-17T00:00:00",
+  "updated_at": "2026-11-17T00:20:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
     "track": "feat/production-track",
-    "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only"
+    "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
   },
-  "known_failures": [],
+  "known_failures": [
+    {
+      "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
+      "detail": "PATCH /api/providers returns 409 instead of 200 after the job reported succeeded: queue_busy() still sees a non-terminal job status. Intermittent, 1 failure in 3 identical runs, unrelated to the current task.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned"
+    }
+  ],
   "tasks": [
     {
       "id": "A1",
@@ -23,9 +31,9 @@
       "title": "Branch and release policy",
       "detail": "Document main/develop/feat flow in CONTRIBUTING.md, add CHANGELOG.md with an Unreleased section, add a release script that tags from develop.",
       "acceptance": "CONTRIBUTING.md describes the flow, CHANGELOG exists, release script tested in dry-run.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "CONTRIBUTING.md, CHANGELOG.md with Unreleased, scripts/release.py (dry-run, refusals) covered by 17 tests in tests/test_release_script.py"
     },
     {
       "id": "A3",
