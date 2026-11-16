@@ -1,4 +1,4 @@
-"""Read-only, explicitly scoped credential providers. No DB, logging or cache."""
+"""Explicitly scoped credential providers, with opt-in verified vault writes."""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -117,7 +117,8 @@ class OpenBaoProvider:
 
     def __init__(self, endpoint: str, approved: Mapping[str, str], *, mount: str = "secret",
                  token_file: str | Path | None = None, token_env: str | None = None,
-                 allow_loopback_http: bool = False, timeout: float = 5.0):
+                 allow_loopback_http: bool = False, timeout: float = 5.0,
+                 namespace: str | None = None, allow_write: bool = False):
         import ipaddress
         import ssl
         from urllib.parse import urlsplit
@@ -144,6 +145,12 @@ class OpenBaoProvider:
         self._approved = {_name(name): _name(path) for name, path in approved.items()}
         if any(not path.startswith("kuberweaver/") for path in self._approved.values()):
             raise SecretError("OpenBao references must stay in the kuberweaver scope")
+        self._namespace = _name(namespace) if namespace is not None else None
+        if self._namespace is not None and not self._namespace.startswith('kuberweaver/'):
+            raise SecretError('OpenBao namespace must stay in the kuberweaver scope')
+        if type(allow_write) is not bool:
+            raise SecretError('Explicit boolean required for OpenBao write permission')
+        self._allow_write = allow_write
         self._mount = _name(mount)
         if "/" in self._mount:
             raise SecretError("OpenBao mount must be a single name")
@@ -162,18 +169,57 @@ class OpenBaoProvider:
                                     HTTPSHandler(context=ssl.create_default_context()))
 
     def describe(self) -> dict:
-        return {"provider": "openbao-kvv2", "capabilities": ["read"],
+        return {"provider": "openbao-kvv2", "capabilities": ["read", "store"] if self._allow_write else ["read"],
                 "approved_names": sorted(self._approved), "persistent_secret_cache": False,
-                "transport": self._transport}
+                "transport": self._transport, "can_store": self._allow_write,
+                "namespaced_references": self._namespace is not None}
+
+    def _path(self, name: str) -> str:
+        _name(name)
+        if name in self._approved:
+            return self._approved[name]
+        if self._namespace is not None:
+            return _name(self._namespace + '/' + name)
+        raise SecretError('secret name is not approved')
+
+    def store(self, name: str, value: SecretValue) -> None:
+        """Opt-in KV write and exact readback; no secret value is returned."""
+        import hmac
+        import json
+        from urllib.request import Request
+
+        if not self._allow_write:
+            raise SecretError('OpenBao source is read-only')
+        path = self._path(name)
+        try:
+            raw = value.bytes()
+            # Reserve room for JSON escaping (up to six bytes per input byte)
+            # and the KV v2 metadata within resolve()'s bounded response.
+            if not raw or len(raw) > 128 * 1024:
+                raise ValueError
+            raw_token = (_protected_read(self._token_file, 16384) if self._token_file is not None
+                         else os.environ.get(self._token_env or '', '').encode())
+            token = raw_token.decode('ascii').strip()
+            if not token or not re.fullmatch(r'[A-Za-z0-9._-]+', token):
+                raise ValueError
+            request = Request(f'{self._endpoint}/v1/{self._mount}/data/{path}',
+                data=json.dumps({'data': {'value': raw.decode('utf-8')}}).encode(),
+                headers={'X-Vault-Token': token, 'Content-Type': 'application/json'}, method='POST')
+            with self._opener.open(request, timeout=self._timeout) as response:
+                if response.status not in (200, 204):
+                    raise ValueError
+            with self.resolve(name) as readback:
+                if not hmac.compare_digest(raw, readback.bytes()):
+                    raise ValueError
+        except Exception:
+            raise SecretError('OpenBao write or verification failed; inspect vault state before retry') from None
 
     @contextmanager
     def resolve(self, name: str) -> Iterator[SecretValue]:
         import json
         from urllib.request import Request
 
-        _name(name)
-        if name not in self._approved:
-            raise SecretError("secret name is not approved")
+        path = self._path(name)
         secret = None
         try:
             raw_token = (_protected_read(self._token_file, 16384) if self._token_file is not None
@@ -182,7 +228,7 @@ class OpenBaoProvider:
             if not token or not re.fullmatch(r"[A-Za-z0-9._-]+", token):
                 raise ValueError
             request = Request(
-                f"{self._endpoint}/v1/{self._mount}/data/{self._approved[name]}",
+                f"{self._endpoint}/v1/{self._mount}/data/{path}",
                 headers={"X-Vault-Token": token, "Accept": "application/json"}, method="GET")
             with self._opener.open(request, timeout=self._timeout) as response:
                 raw = response.read(1024 * 1024 + 1)

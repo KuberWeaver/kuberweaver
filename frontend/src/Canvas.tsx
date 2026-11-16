@@ -39,7 +39,7 @@ import {
   sortPlugins,
 } from "./model";
 import { api } from "./api";
-import { SchemaFields } from "./SchemaFields";
+import { DiscoverySchemaFields } from "./DiscoverySchemaFields";
 import {
   Badge,
   ErrorNotice,
@@ -670,7 +670,7 @@ export function Canvas({
               />
             </div>
             {chosenPlugin && (
-              <SchemaFields
+              <DiscoverySchemaFields
                 schema={chosenPlugin.schema}
                 value={chosen.config}
                 onChange={(config) => updateNode({ config })}

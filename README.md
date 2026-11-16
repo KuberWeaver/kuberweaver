@@ -3,7 +3,9 @@
 ## Documents du projet
 
 - [Note de cadrage, deux pages avec infographie](docs/note-cadrage/KuberWeaver_note_de_cadrage.pdf), avec [version texte](docs/note-cadrage/KuberWeaver_note_de_cadrage.txt).
-- [Architecture cible et gestion des plugins](docs/ARCHITECTURE_CIBLE.md), propositions pour PostgreSQL, le cycle de vie des services et le catalogue, distinctes des fonctions déjà livrées.
+- [Architecture cible et gestion des plugins](docs/ARCHITECTURE_CIBLE.md), propositions pour le cycle de vie des services et le catalogue ; le stockage PostgreSQL est désormais livré séparément.
+- [Connexions hyperviseur V2](docs/V2_HYPERVISORS.md), modules, références de secrets, confiance TLS et limites de la recette ESXi. Les correctifs Worker sont validés et le portail local a redémarré ; les limites de création ESXi restent explicites.
+- [PostgreSQL](docs/POSTGRESQL.md), stockage principal et notifications sur serveur réel, migration vérifiée et sauvegarde SQLite conservée. L’instance locale utilise PostgreSQL sans repli silencieux. Le coffre local Fernet est optionnel ; OpenBao reste interchangeable.
 
 - [Cahier des charges simplifié](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md), également disponible en [PDF](docs/CAHIER_DES_CHARGES_KUBERWEAVER.pdf), avec périmètre, tests d’acceptation et répartition de l’équipe EFREI Paris.
 - [Cadrage original](docs/cadrage-original/), vision initiale et infographie, à distinguer des fonctions effectivement livrées.
@@ -42,7 +44,7 @@ Pour une lecture strictement financière, sélectionner `read:finops` sans ajout
 .venv/bin/python scripts/mcp_server.py --base-url http://127.0.0.1:8088 --token-file /chemin/prive/agent.token
 ```
 
-Le serveur stdio expose 29 outils métier typés, pas de commande système libre, d'URL arbitraire ou d'accès direct aux secrets. Aucun jeton n'est émis automatiquement et aucun MCP n'est ajouté automatiquement à Hermes. Voir `docs/MCP.md` pour installer son SDK et configurer un client.
+Le serveur stdio expose 35 outils métier typés, pas de commande système libre, d'URL arbitraire ou d'accès direct aux secrets. Aucun jeton n'est émis automatiquement et aucun MCP n'est ajouté automatiquement à Hermes. Voir `docs/MCP.md` pour installer son SDK et configurer un client.
 
 ## Parcours de démonstration
 
@@ -116,7 +118,7 @@ Les hooks canoniques sont `before_plan`, `after_approval`, `job_started` et `job
 | Identifiants d'exécution | Injection éphémère depuis le fournisseur de secrets sélectionné, isolation et nettoyage testés ; aucun secret de déploiement réel reconfiguré |
 | OpenTofu, cloud, nouvelles VMs | Adaptateur plan/application/suppression gardé désactivé ; SSH actuel refusé par les contrôles de confiance ; aucune création/suppression de VM validée |
 | Redis persistant | Cycle spécifique et restauration testés, manifeste planned et extension désactivée ; aucune validation distante |
-| API et MCP pour agents externes | Jetons par rôle et scopes, expiration/révocation, 29 outils ; protocole stdio et API réelle isolée exercés |
+| API et MCP pour agents externes | Jetons par rôle et scopes, expiration/révocation, 35 outils ; protocole stdio et API réelle isolée exercés |
 | Supervision applicative | Métriques et snapshot read-only raccordés ; règles Prometheus et dashboard Grafana validés, stack non déployée |
 | Stack front/back, Cisco IOS, pfSense | Entrées prévues, désactivées faute d'adaptateurs/cibles validés |
 | Marketplace communautaire, paiements, signatures, isolation de code tiers | Hors périmètre de cette version |
@@ -125,7 +127,7 @@ Les hooks canoniques sont `before_plan`, `after_approval`, `job_started` et `job
 
 ## Données et secrets
 
-`data/` est privé et exclu du dépôt. Il contient SQLite, les jobs, snapshots, journaux, plans GitOps, activation et données durables des extensions, ainsi que les fichiers de bootstrap. Ne jamais publier le dossier du projet en bloc sans revue des secrets.
+`data/` est privé et exclu du dépôt. Il contient la configuration PostgreSQL, la source SQLite conservée, snapshots, journaux, plans GitOps, activations et données durables des extensions, dont la clé du coffre local et les fichiers de bootstrap. Les données applicatives courantes sont dans le volume PostgreSQL dédié `kw-postgresql-v2-data` : sauvegarder uniquement `data/` ne suffit plus. Conserver une sauvegarde PostgreSQL et sauvegarder ensemble la clé et les fichiers du coffre, en privé. Ne jamais publier le dossier du projet en bloc sans revue des secrets.
 
 OpenBao tourne dans le conteneur `kw-openbao` sur `infra-operations`, avec stockage Raft chiffré persistant. Son HTTP est lié à `127.0.0.1:18200` dans l'invité et atteint par tunnel SSH local. Cela ne constitue pas du TLS de bout en bout. Le redémarrage du conteneur nécessite un unseal, et le token applicatif a une durée de vie limitée. Les parts de récupération et le root token restent dans un fichier opérateur privé pour le lab, pas sous séparation de responsabilités de production.
 

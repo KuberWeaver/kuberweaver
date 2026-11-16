@@ -3,14 +3,18 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import queue
+import re
 import secrets
 import subprocess
 import threading
 from pathlib import Path
 from fastapi import HTTPException
 from .storage import now
-from .providers import resolve_provider, execution_binding, execution_credential_binding, invoke_approved_execution
+from .providers import (resolve_provider, execution_binding, execution_credential_binding,
+                        invoke_approved_execution, graph_execution_name,
+                        check_execution_pins, check_prepared_plan, ExecutionTrustError)
 from .gitops import publish as publish_remote
 
 TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}
@@ -18,6 +22,51 @@ TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+def safe_prepared_plan(value):
+    """Persist only the bounded public plan contract, never provider raw output."""
+    if not isinstance(value, dict):
+        raise ValueError('Invalid prepared plan')
+    clean = {key: value[key] for key in ('plan_digest', 'actions', 'summary', 'bindings')}
+    if (not isinstance(clean['plan_digest'], str) or not 1 <= len(clean['plan_digest']) <= 128
+            or not isinstance(clean['actions'], (dict, list))
+            or not isinstance(clean['summary'], dict) or not isinstance(clean['bindings'], dict)):
+        raise ValueError('Invalid prepared plan')
+    forbidden = {'password', 'passwd', 'token', 'private_key', 'api_key', 'secret',
+                 'raw', 'raw_output', 'stdout', 'stderr', 'planned_values', 'prior_state',
+                 'resource_changes', 'configuration', 'variables'}
+    def check(item, depth=0):
+        if depth > 8:
+            raise ValueError('Prepared plan summary too deep')
+        if type(item) is dict:
+            if len(item) > 256:
+                raise ValueError('Prepared plan summary too large')
+            for key, child in item.items():
+                if not isinstance(key, str) or len(key) > 80:
+                    raise ValueError('Invalid prepared plan key')
+                normalized = key.lower().replace('-', '_')
+                if normalized in forbidden or normalized.endswith(('_password', '_passwd', '_token', '_private_key', '_api_key', '_secret')):
+                    raise ValueError('Prepared plan contains private provider evidence')
+                check(child, depth + 1)
+        elif type(item) is list:
+            if len(item) > 256:
+                raise ValueError('Prepared plan summary too large')
+            for child in item:
+                check(child, depth + 1)
+        elif type(item) is str:
+            if (len(item) > 1024 or 'PRIVATE KEY-----' in item
+                    or re.search(r'://[^/\s]+@', item)):
+                raise ValueError('Prepared plan contains private or oversized evidence')
+        elif item is not None and type(item) not in (bool, int, float):
+            raise ValueError('Prepared plan must contain JSON values only')
+        elif type(item) is float and not math.isfinite(item):
+            raise ValueError('Prepared plan must contain finite values')
+    check(clean)
+    encoded = json.dumps(clean, sort_keys=True, separators=(',', ':'), allow_nan=False)
+    if len(encoded.encode()) > 65536:
+        raise ValueError('Prepared plan summary too large')
+    return json.loads(encoded)
 
 
 class Jobs:
@@ -39,6 +88,8 @@ class Jobs:
         try:
             pinned = job['approved_execution_provider']
             if execution_binding(self.app, pinned['name']) != pinned:
+                return False
+            if getattr(resolve_provider(self.app, 'execution', pinned['name']), 'supports_rollback', True) is False:
                 return False
         except (HTTPException, KeyError, TypeError):
             return False
@@ -114,7 +165,16 @@ class Jobs:
         report = self.admission.validate(graph, actor_role)
         if not report['allowed']:
             raise HTTPException(422, report)
+        graph_execution_name(self.app, graph)
         return report
+
+    def pin_execution(self, job, prefix):
+        manifests = self.catalog.discover()
+        job[prefix + '_execution_provider'] = execution_binding(self.app, graph_execution_name(self.app, job['graph']))
+        job[prefix + '_credentials'] = execution_credential_binding(self.app)
+        job[prefix + '_graph_hash'] = digest(job['graph'])
+        job[prefix + '_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
+        job[prefix + '_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
 
     def create(self, graph, actor):
         with self.store.lock:
@@ -127,9 +187,21 @@ class Jobs:
                    'environment': graph['environment'], 'graph': graph, 'cost': report['cost'],
                    'git_commit': None, 'events': [], 'result': None, 'approved_by': None,
                    'error': None, 'requires_manual_review': False, 'operation': 'execute'}
+            # Legacy graphs remain submittable even if their global provider is
+            # unavailable; approval still fails closed, as before.
+            try:
+                provider = resolve_provider(self.app, 'execution', graph_execution_name(self.app, graph))
+            except HTTPException:
+                provider = None
+            if provider is not None and getattr(provider, 'requires_saved_plan', False):
+                self.pin_execution(job, 'preparation')
+                job.update(status='queued', operation='prepare')
             self.store.put('jobs', job['id'], job)
-            self.emit(job['id'], 'approval', 'info', 'Awaiting explicit administrator approval')
+            self.emit(job['id'], 'preparation' if job['operation'] == 'prepare' else 'approval', 'info',
+                      'Queued for serialized plan preparation' if job['operation'] == 'prepare' else 'Awaiting explicit administrator approval')
             self.store.audit(actor['username'], 'job.submitted', job['id'])
+            if job['operation'] == 'prepare':
+                self.app.state.worker.enqueue(job['id'])
             return self.get(job['id'])
 
     def git_commit(self, job):
@@ -144,6 +216,8 @@ class Jobs:
         folder.mkdir(mode=0o700, exist_ok=True)
         filename = folder / (job['id'] + '.json')
         artifact = {'id': job['id'], 'graph': job['graph'], 'cost': job['cost'], 'approved_by': job['approved_by'], 'approved_at': job['approved_at']}
+        if 'prepared_plan' in job:
+            artifact.update(prepared_plan=job['prepared_plan'], approved_prepared_plan=job['approved_prepared_plan'])
         filename.write_text(json.dumps(artifact, indent=2, sort_keys=True) + '\n')
         filename.chmod(0o600)
         git('add', '--', 'jobs/' + filename.name)
@@ -173,14 +247,31 @@ class Jobs:
             report = self.check(job['graph'], job.get('created_by_role', 'operator'))
             policy_hash = digest(self.admission.settings())
             remote_policy_hash = publication_policy_hash()
-            job['approved_execution_provider'] = execution_binding(self.app)
-            job['approved_credentials'] = execution_credential_binding(self.app)
+            provider = resolve_provider(self.app, 'execution', graph_execution_name(self.app, job['graph']))
+            prepared = getattr(provider, 'requires_saved_plan', False) or 'preparation_execution_provider' in job
+            if prepared:
+                try:
+                    if job['preparation_execution_provider']['name'] != graph_execution_name(self.app, job['graph']):
+                        raise ValueError('Prepared execution selection changed')
+                    check_execution_pins(self.app, job, 'preparation')
+                    check_prepared_plan(self.app, provider, job)
+                except Exception:
+                    raise HTTPException(409, 'Prepared plan missing, invalid or changed; submit a new job') from None
+                job['approved_prepared_plan'] = digest(job['prepared_plan'])
+                # Approval adopts the original plan's pins, never a fresh
+                # fingerprint that could bless drift after initial validation.
+                for suffix in ('execution_provider', 'credentials', 'graph_hash', 'manifest_hashes', 'source_hashes'):
+                    job['approved_' + suffix] = copy.deepcopy(job['preparation_' + suffix])
+            else:
+                job['approved_execution_provider'] = execution_binding(self.app, graph_execution_name(self.app, job['graph']))
+                job['approved_credentials'] = execution_credential_binding(self.app)
+                job['approved_graph_hash'] = digest(job['graph'])
+                manifests = self.catalog.discover()
+                job['approved_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
             job.update(approved_by=actor['username'], approved_at=now(), cost=report['cost'])
-            job['approved_graph_hash'] = digest(job['graph'])
-            manifests = self.catalog.discover()
-            job['approved_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
             try:
-                job['approved_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
+                if not prepared:
+                    job['approved_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
                 job['git_commit'] = self.git_commit(job)
             except Exception:
                 self.store.audit(actor['username'], 'job.gitops_failed', identity)
@@ -226,12 +317,13 @@ class Jobs:
                 job = self.get(identity)
             try:
                 manifests = self.catalog.discover()
+                check_prepared_plan(self.app, provider, job, approved=True)
                 valid = (
                     digest(job['graph']) == job['approved_graph_hash']
                     and digest(self.admission.settings()) == policy_hash
                     and publication_policy_hash() == remote_policy_hash
                     and self.check(job['graph'], job.get('created_by_role', 'operator')) == report
-                    and execution_binding(self.app) == job['approved_execution_provider']
+                    and execution_binding(self.app, graph_execution_name(self.app, job['graph'])) == job['approved_execution_provider']
                     and execution_credential_binding(self.app) == job['approved_credentials']
                     and all(plugin_id in manifests and digest(manifests[plugin_id]) == value
                             for plugin_id, value in job['approved_manifest_hashes'].items())
@@ -295,7 +387,7 @@ class Worker:
     def recover(self):
         with self.store.lock:
             for job in self.store.list('jobs'):
-                if job['status'] in {'queued', 'running', 'rolling_back'}:
+                if job['status'] in {'queued', 'planning', 'running', 'rolling_back'}:
                     job.update(status='rollback_failed' if job.get('operation') == 'rollback' else 'failed',
                                error='Interrupted by process restart: manual review required; never automatically reapplied',
                                requires_manual_review=True)
@@ -330,8 +422,9 @@ class Worker:
             self.process(identity)
 
     def process(self, identity):
-        rollback = False
+        rollback = preparing = False
         claimed = False
+        completion = None
         try:
             with self.store.lock:
                 job = self.jobs.get(identity)
@@ -340,51 +433,85 @@ class Worker:
                 claimed = True
                 self.active_identity = identity
                 rollback = job.get('operation') == 'rollback'
-                if not job.get('approved_by') or not job.get('git_commit'):
+                preparing = job.get('operation') == 'prepare'
+                if job.get('requires_manual_review'):
+                    raise RuntimeError('Manual review required')
+                if not preparing and (not job.get('approved_by') or not job.get('git_commit')):
                     raise RuntimeError('Approval evidence missing')
-                if digest(job['graph']) != job.get('approved_graph_hash'):
-                    raise RuntimeError('Approved graph changed; manual review required')
-                manifests = self.app.state.catalog.discover()
-                if any(plugin_id not in manifests or digest(manifests[plugin_id]) != fingerprint for plugin_id, fingerprint in job.get('approved_manifest_hashes', {}).items()):
-                    raise RuntimeError('Plugin manifest changed since approval; manual review required')
-                if any(self.app.state.catalog.fingerprint(plugin_id) != fingerprint for plugin_id, fingerprint in job.get('approved_source_hashes', {}).items()):
-                    raise RuntimeError('Plugin implementation changed since approval; manual review required')
-                if job.get('approved_credentials') != execution_credential_binding(self.app):
-                    raise RuntimeError('Approved execution credential mapping changed; manual review required')
-                pinned = job.get('approved_execution_provider')
-                if not pinned or execution_binding(self.app, pinned['name']) != pinned:
-                    raise RuntimeError('Approved execution provider changed or is unavailable')
+                prefix = 'preparation' if preparing else 'approved'
+                check_execution_pins(self.app, job, prefix)
+                executor = resolve_provider(self.app, 'execution', job[prefix + '_execution_provider']['name'])
+                if not preparing:
+                    check_prepared_plan(self.app, executor, job, approved=True)
                 if not rollback:
                     self.jobs.check(job['graph'], job.get('created_by_role', 'operator'))
-                job['status'] = 'rolling_back' if rollback else 'running'
+                job['status'] = 'planning' if preparing else 'rolling_back' if rollback else 'running'
                 self.store.put('jobs', identity, job)
-            self.jobs.notify('job_started', {'job_id': identity, 'status': job['status'], 'operation': job.get('operation'), 'environment': job['environment']})
-            self.jobs.emit(identity, 'rollback' if rollback else 'execution', 'info', 'Serialized worker started')
-            executor = resolve_provider(self.app, 'execution', job['approved_execution_provider']['name'])
+            # Notifications retain their existing execute/rollback schema. A
+            # prepared plan finishes pending_approval, never deployment success.
+            operation = 'execute' if preparing else job.get('operation')
+            self.jobs.notify('job_started', {'job_id': identity, 'status': job['status'], 'operation': operation, 'environment': job['environment']})
+            self.jobs.emit(identity, 'preparation' if preparing else 'rollback' if rollback else 'execution', 'info', 'Serialized worker started')
             callback = lambda phase, level, message: self.jobs.emit(identity, phase, level, message)
-            result = invoke_approved_execution(self.app, executor, 'rollback' if rollback else 'execute', copy.deepcopy(job), callback)
-            if not isinstance(result, dict) or result.get('status') not in {'succeeded', 'failed', 'rolled_back', 'rollback_failed'}:
-                raise RuntimeError('Execution provider returned an invalid terminal result')
-            with self.store.lock:
-                job = self.jobs.get(identity)
-                job.update(status=result['status'], result=result, finished_at=now(), error=result.get('error'))
-                self.store.put('jobs', identity, job)
-                self.store.audit('system', 'job.' + result['status'], identity)
-            self.jobs.emit(identity, 'complete', 'info' if result['status'] in {'succeeded', 'rolled_back'} else 'error', 'Execution finished: ' + result['status'])
-        except Exception as exc:
+            result = invoke_approved_execution(self.app, executor, 'prepare_plan' if preparing else 'rollback' if rollback else 'execute', copy.deepcopy(job), callback)
+            if preparing:
+                check_execution_pins(self.app, job, 'preparation')
+                job['prepared_plan'] = safe_prepared_plan(result)
+                job['prepared_plan_hash'] = digest(job['prepared_plan'])
+                check_prepared_plan(self.app, executor, job)
+                with self.store.lock:
+                    current = self.jobs.get(identity)
+                    if (current['status'] != 'planning' or current['graph'] != job['graph']
+                            or any(current.get(key) != value for key, value in job.items() if key.startswith('preparation_'))):
+                        raise RuntimeError('Preparation dependencies changed')
+                    check_execution_pins(self.app, current, 'preparation')
+                    self.jobs.check(current['graph'], current.get('created_by_role', 'operator'))
+                    current.update(prepared_plan=job['prepared_plan'], prepared_plan_hash=job['prepared_plan_hash'],
+                                   status='pending_approval', operation='execute')
+                    self.store.put('jobs', identity, current)
+                    completion = {'job_id': identity, 'status': current['status'],
+                                  'operation': 'execute', 'environment': current['environment']}
+                    self.store.audit('system', 'job.prepared', identity)
+                self.jobs.emit(identity, 'approval', 'info', 'Saved plan prepared; awaiting explicit administrator approval')
+            else:
+                if not isinstance(result, dict) or result.get('status') not in {'succeeded', 'failed', 'rolled_back', 'rollback_failed'}:
+                    raise RuntimeError('Execution provider returned an invalid terminal result')
+                with self.store.lock:
+                    job = self.jobs.get(identity)
+                    job.update(status=result['status'], result=result, finished_at=now(), error=result.get('error'))
+                    job['requires_manual_review'] = job.get('requires_manual_review', False) or result.get('requires_manual_review') is True
+                    self.store.put('jobs', identity, job)
+                    completion = {'job_id': identity, 'status': job['status'],
+                                  'operation': 'rollback' if rollback else 'execute', 'environment': job['environment']}
+                    self.store.audit('system', 'job.' + result['status'], identity)
+                self.jobs.emit(identity, 'complete', 'info' if result['status'] in {'succeeded', 'rolled_back'} else 'error', 'Execution finished: ' + result['status'])
+        except (Exception, SystemExit, KeyboardInterrupt) as exc:
+            if completion is not None:
+                # Publication is final for this operation. Audit/event failures
+                # must not rewrite its completion or a concurrently queued next
+                # operation. The finally block still notifies outside the lock.
+                return
             # Never persist arbitrary upstream exception text or raw command output.
             with self.store.lock:
                 job = self.jobs.get(identity)
-                message = 'Execution denied by current admission policy' if isinstance(exc, HTTPException) else 'Execution failed; inspect private provider evidence (' + type(exc).__name__ + ')'
+                message = ('Plan preparation failed; inspect private provider evidence' if preparing else
+                           'Execution denied by current admission policy' if isinstance(exc, HTTPException) else
+                           'Execution failed; inspect private provider evidence (' + type(exc).__name__ + ')')
                 job.update(status='rollback_failed' if rollback else 'failed', error=message, finished_at=now())
+                if preparing or isinstance(exc, (ExecutionTrustError, SystemExit, KeyboardInterrupt)):
+                    job['requires_manual_review'] = True
                 self.store.put('jobs', identity, job)
+                completion = {'job_id': identity, 'status': job['status'],
+                              'operation': 'rollback' if rollback else 'execute', 'environment': job['environment']}
                 self.store.audit('system', 'job.failed', identity, {'error_type': type(exc).__name__})
             self.jobs.emit(identity, 'complete', 'error', message)
         finally:
             if claimed:
                 try:
-                    job = self.jobs.get(identity)
-                    self.jobs.notify('job_finished', {'job_id': identity, 'status': job['status'], 'operation': job.get('operation'), 'environment': job['environment']})
+                    # Freeze the operation's result under its publication lock;
+                    # approval/rollback may already have queued the next one.
+                    if completion is not None:
+                        self.jobs.notify('job_finished', completion)
                 finally:
                     with self.store.lock:
                         self.active_identity = None

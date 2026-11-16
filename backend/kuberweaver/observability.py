@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from .providers import CONSUMER_METHODS, registered_provider
 from .jobs import TERMINAL
+from .storage import StorageError
 
 STATUSES = ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded',
             'failed', 'rejected', 'rolled_back', 'rollback_failed')
@@ -45,7 +46,7 @@ def snapshot(app):
             rows = store.all('SELECT body FROM jobs')
             audit_count = store.one('SELECT count(*) AS n FROM audit')['n']
         storage_ok = True
-    except sqlite3.Error:
+    except (sqlite3.Error, StorageError):
         rows, audit_count, storage_ok = [], None, False
     with store.lock:
         counts = dict.fromkeys((*STATUSES, 'unknown'), 0)

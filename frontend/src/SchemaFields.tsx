@@ -26,6 +26,7 @@ export function SchemaFields({
                 : "");
         const update = (v: unknown) => onChange({ ...value, [key]: v });
         const required = schema.required?.includes(key);
+        const discovered = field["x-options-source"] !== undefined;
         return (
           <div className="field" key={key}>
             <label htmlFor={id}>
@@ -36,7 +37,7 @@ export function SchemaFields({
               <select
                 id={id}
                 disabled={disabled}
-                value={String(current)}
+                value={discovered && !field.enum.some((option) => String(option) === String(current)) ? "" : String(current)}
                 onChange={(e) =>
                   update(
                     field.enum!.find((v) => String(v) === e.target.value) ??
@@ -44,10 +45,10 @@ export function SchemaFields({
                   )
                 }
               >
-                {!required && <option value="">Sélectionner</option>}
-                {field.enum.map((option) => (
+                {(!required || discovered) && <option value="">Sélectionner</option>}
+                {field.enum.map((option, index) => (
                   <option key={String(option)} value={String(option)}>
-                    {String(option)}
+                    {field.enumNames?.[index] ?? String(option)}
                   </option>
                 ))}
               </select>
@@ -64,7 +65,7 @@ export function SchemaFields({
               </label>
             ) : field.type === "array" && field.items?.enum ? (
               <div className="checks">
-                {field.items.enum.map((option) => (
+                {field.items.enum.map((option, index) => (
                   <label key={String(option)}>
                     <input
                       type="checkbox"
@@ -85,7 +86,7 @@ export function SchemaFields({
                         )
                       }
                     />
-                    {String(option)}
+                    {field.items?.enumNames?.[index] ?? String(option)}
                   </label>
                 ))}
               </div>

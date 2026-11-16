@@ -1,0 +1,8 @@
+id: local-vault
+version: 1.0.0
+api_version: 1
+entrypoint: module.py
+description: Optional local Fernet credentials for new connections; no global binding.
+capabilities:
+  - providers:secrets
+  - data:read-write

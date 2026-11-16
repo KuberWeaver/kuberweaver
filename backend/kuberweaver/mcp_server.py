@@ -64,6 +64,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, JsonValue, Field
 from typing import Annotated, Literal
 from .models import Graph, Policies, Pricing, StrictModel
+from .connections import ConnectionSpec, ConnectionPatch
 from .runtime import ProviderKind, ProviderName
 
 Identity = Annotated[str, Field(pattern=r'^[0-9a-f]{32}$')]
@@ -182,6 +183,8 @@ def create_server(config: ServerConfig, *, transport=None) -> FastMCP:
         ('get_notification_deliveries', '/api/operations/notifications', 'Read safe administrative notification delivery status; never payloads, URLs or credentials.'),
         ('list_jobs', '/api/jobs', 'Read jobs and their status, events and approval metadata.'),
         ('list_blueprints', '/api/blueprints', 'Read saved blueprints.'),
+        ('list_connection_drivers', '/api/connection-drivers', 'Read registered infrastructure drivers and reference-only credential-source capabilities.'),
+        ('list_connections', '/api/connections', 'Read saved hypervisor connections and dated observations; never run remote tests.'),
     ):
         read_tool(name, path, description)
 
@@ -192,6 +195,22 @@ def create_server(config: ServerConfig, *, transport=None) -> FastMCP:
     async def get_blueprint(identity: Identity) -> DomainResult:
         """Read a saved blueprint by its platform identifier."""
         return await api.request('GET', f'/api/blueprints/{identity}')
+
+    async def get_connection(identity: Identity) -> DomainResult:
+        """Read one configured connection and its cached observations, never credential values."""
+        return await api.request('GET', f'/api/connections/{identity}')
+
+    async def discover_connection(identity: Identity) -> DomainResult:
+        """Explicit read-only remote inventory through a configured connection; updates its dated observation."""
+        return await api.request('POST', f'/api/connections/{identity}/discover')
+
+    async def create_connection(connection: ConnectionSpec) -> DomainResult:
+        """Configure a connection using approved secret references, never inline credentials; administrator authority required."""
+        return await api.request('POST', '/api/connections', connection.model_dump())
+
+    async def update_connection(identity: Identity, patch: ConnectionPatch) -> DomainResult:
+        """Patch an administrator-configured connection at its exact revision, without credential values."""
+        return await api.request('PATCH', f'/api/connections/{identity}', patch.model_dump(exclude_unset=True))
 
     async def validate_plan(graph: Graph) -> DomainResult:
         """Validate admission, plugin schema, policy and estimated cost; no execution."""
@@ -245,12 +264,13 @@ def create_server(config: ServerConfig, *, transport=None) -> FastMCP:
         """Issue a bounded ChatOps action, if configured; not a signed callback or approval bypass."""
         return await api.request('POST', '/api/chatops/actions', {'job_id': job_id, 'decision': decision})
 
-    for fn in (get_job, get_blueprint):
+    for fn in (get_job, get_blueprint, get_connection):
         register(fn, read=True)
+    register(discover_connection, dangerous=False)
     register(validate_plan, dangerous=False)
     for fn in (save_blueprint, submit_job, approve_job, reject_job, rollback_job,
                update_settings, update_provider_bindings, enable_extension, disable_extension,
-               run_diagnostics, retry_notifications, issue_chatops_action):
+               run_diagnostics, retry_notifications, issue_chatops_action, create_connection, update_connection):
         register(fn)
 
     return server

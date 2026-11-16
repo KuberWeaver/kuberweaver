@@ -16,6 +16,9 @@ def reviewed_redis_candidate(tmp_path, monkeypatch):
     import shutil
     import yaml
     from kuberweaver import execution
+    from test_execution_credentials import configure_ssh
+    # Importing helpers does not activate that module's autouse fixture here.
+    configure_ssh(tmp_path, monkeypatch)
     staged = tmp_path / 'reviewed-candidate'
     plugin = staged / 'plugins/redis'
     shutil.copytree(ROOT / 'plugins/redis', plugin, ignore=shutil.ignore_patterns('__pycache__'))

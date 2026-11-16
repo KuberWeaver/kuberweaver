@@ -52,21 +52,30 @@ class WebhookNotifications:
         except (KeyError, TypeError, ValueError):
             raise NotificationError('Invalid notification configuration') from None
         self.config = merged
+        self.store = getattr(app.state, 'store', None)
+        self.backend = getattr(self.store, 'backend', 'sqlite')
+        if self.backend not in ('sqlite', 'postgresql'):
+            raise NotificationError('Notification storage unavailable')
+        self._table = 'notification_deliveries' if self.backend == 'postgresql' else 'deliveries'
+        self._order = '_kw_rowid' if self.backend == 'postgresql' else 'rowid'
         directory = Path(app.state.state_dir) / 'notifications'
         try:
             if directory.is_symlink():
                 raise OSError
             directory.mkdir(parents=True, exist_ok=True, mode=0o700)
             directory.chmod(0o700)
+            self.directory = directory
             self.path = directory / 'deliveries.sqlite3'
-            if self.path.is_symlink():
-                raise OSError
-            fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
-            os.fchmod(fd, 0o600)
-            os.close(fd)
+            if self.backend == 'sqlite':
+                if self.path.is_symlink():
+                    raise OSError
+                fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+                os.fchmod(fd, 0o600)
+                os.close(fd)
             with self._locked(), self._connect() as db:
-                db.execute('CREATE TABLE IF NOT EXISTS deliveries (id TEXT PRIMARY KEY, payload TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, error TEXT, updated TEXT NOT NULL)')
-                db.execute("UPDATE deliveries SET status='uncertain', error='Interrupted delivery; remote acceptance unknown', updated=? WHERE status='in_flight'", (now(),))
+                if self.backend == 'sqlite':
+                    db.execute('CREATE TABLE IF NOT EXISTS deliveries (id TEXT PRIMARY KEY, payload TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, error TEXT, updated TEXT NOT NULL)')
+                db.execute(f"UPDATE {self._table} SET status='uncertain', error='Interrupted delivery; remote acceptance unknown', updated=? WHERE status='in_flight'", (now(),))
         except (OSError, sqlite3.Error):
             raise NotificationError('Notification storage unavailable') from None
 
@@ -85,6 +94,24 @@ class WebhookNotifications:
 
     @contextmanager
     def _connect(self):
+        if self.backend == 'postgresql':
+            db = None
+            try:
+                # Fresh operation-scoped connection, never the store's shared lock.
+                if self.store is None:
+                    raise NotificationError('Notification storage unavailable')
+                db = self.store.open_postgres_connection()
+                with db:
+                    yield db
+            except Exception:
+                raise NotificationError('Notification storage unavailable') from None
+            finally:
+                if db is not None:
+                    try:
+                        db.close()
+                    except Exception:
+                        raise NotificationError('Notification storage unavailable') from None
+            return
         db = None
         try:
             db = sqlite3.connect(self.path)
@@ -104,7 +131,7 @@ class WebhookNotifications:
 
     def read(self):
         with self._connect() as db:
-            rows = db.execute('SELECT * FROM deliveries ORDER BY rowid').fetchall()
+            rows = db.execute(f'SELECT * FROM {self._table} ORDER BY {self._order}').fetchall()
         return {'deliveries': [self._public(row) for row in rows]}
 
     @staticmethod
@@ -168,10 +195,10 @@ class WebhookNotifications:
         payload = self._payload(payload)
         identity = hashlib.sha256(json.dumps([payload.get(key) for key in ('event', 'job_id', 'operation', 'status', 'time')], separators=(',', ':')).encode()).hexdigest()
         with self._connect() as db:
-            db.execute('INSERT OR IGNORE INTO deliveries VALUES (?,?,?,0,NULL,?)',
+            db.execute(f'INSERT INTO {self._table} (id,payload,status,attempts,error,updated) VALUES (?,?,?,0,NULL,?) ON CONFLICT (id) DO NOTHING',
                        (identity, json.dumps(payload), 'pending', now()))
         with self._connect() as db:
-            return self._public(db.execute('SELECT * FROM deliveries WHERE id=?', (identity,)).fetchone())
+            return self._public(db.execute(f'SELECT * FROM {self._table} WHERE id=?', (identity,)).fetchone())
 
     def _deliver(self, identity, *, include_uncertain=False):
         with self._locked():
@@ -179,13 +206,13 @@ class WebhookNotifications:
 
     def _deliver_locked(self, identity, *, include_uncertain=False):
         with self._connect() as db:
-            row = db.execute('SELECT * FROM deliveries WHERE id=?', (identity,)).fetchone()
+            row = db.execute(f'SELECT * FROM {self._table} WHERE id=?', (identity,)).fetchone()
             if row['status'] in ('delivered', 'exhausted') or (row['status'] in ('uncertain', 'in_flight') and not include_uncertain):
                 return self._public(row)
             if row['attempts'] >= self.config['max_attempts']:
-                db.execute("UPDATE deliveries SET status='exhausted', updated=? WHERE id=?", (now(), identity))
-                return self._public(db.execute('SELECT * FROM deliveries WHERE id=?', (identity,)).fetchone())
-            db.execute('UPDATE deliveries SET status=?, attempts=attempts+1, updated=? WHERE id=?', ('in_flight', now(), identity))
+                db.execute(f"UPDATE {self._table} SET status='exhausted', updated=? WHERE id=?", (now(), identity))
+                return self._public(db.execute(f'SELECT * FROM {self._table} WHERE id=?', (identity,)).fetchone())
+            db.execute(f'UPDATE {self._table} SET status=?, attempts=attempts+1, updated=? WHERE id=?', ('in_flight', now(), identity))
         status, error = 'delivered', None
         attempted_http = False
         try:
@@ -201,8 +228,8 @@ class WebhookNotifications:
         if status == 'pending' and row['attempts'] + 1 >= self.config.get('max_attempts', 3):
             status = 'exhausted'
         with self._connect() as db:
-            db.execute('UPDATE deliveries SET status=?, error=?, updated=? WHERE id=?', (status, error, now(), identity))
-            return self._public(db.execute('SELECT * FROM deliveries WHERE id=?', (identity,)).fetchone())
+            db.execute(f'UPDATE {self._table} SET status=?, error=?, updated=? WHERE id=?', (status, error, now(), identity))
+            return self._public(db.execute(f'SELECT * FROM {self._table} WHERE id=?', (identity,)).fetchone())
 
     def retry_pending(self, *, limit=100, include_uncertain=False):
         if type(limit) is not int or not 1 <= limit <= 100 or type(include_uncertain) is not bool:
@@ -210,7 +237,7 @@ class WebhookNotifications:
         if not self.config['enabled']:
             return {'deliveries': []}
         with self._connect() as db:
-            identities = [row['id'] for row in db.execute("SELECT id FROM deliveries WHERE status='pending' OR (? AND status='uncertain') ORDER BY rowid LIMIT ?", (include_uncertain, limit))]
+            identities = [row['id'] for row in db.execute(f"SELECT id FROM {self._table} WHERE status='pending' OR (? AND status='uncertain') ORDER BY {self._order} LIMIT ?", (include_uncertain, limit))]
         return {'deliveries': [self._deliver(identity, include_uncertain=include_uncertain) for identity in identities]}
 
     def describe(self):

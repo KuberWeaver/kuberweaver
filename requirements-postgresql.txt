@@ -1,0 +1,2 @@
+# Optional durable PostgreSQL backend and conservative migration CLI.
+psycopg[binary]==3.3.9

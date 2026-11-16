@@ -1,6 +1,7 @@
 """Non-bypassable, provider-neutral admission gates for the scoped lab."""
 from __future__ import annotations
 import math
+import re
 from collections import deque
 from jsonschema import Draft202012Validator
 from .models import Policies, Pricing
@@ -45,6 +46,28 @@ class Admission:
                 item['node_id'] = node_id
             violations.append(item)
 
+        profiles = [manifests[node['plugin_id']].get('admission_profile')
+                    for node in graph['nodes'] if node['plugin_id'] in manifests]
+        if any(profile not in (None, 'virtual-machine') for profile in profiles):
+            deny('admission_profile', 'Unsupported manifest admission profile')
+        if profiles and any(profile != profiles[0] for profile in profiles):
+            deny('mixed_profiles', 'A job must use one admission profile')
+        virtual_machine = bool(profiles) and all(profile == 'virtual-machine' for profile in profiles)
+        if virtual_machine and (len(graph['nodes']) != 1 or graph['edges']
+                                or graph['environment'] != 'dev' or graph['failure_mode'] != 'none'):
+            deny('virtual_machine_scope', 'Virtual-machine jobs require one node, no edges, dev and no failure injection')
+        names = []
+        for node in graph['nodes']:
+            plugin = manifests.get(node['plugin_id'], {})
+            if 'execution_provider' in plugin:
+                name = plugin['execution_provider']
+                if not isinstance(name, str) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}', name):
+                    deny('execution_provider', 'Invalid manifest execution provider name', node['id'])
+                else:
+                    names.append(name)
+        if len(set(names)) > 1:
+            deny('mixed_execution_providers', 'A job must use one execution provider')
+
         if len(graph['nodes']) > policies['max_nodes']:
             deny('quota_nodes', 'Node quota exceeded')
         if graph['environment'] not in policies['allowed_environments']:
@@ -52,9 +75,9 @@ class Admission:
         if graph['failure_mode'] != 'none' and actor_role != 'admin':
             deny('failure_mode_admin_only', 'Only administrators may request lab failure injection')
         strategy = graph['strategy']
-        if strategy['canary'] != 1:
+        if not virtual_machine and strategy['canary'] != 1:
             deny('unsupported_canary', 'This isolated lab supports exactly one canary target per component')
-        if graph['environment'] == 'production' and policies['require_canary_production'] and strategy['canary'] < 1:
+        if not virtual_machine and graph['environment'] == 'production' and policies['require_canary_production'] and strategy['canary'] < 1:
             deny('canary_required', 'Production requires at least one canary target')
         all_targets = set()
         claims = set()
@@ -75,6 +98,9 @@ class Admission:
                 continue
             if plugin['capability'] != 'live':
                 deny('planned_plugin', 'Plugin is planned and cannot execute', identity)
+            if virtual_machine and (plugin['schema'].get('type') != 'object'
+                                    or plugin['schema'].get('additionalProperties') is not False):
+                deny('config_schema', 'Virtual-machine manifests require a closed object schema', identity)
             validator = Draft202012Validator(plugin['schema'])
             try:
                 for error in validator.iter_errors(config):
@@ -82,26 +108,27 @@ class Admission:
                     deny('config_schema', f'Config violates {error.validator} at ' + '.'.join(str(p) for p in error.absolute_path), identity)
             except Exception:
                 deny('config_schema', 'Plugin schema could not validate this configuration', identity)
-            targets = config.get('targets', [])
-            if not isinstance(targets, list) or not targets or any(not isinstance(t, str) or t not in ALLOWED_TARGETS for t in targets):
-                deny('target_not_allowed', 'Targets must be app and/or branch-client', identity)
-            else:
-                all_targets.update(targets)
-                if len(set(targets)) != len(targets):
-                    deny('duplicate_target', 'Targets must be unique', identity)
-            port = config.get('port')
-            if port is not None and (type(port) is not int or not 18090 <= port <= 18109):
-                deny('port_not_allowed', 'Deployment ports must be in 18090..18109', identity)
-            if port is not None and isinstance(targets, list):
-                for target in targets:
-                    if not isinstance(target, str):
-                        continue
-                    claim = (target, str(port))
-                    if claim in claims:
-                        deny('resource_conflict', 'Two nodes claim the same target and port', identity)
-                    claims.add(claim)
-            if config.get('public_cidr', '127.0.0.1/32') != '127.0.0.1/32':
-                deny('public_exposure', 'Only loopback exposure is allowed', identity)
+            targets = [] if virtual_machine else config.get('targets', [])
+            if not virtual_machine:
+                if not isinstance(targets, list) or not targets or any(not isinstance(t, str) or t not in ALLOWED_TARGETS for t in targets):
+                    deny('target_not_allowed', 'Targets must be app and/or branch-client', identity)
+                else:
+                    all_targets.update(targets)
+                    if len(set(targets)) != len(targets):
+                        deny('duplicate_target', 'Targets must be unique', identity)
+                port = config.get('port')
+                if port is not None and (type(port) is not int or not 18090 <= port <= 18109):
+                    deny('port_not_allowed', 'Deployment ports must be in 18090..18109', identity)
+                if port is not None and isinstance(targets, list):
+                    for target in targets:
+                        if not isinstance(target, str):
+                            continue
+                        claim = (target, str(port))
+                        if claim in claims:
+                            deny('resource_conflict', 'Two nodes claim the same target and port', identity)
+                        claims.add(claim)
+                if config.get('public_cidr', '127.0.0.1/32') != '127.0.0.1/32':
+                    deny('public_exposure', 'Only loopback exposure is allowed', identity)
             node_resources = {}
             for resource, default in [('cpu', 1), ('memory_mb', 256), ('disk_gb', 2)]:
                 value = config.get(resource, plugin.get('resources', {}).get(resource, default))
