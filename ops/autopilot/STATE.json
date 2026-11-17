@@ -1,14 +1,22 @@
 {
   "iteration": 15,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T12:19:17+01:00",
+  "updated_at": "2026-11-17T12:33:47+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
     "track": "feat/production-track",
     "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
   },
-  "known_failures": [],
+  "known_failures": [
+    {
+      "sha": "2cc421f676926a4f6911165dd67ba0b209cf9e53",
+      "check": "tests",
+      "recorded_at": "2026-11-17",
+      "detail": "ci failing, logs inaccessible: the repository is private and this host has no GitHub token, so the failing job's output cannot be read. The exact commit passes the same commands locally: backend suite 1608 passed, 2 skipped; frontend tsc, 290 tests and build green; secret scan and git diff --check clean.",
+      "hypothesis": "not reproduced: a fresh state dir without PYTHONPATH, the PostgreSQL fixtures on a fresh schema, the frontend suite and the production build all pass on this commit. The remaining candidates are the recorded queue_busy worker race or a runner-specific step such as the frontend install or the Playwright Chromium download, not a locally reproducible defect. No code change is attempted blind."
+    }
+  ],
   "tasks": [
     {
       "id": "A1",
@@ -213,7 +221,8 @@
     "no GitHub API token is available on the host: no pull request creation, no branch protection change",
     "data/ and docs/prompt/ stay untracked",
     "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol",
-    "iteration 14: main rejects a fast-forward push with GH006 'Changes must be made through a pull request'. The 'tests' check on 2fad12a was satisfied (that requirement disappeared from the rejection after CI finished), so the pull-request rule alone blocks main and the loop cannot open one without a token"
+    "iteration 14: main rejects a fast-forward push with GH006 'Changes must be made through a pull request'. The 'tests' check on 2fad12a was satisfied (that requirement disappeared from the rejection after CI finished), so the pull-request rule alone blocks main and the loop cannot open one without a token",
+    "iteration 15: the same GH006 pull-request rule blocks main for 2cc421f. Once the 'tests' check finished it reported failing, with no way to read the logs; the local run of the identical commands is green. A rebase onto origin/develop must not be run on this branch: develop is behind main, so a rebase drops the merge of the OVF CI pin and rewrites 24 published commits; the branch already contains origin/develop and origin/main, and only a fast-forward push is allowed"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
