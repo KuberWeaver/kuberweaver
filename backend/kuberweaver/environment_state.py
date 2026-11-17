@@ -6,8 +6,9 @@ resource list declared by the last applied document; the document itself is
 encrypted with a local key before it reaches the database, so a copied database
 alone does not disclose provider attributes.
 
-Only an execution provider writes state: no HTTP route creates or replaces a
-document. An apply takes an exclusive claim on one (environment, stack) pair and
+Execution providers write state through a claim; the audited adoption path
+records a single VM that the portal already owns into a stack that was never
+applied. An apply takes an exclusive claim on one (environment, stack) pair and
 commits against the generation it observed, so a second apply is refused while
 the claim is held and a commit from a stale generation is refused.
 """
@@ -108,6 +109,9 @@ class EnvironmentStates:
         self.store.execute('CREATE TABLE IF NOT EXISTS environment_state_claim('
                            'id TEXT PRIMARY KEY, body TEXT NOT NULL)')
 
+        self.store.execute('CREATE TABLE IF NOT EXISTS environment_state_adoption('
+                           'uuid TEXT PRIMARY KEY, body TEXT NOT NULL)')
+
     def _has_documents(self):
         return self.store.one('SELECT 1 AS present FROM environment_state_documents LIMIT 1') is not None
 
@@ -170,14 +174,19 @@ class EnvironmentStates:
 
     def _empty(self, environment, stack, identity):
         return {'id': identity, 'environment': environment, 'stack': stack, 'generation': 0,
-                'resources': [], 'digest': None, 'job_id': None,
-                'created_at': self.clock(), 'updated_at': None}
+                'resources': [], 'digest': None, 'job_id': None, 'source': 'apply',
+                'adopted': None, 'created_at': self.clock(), 'updated_at': None}
+
+    def identity(self, environment, stack):
+        """Public validation of one pair; raises ValueError for a bad name."""
+        return self._identity(environment, stack)
 
     def _view(self, record, claim):
         return {'id': record['id'], 'environment': record['environment'],
                 'stack': record['stack'], 'generation': record['generation'],
                 'resource_count': len(record['resources']), 'resources': record['resources'],
                 'digest': record['digest'], 'job_id': record['job_id'],
+                'source': record.get('source', 'apply'), 'adopted': record.get('adopted'),
                 'created_at': record['created_at'], 'updated_at': record['updated_at'],
                 'encrypted': True,
                 'lease': None if claim is None else {'job_id': claim['job_id'],
@@ -370,7 +379,8 @@ class EnvironmentStates:
                                'VALUES(?,?)', (identity, envelope))
             updated = {**record, 'generation': record['generation'] + 1,
                        'resources': resources, 'digest': digest,
-                       'job_id': claim['job_id'], 'updated_at': self.clock()}
+                       'job_id': claim['job_id'], 'source': 'apply', 'adopted': None,
+                       'updated_at': self.clock()}
             self.store.execute('INSERT OR REPLACE INTO environment_state(id,body) VALUES(?,?)',
                                (identity, json.dumps(updated, sort_keys=True)))
             self._drop_claim(identity, lease['token'])
@@ -383,6 +393,139 @@ class EnvironmentStates:
                               'generation': updated['generation'], 'job_id': claim['job_id'],
                               'resources': len(resources)})
             return self._view(stored, None)
+
+    def _adoption(self, uuid):
+        row = self.store.one('SELECT body FROM environment_state_adoption WHERE uuid=?', (uuid,))
+        if row is None:
+            return None
+        try:
+            value = json.loads(row['body'])
+        except (TypeError, ValueError):
+            raise StateError('Adoption record is unreadable') from None
+        if not isinstance(value, dict) or value.get('uuid') != uuid:
+            raise StateError('Adoption record is unreadable')
+        return value
+
+    def adoption(self, uuid):
+        with self.store.lock:
+            return self._adoption(uuid)
+
+    def adoptions(self):
+        records = []
+        for row in self.store.all('SELECT body FROM environment_state_adoption ORDER BY uuid'):
+            try:
+                value = json.loads(row['body'])
+            except (TypeError, ValueError):
+                raise StateError('Adoption record is unreadable') from None
+            if not isinstance(value, dict) or not isinstance(value.get('uuid'), str):
+                raise StateError('Adoption record is unreadable')
+            records.append({'state_id': value.get('id'), 'uuid': value['uuid'],
+                            'environment': value.get('environment'), 'stack': value.get('stack'),
+                            'name': value.get('name'), 'marker': value.get('marker'),
+                            'adopted_at': value.get('adopted_at'),
+                            'adopted_by': value.get('adopted_by')})
+        return records
+
+    def adopt(self, environment, stack, *, uuid, marker, name, connection_id, document,
+              resources, actor, stamp):
+        """Record one proven VM as the first generation of an empty stack.
+
+        Adoption is not an apply: it takes no claim, writes no provider state and
+        may only fill a stack that has no generation. Repeating it for the same
+        VM and stack returns the existing record without advancing the generation.
+        """
+        identity = self._identity(environment, stack)
+        if not isinstance(uuid, str) or not isinstance(marker, str) or not isinstance(name, str):
+            raise ValueError('Invalid adoption identity')
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid adoption actor')
+        raw = self._encode(document)
+        rows = self._resources(resources)
+        if len(rows) != 1:
+            raise ValueError('An adoption records exactly one resource')
+        digest = hashlib.sha256(raw).hexdigest()
+        with self.store.lock:
+            if self._claim(identity) is not None:
+                raise StateConflict('An apply holds the state lease for this stack')
+            record = self._row(identity)
+            existing = self._adoption(uuid)
+            if existing is not None:
+                if existing.get('id') != identity:
+                    raise StateConflict('Virtual machine is already recorded by another stack')
+                if existing.get('marker') != marker:
+                    raise StateConflict('Virtual machine is recorded with another ownership marker')
+                address = rows[0]['address'] if rows else None
+                held = record is not None and any(row['address'] == address
+                                                  for row in record['resources'])
+                if (record is None or not record['generation'] or not held
+                        or (record.get('adopted') or {}).get('marker') != marker):
+                    raise StateError('Adoption record no longer matches the stack state')
+                self.store.audit(actor, 'environment_state.adoption_repeated', identity,
+                                 {'environment': environment, 'stack': stack,
+                                  'generation': record['generation'], 'uuid': uuid,
+                                  'marker': marker})
+                return {'state': self._view(record, None), 'adopted': False, 'unchanged': True}
+            if record is not None and record['generation']:
+                raise StateConflict('Stack already has state; adoption only fills an empty stack')
+            index_row = {'uuid': uuid, 'id': identity, 'environment': environment,
+                         'stack': stack, 'marker': marker, 'name': name,
+                         'adopted_at': stamp, 'adopted_by': actor}
+            try:
+                self.store.execute('INSERT INTO environment_state_adoption(uuid,body) VALUES(?,?)',
+                                   (uuid, json.dumps(index_row, sort_keys=True)))
+            except Exception:
+                try:
+                    self.store.conn.rollback()
+                except Exception:
+                    pass
+                current = self._adoption(uuid)
+                if current is not None and current.get('id') != identity:
+                    raise StateConflict('Virtual machine is already recorded by another stack') from None
+                raise StateError('Adoption could not be recorded') from None
+            try:
+                base = (record if record is not None
+                        else {**self._empty(environment, stack, identity), 'created_at': stamp})
+                updated = {**base, 'generation': base['generation'] + 1, 'resources': rows,
+                           'digest': digest, 'job_id': None, 'source': 'adoption',
+                           'adopted': {'uuid': uuid, 'name': name, 'marker': marker,
+                                       'connection_id': connection_id, 'by': actor},
+                           'updated_at': stamp}
+                token = self._cipher(create=True).encrypt(raw)
+                envelope = json.dumps({'version': _ENVELOPE, 'algorithm': 'fernet',
+                                       'digest': digest, 'token': token.decode('ascii')},
+                                      sort_keys=True)
+                self.store.execute('INSERT OR REPLACE INTO environment_state_documents(id,body) '
+                                   'VALUES(?,?)', (identity, envelope))
+                self.store.execute('INSERT OR REPLACE INTO environment_state(id,body) VALUES(?,?)',
+                                   (identity, json.dumps(updated, sort_keys=True)))
+                stored = self._row(identity)
+                if (stored is None or stored.get('generation') != updated['generation']
+                        or stored.get('digest') != digest or self._plaintext(identity) != raw):
+                    raise StateError('Adoption write could not be confirmed')
+            except BaseException:
+                # An ownership row must never outlive the state it points at.
+                for statement, args in [
+                        ('DELETE FROM environment_state_adoption WHERE uuid=?', (uuid,)),
+                        ('DELETE FROM environment_state_documents WHERE id=?', (identity,)),
+                        ('DELETE FROM environment_state WHERE id=?', (identity,))]:
+                    try:
+                        self.store.execute(statement, args)
+                    except Exception:
+                        pass
+                if record is not None:
+                    try:
+                        self.store.execute('INSERT OR REPLACE INTO environment_state(id,body) '
+                                           'VALUES(?,?)',
+                                           (identity, json.dumps(record, sort_keys=True)))
+                    except Exception:
+                        pass
+                raise
+            self.store.audit(actor, 'environment_state.adopted', identity,
+                             {'environment': environment, 'stack': stack,
+                              'generation': updated['generation'], 'uuid': uuid,
+                              'marker': marker, 'name': name,
+                              'connection_id': connection_id})
+            return {'state': self._view(stored, None), 'adopted': True, 'unchanged': False}
 
     def release_lease(self, identity, job_id, actor):
         """Administrator recovery for an interrupted apply; never a silent retry."""
@@ -417,6 +560,8 @@ def install_environment_state_api(app):
         return
     service = app.state.environment_states = EnvironmentStates(app.state.store)
     original_count = len(app.router.routes)
+    from .adoption import install_adoption_api
+    install_adoption_api(app, service)
 
     @app.get('/api/environment-states')
     def listing(current=Depends(app.state.user_dependency)):

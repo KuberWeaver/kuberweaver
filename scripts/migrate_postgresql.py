@@ -119,7 +119,8 @@ def inspect_source(state_dir):
     result = _read_database(state_dir / 'platform.sqlite3', required | {'agent_tokens', 'connections',
                                                                         'environment_state',
                                                                         'environment_state_documents',
-                                                                        'environment_state_claim'}, required)
+                                                                        'environment_state_claim',
+                                                                        'environment_state_adoption'}, required)
     candidates = [state_dir / 'notifications' / 'deliveries.sqlite3',
                   state_dir / 'data' / 'notifications' / 'deliveries.sqlite3']
     outboxes = [path for path in candidates if path.exists() or path.is_symlink()]

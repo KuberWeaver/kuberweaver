@@ -6,9 +6,11 @@ that record is the source of truth for what the stack owns. An execution
 provider's per-job folder remains its own OpenTofu (or other engine) working
 copy; the portal never treats that copy as ownership evidence.
 
-Only an execution provider writes state. There is no HTTP route that creates or
-replaces a document, so a client cannot forge a resource list or advance a
-generation.
+Only two paths write state: an execution provider through the apply claim, and
+the audited adoption path, which accepts one VM's UUID and ownership marker,
+verifies that VM against the hypervisor, and records the single resource itself.
+No route accepts a resource list or a document from a client, so a client cannot
+forge a resource list or advance a generation.
 
 ## Record
 
@@ -21,7 +23,9 @@ generation.
 | `resources` | Address, type, name and mode of every resource declared by the last applied document, sorted by address. |
 | `resource_count` | Length of `resources`. |
 | `digest` | SHA-256 of the canonical plaintext document, `null` before the first commit. |
-| `job_id` | Job that committed the current generation. |
+| `job_id` | Job that committed the current generation, `null` for an adopted generation. |
+| `source` | `apply` for an execution provider, `adoption` for an imported VM. |
+| `adopted` | `{uuid, name, marker, connection_id, by}` for an adopted generation, otherwise `null`. |
 | `created_at`, `updated_at` | First claim and last commit timestamps. |
 | `encrypted` | Always `true`: the document is stored as ciphertext. |
 | `lease` | `{job_id, acquired_at}` while an apply holds the claim, otherwise `null`. |
@@ -59,6 +63,48 @@ lease: nothing expires, retries or remediates on its own.
 
 Every commit writes one `environment_state.applied` audit row with the
 environment, stack, generation, job and resource count.
+
+## Adoption of an existing virtual machine
+
+A VM that the portal already created can enter state without being recreated.
+An administrator submits its UUID and the ownership marker the portal wrote into
+the VM annotation when it created that VM:
+
+```
+POST /api/environment-states/adoptions
+{"environment": "dev", "stack": "vm-app", "connection_id": "<32 hex>",
+ "uuid": "11111111-1111-4111-8111-111111111111",
+ "marker": "kuberweaver-job:<32 hex job id>"}
+```
+
+The route is administrator-only, needs the session CSRF token, and is not mapped
+to any agent scope. It reads the VM once through the recorded connection and
+never creates, reconfigures, powers on, stops or deletes anything.
+
+The ownership proof is the pair (UUID, annotation). The ESXi extension reports
+`ownership_sha256` for a VM whose annotation starts with `kuberweaver-job:` and
+`null` otherwise, because an annotation is free-form operator text; the portal
+hashes the submitted marker and compares digests. These are refused with 409:
+
+- the VM is missing or cannot be read, so ownership is unverified;
+- the live UUID is not the requested UUID;
+- the VM carries no portal marker, or its marker is not the submitted one;
+- the stack already has a committed generation, so applied and adopted
+  resources are never mixed;
+- an apply holds the stack's lease;
+- another stack already recorded the same UUID.
+
+The first adoption writes generation 1 with `source: "adoption"`, `job_id: null`,
+one resource row `esxi_vm.<uuid>` and a document holding the UUID, marker, name,
+power state, CPU and memory read from the host. Repeating the same request
+verifies the live VM again, returns `{"adopted": false, "unchanged": true}`,
+keeps the generation and writes one `environment_state.adoption_repeated` audit
+row, so a re-import cannot duplicate the resource or advance the generation. A
+changed annotation makes the repeat fail. `GET
+/api/environment-states/adoptions` lists the UUID index for any signed-in role.
+
+A driver that does not report ownership evidence fails closed: an older ESXi
+extension makes adoption answer 409 rather than adopt an unproven VM.
 
 ## Encryption at rest
 
@@ -111,5 +157,6 @@ A standalone executor constructed outside the portal (`environments=None`) keeps
 its previous behaviour and its per-job folder remains its only record.
 
 The PostgreSQL backend registers `environment_state`,
-`environment_state_documents` and `environment_state_claim`; the SQLite
-migration script accepts the same three tables.
+`environment_state_documents`, `environment_state_claim` and
+`environment_state_adoption`; the SQLite migration script accepts the same four
+tables.

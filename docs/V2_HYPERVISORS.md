@@ -9,7 +9,7 @@ The kernel retains accounts, roles, quotas, requests, approvals, audit and one e
 The documented installation uses PostgreSQL, migrated separately from SQLite without changing module contracts. Secrets remain an explicitly selected, replaceable provider; connection passwords are not stored as plaintext in the application database. No message broker or AI model is mandatory.
 
 - `backend/kuberweaver/connections.py`: connection configuration, references, timestamped observations and API, without a VMware dependency.
-- `examples/extensions/esxi-runtime/`: `hypervisor/esxi`, pyVmomi-based read-only discovery.
+- `examples/extensions/esxi-runtime/`: `hypervisor/esxi`, pyVmomi-based read-only discovery. A VM whose annotation starts with `kuberweaver-job:` is reported with `ownership_sha256`, the digest of that annotation, never the annotation text itself; environment-state adoption compares that digest and refuses a VM without it.
 - `examples/extensions/local-vault/`: optional Fernet secret source for connections explicitly selecting it.
 - `examples/extensions/openbao-local/`: separate local Docker vault alternative; its historical acceptance is blocked and its storage retained.
 - `examples/extensions/vsphere-provisioning/` and `plugins/vsphere-vm/`: planned, blocked blank-disk saved-plan provisioning.
