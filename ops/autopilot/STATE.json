@@ -212,13 +212,14 @@
   "constraints": [
     "no GitHub API token is available on the host: no pull request creation, no branch protection change",
     "data/ and docs/prompt/ stay untracked",
-    "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol"
+    "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol",
+    "iteration 14: main rejects a fast-forward push with GH006 'Changes must be made through a pull request'. The 'tests' check on 2fad12a was satisfied (that requirement disappeared from the rejection after CI finished), so the pull-request rule alone blocks main and the loop cannot open one without a token"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "d2f98e5d672b67bc801ff6e768de1561a0b7c714",
-    "note": "marker read at 2026-11-17T10:52+01:00, before this iteration's commit: the timer deployed d2f98e5, so the mechanism works and the pushed track commit is expected to be loaded within two minutes. This run never restarts the unit.",
+    "deployed_sha": "2fad12af50e68002b98577f9fa2dd5c89a98d2ef",
+    "note": "marker read at 2026-11-17T11:19+01:00: the timer deployed 2fad12a, /readyz answers 200 and GET /api/environment-states answers 401 without a session, so the new routes are loaded. This run never restarts the unit.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [
