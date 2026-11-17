@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-import hashlib
 import hmac
 import os
 from pathlib import Path
-import time
+import math
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
@@ -18,6 +17,8 @@ from .agent_auth import AgentTokens, install_agent_tokens, required_scope, permi
 from .configuration import frontend_dir as configured_frontend_dir
 from .configuration import plugins_dir as configured_plugins_dir
 from .configuration import state_dir as configured_state_dir
+from .login_throttle import LoginThrottle
+from .sessions import SESSION_COOKIE, Sessions
 from .users import UserStore, install_users
 
 
@@ -87,11 +88,12 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     app.state.store = store
     app.state.agent_tokens = agent_tokens
     app.state.users = UserStore(store)
+    app.state.sessions = Sessions(store)
+    app.state.login_throttle = LoginThrottle()
     app.state.background_services = []
     app.state.state_dir = state_dir
     app.state.testing = testing
     app.state.request_count = 0
-    app.state.login_attempts = {}
 
     @app.middleware('http')
     async def security_boundary(request, call_next):
@@ -108,9 +110,16 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         if host not in allowed_hosts:
             return JSONResponse({'detail': 'Local host required'}, status_code=400)
         request.state.agent = None
+        # Session state is only needed by the API. Health and static probes must
+        # stay usable while durable storage is unavailable, so they never touch
+        # the sessions table.
+        api_request = request.url.path.startswith('/api/')
+        cookie = request.cookies.get(SESSION_COOKIE)
+        request.state.session = app.state.sessions.resolve(cookie) if cookie and api_request else None
+        request.state.stale_session = bool(cookie) and api_request and request.state.session is None
         authorization = request.headers.getlist('authorization')
         if authorization:
-            if len(authorization) != 1 or request.cookies.get('kw_session'):
+            if len(authorization) != 1 or request.cookies.get(SESSION_COOKIE):
                 return JSONResponse({'detail': 'Ambiguous credentials'}, status_code=401)
             scheme, separator, value = authorization[0].partition(' ')
             principal = agent_tokens.authenticate(value) if separator and scheme.lower() == 'bearer' else None
@@ -136,10 +145,9 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
                 return JSONResponse({'detail': 'Cross-site request rejected'}, status_code=403)
             signed_callback = request.method == 'POST' and request.url.path == '/api/chatops/callback'
             if request.url.path.startswith('/api/') and request.url.path != '/api/auth/login' and not request.state.agent and not signed_callback:
-                session = store.session(request.cookies.get('kw_session'))
-                if not session:
+                if not request.state.session:
                     return JSONResponse({'detail': 'Authentication required'}, status_code=401)
-                if not hmac.compare_digest(request.headers.get('x-csrf-token', ''), session['csrf']):
+                if not hmac.compare_digest(request.headers.get('x-csrf-token', ''), request.state.session['csrf']):
                     return JSONResponse({'detail': 'CSRF token required'}, status_code=403)
         response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -148,12 +156,15 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
         if request.url.path.startswith('/api/'):
             response.headers['Cache-Control'] = 'no-store'
+        if request.state.stale_session and request.url.path != '/api/auth/login' \
+                and SESSION_COOKIE not in response.headers.get('set-cookie', ''):
+            app.state.sessions.clear_cookie(response, secure=request.url.scheme == 'https')
         return response
 
     def user(request: Request):
         if getattr(request.state, 'agent', None):
             return request.state.agent
-        result = store.session(request.cookies.get('kw_session'))
+        result = getattr(request.state, 'session', None)
         if not result:
             raise HTTPException(401, 'Authentication required')
         return {key: result[key] for key in ('id', 'username', 'role')}
@@ -172,32 +183,42 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
 
     @app.post('/api/auth/login')
     def login(data: Login, request: Request, response: Response):
-        key = request.client.host if request.client else 'local'
-        timestamp = time.monotonic()
-        attempts = app.state.login_attempts.setdefault(key, [])
-        attempts[:] = [t for t in attempts if timestamp - t < 60]
-        if len(attempts) >= 20:
-            raise HTTPException(429, 'Too many login attempts; retry in one minute')
+        client = request.client.host if request.client else 'local'
+        username = data.username.strip().lower()
+        wait = app.state.login_throttle.retry_after(client, username)
+        if wait:
+            store.audit('anonymous', 'auth.login_throttled')
+            raise HTTPException(429, 'Too many login attempts; retry later',
+                                headers={'Retry-After': str(max(1, math.ceil(wait)))})
         account = app.state.users.authenticate(data.username, data.password)
         if not account:
-            attempts.append(timestamp)
-            store.audit('anonymous', 'auth.login_failed')
+            app.state.login_throttle.failure(client, username)
+            store.audit('anonymous', 'auth.login_failed', detail={'username': username})
             raise HTTPException(401, 'Invalid credentials')
-        token, csrf = store.create_session(account)
-        response.set_cookie('kw_session', token, httponly=True, samesite='strict', secure=request.url.scheme == 'https', max_age=8 * 3600, path='/')
+        app.state.login_throttle.success(client, username)
+        app.state.sessions.prune()
+        # A cookie presented at login is replaced, never promoted: this closes
+        # session fixation and leaves one live session per browser.
+        app.state.sessions.revoke(request.cookies.get(SESSION_COOKIE))
+        token, csrf = app.state.sessions.create(account)
+        app.state.sessions.set_cookie(response, token, secure=request.url.scheme == 'https')
         current = {key: account[key] for key in ('id', 'username', 'role')}
         store.audit(account['username'], 'auth.login')
-        return {'user': current, 'csrf_token': csrf}
+        return {'user': current, 'csrf_token': csrf, 'expires_in': app.state.sessions.absolute_timeout}
 
     @app.get('/api/auth/me')
     def me(request: Request, current=Depends(user)):
-        return {'user': current, 'csrf_token': None if current.get('principal_type') == 'agent' else store.session(request.cookies.get('kw_session'))['csrf']}
+        if current.get('principal_type') == 'agent':
+            return {'user': current, 'csrf_token': None}
+        session = getattr(request.state, 'session', None) or app.state.sessions.resolve(request.cookies.get(SESSION_COOKIE))
+        if not session:
+            raise HTTPException(401, 'Authentication required')
+        return {'user': current, 'csrf_token': session['csrf']}
 
     @app.post('/api/auth/logout')
     def logout(request: Request, response: Response, current=Depends(user)):
-        token = request.cookies.get('kw_session', '')
-        store.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(token.encode()).hexdigest(),))
-        response.delete_cookie('kw_session', path='/')
+        app.state.sessions.revoke(request.cookies.get(SESSION_COOKIE))
+        app.state.sessions.clear_cookie(response, secure=request.url.scheme == 'https')
         store.audit(current['username'], 'auth.logout')
         return {'ok': True}
 

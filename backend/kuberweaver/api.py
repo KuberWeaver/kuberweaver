@@ -241,7 +241,7 @@ def install_api(app, plugins_dir, executor=None):
                     refreshed = app.state.agent_tokens.authenticate(bearer)
                     if not refreshed or not ({'read', 'read:jobs'} & set(refreshed['scopes'])):
                         return
-                elif not store.session(request.cookies.get('kw_session')):
+                elif not app.state.sessions.resolve(request.cookies.get('kw_session')):
                     return
                 job = jobs.get(identity)
                 for event in job['events']:

@@ -10,7 +10,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [PostgreSQL](docs/POSTGRESQL.md) and [local encrypted vault](examples/extensions/local-vault/README.md): durable state, backup requirements and threat model.
 - [Execution](docs/EXECUTION.md), [configuration](docs/CONFIGURATION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts, environment settings and operating limits.
 - [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
-- [Users and roles](docs/USERS.md): Argon2id password storage, the password policy and account rotation.
+- [Users and roles](docs/USERS.md): Argon2id password storage, the password policy and account rotation. [Sessions](docs/SESSIONS.md): cookie flags, absolute and idle timeouts, CSRF binding and login throttling.
 - [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
 - [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.
 - [Architecture direction](docs/ARCHITECTURE_CIBLE.md) and [requirements](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md): distinguish design proposals from delivered capabilities. Historical framing documents and generated presentations are not current capability evidence.

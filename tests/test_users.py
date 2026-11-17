@@ -160,7 +160,7 @@ def test_self_rotation_requires_current_password_and_retires_bootstrap_line(api)
     new_csrf = rotated.json()['csrf_token']
     assert new_csrf != csrf
     # Rotation revokes every prior session and the response reissues one.
-    assert app.state.store.session(old_token) is None
+    assert app.state.sessions.resolve(old_token) is None
     assert client.get('/api/auth/me').json()['user']['username'] == 'admin'
 
     remaining = dict(line.split(':', 1) for line in (path / 'bootstrap-credentials.txt').read_text().splitlines())

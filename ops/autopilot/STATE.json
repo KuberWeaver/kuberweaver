@@ -1,7 +1,7 @@
 {
-  "iteration": 5,
+  "iteration": 6,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T02:21:26",
+  "updated_at": "2026-11-17T03:25:34",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -11,7 +11,19 @@
   "known_failures": [
     {
       "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
-      "detail": "PATCH /api/providers returns 409 instead of 200 after the job reported succeeded: queue_busy() still sees a non-terminal job status. Intermittent, 1 failure in 3 identical runs, unrelated to the current task.",
+      "detail": "PATCH /api/providers returns 409 instead of 200 when it follows a job that just reported a terminal status: Worker clears active_identity in its finally block after publishing the status, so queue_busy() still sees a busy worker. Same race as the two entries below. Reproduced on fa7a46d without the B2 changes (2 failures in 3 runs), so it predates them.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned"
+    },
+    {
+      "test": "tests/test_provider_bindings.py::test_disabled_selected_execution_blocks_approval_and_rollback_but_not_job_views",
+      "detail": "POST /api/extensions/{id}/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned"
+    },
+    {
+      "test": "tests/test_redis_execution.py::test_trusted_extension_through_authenticated_approved_worker",
+      "detail": "POST /api/extensions/redis-runtime/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
       "recorded_at": "2026-11-17",
       "owner_task": "unassigned"
     }
@@ -67,9 +79,9 @@
       "title": "Session security",
       "detail": "Replace the ad-hoc session with httpOnly SameSite=Strict cookies, absolute and idle timeouts, CSRF token bound to the session, logout invalidation, rate limited login.",
       "acceptance": "Tests cover cookie flags, expiry, CSRF mismatch, brute-force throttling.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "sessions.py owns the kw_session cookie (HttpOnly, SameSite=Strict, Path=/, Secure over HTTPS, Max-Age 28800) and hashed tokens of the form <issued-at>.<secret>, so the 8h absolute deadline is derived from the token and survives restarts without a schema change; sessions.expires is the 30 min idle deadline, pushed forward only inside its last minute and capped at the absolute deadline, expired rows are deleted when presented and the stale cookie is cleared with Max-Age=0. login_throttle.py adds two 60s sliding windows (10 failures per client and account, 30 per client), answered with 429 and Retry-After before the password is checked, unknown accounts counted like wrong passwords, bounded to 1024 keys and cleared per pair on success. Login replaces any presented cookie (fixation), logout deletes the row and clears the cookie, rotation reuses the same service. CSRF stays bound to the session and the middleware now resolves sessions only for /api paths so /readyz still reports a dead database. docs/SESSIONS.md plus README, USERS, IMPLEMENTATION and CHANGELOG updates; 15 new tests cover cookie flags over HTTP and HTTPS, invalid credentials issuing no cookie, idle expiry with row deletion and cookie clearing, the absolute deadline on an otherwise live token, sliding refresh, activity never extending the absolute cap, CSRF absence/mismatch/cross-session reuse, logout replay, session fixation, brute-force and unknown-account throttling, bounded limiter memory, hashed storage, legacy token refusal and restart survival; suite 1422 passed, 2 skipped, with the three known queue_busy races"
     },
     {
       "id": "B3",

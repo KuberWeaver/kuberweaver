@@ -42,9 +42,10 @@ def sqlite_source(tmp_path, monkeypatch):
     store = Store(root)
     store.execute('CREATE TABLE IF NOT EXISTS connections(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
     from kuberweaver.agent_auth import AgentTokens
+    from kuberweaver.sessions import Sessions
     AgentTokens(store)
     user = store.one("SELECT * FROM users WHERE role='admin'")
-    token, csrf = store.create_session(user)
+    token, csrf = Sessions(store).create(user)
     store.execute('INSERT INTO agent_tokens VALUES(?,?,?,?,?,?,?,?,?)', ('token-id', 'opaque-hash', 'label', 'viewer', '[ "read" ]', 1794778991.1234567, 1794779999.9876542, 1794779000.7654321, user['id']))
     for identity, body in [('z', ' { "é":1, "x" : [ ] }\n'), ('a', '{"second": 2}')]:
         store.execute('INSERT INTO jobs(id,body) VALUES(?,?)', (identity, body))
@@ -78,7 +79,8 @@ def test_real_migration_preserves_bytes_order_sequences_and_auth(tmp_path, monke
     connection.close()
     monkeypatch.setenv('KUBERWEAVER_DATABASE_URL_FILE', str(pg_file))
     reopened = Store(tmp_path / 'reopened')
-    assert reopened.session(token) == {'id': user['id'], 'username': 'admin', 'role': 'admin', 'csrf': csrf}
+    from kuberweaver.sessions import Sessions
+    assert Sessions(reopened).resolve(token) == {'id': user['id'], 'username': 'admin', 'role': 'admin', 'csrf': csrf}
     assert reopened.one('SELECT * FROM users WHERE id=?', (user['id'],))['password_hash'] == user['password_hash']
     assert reopened.one('SELECT count(*) AS n FROM users')['n'] == 3
     reopened.conn.close()

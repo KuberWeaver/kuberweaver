@@ -264,8 +264,7 @@ def install_users(app):
         except UserError as error:
             raise HTTPException(error.status, str(error)) from None
         if current['id'] == identity:
-            token, csrf = app.state.store.create_session(user)
-            response.set_cookie('kw_session', token, httponly=True, samesite='strict',
-                                secure=request.url.scheme == 'https', max_age=8 * 3600, path='/')
+            token, csrf = app.state.sessions.create(user)
+            app.state.sessions.set_cookie(response, token, secure=request.url.scheme == 'https')
             return {'user': user, 'csrf_token': csrf}
         return {'user': user}

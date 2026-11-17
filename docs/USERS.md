@@ -65,8 +65,10 @@ the submitted password.
 ## HTTP contract
 
 All routes require a human browser session with `X-CSRF-Token`, except the
-password route which also accepts the account itself. Agent tokens cannot call
-any of them: `agent_auth.required_scope` maps no scope to `/api/users`.
+password route which also accepts the account itself. The cookie flags, the
+absolute and idle timeouts, the CSRF binding and the login throttle are defined
+in [sessions](SESSIONS.md). Agent tokens cannot call any of them:
+`agent_auth.required_scope` maps no scope to `/api/users`.
 
 ### `GET /api/users` (admin)
 
