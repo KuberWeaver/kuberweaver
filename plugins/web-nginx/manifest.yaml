@@ -7,6 +7,7 @@ kind: workload
 capability: live
 engine: ansible
 executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
 requires: compute.vm
 data_class: config
 implementation:
@@ -20,10 +21,18 @@ schema:
   additionalProperties: false
   required:
   - server_name
+  - target_uuid
+  - ssh_key_id
   properties:
     server_name:
       type: string
       pattern: ^[a-z0-9]([a-z0-9.-]{0,251})$
+    target_uuid:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
     listen_port:
       type: integer
       minimum: 1

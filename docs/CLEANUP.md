@@ -43,6 +43,15 @@ They go with it. `scripts/run_brick.py` is the supported driver for bricks.
 - `/healthz`: becomes liveness only. Readiness gets its own endpoint.
 - Ad-hoc admin session: replaced by the user store, roles and cookies.
 
+## Inventory is opt-in
+
+The GNS3 inventory provider was the prototype's default topology source. It stays
+available, but no longer ships as a default binding: a lab network is a
+convenience, not a requirement. With no binding, `/api/infrastructure` reports
+`bound: false` and the Infrastructure page explains that a topology source is
+optional instead of presenting a lab as the platform's view of the world. Bind
+one in Providers only when you actually want to compare with a live network.
+
 ## Keep unchanged
 
 - Plan digest, approval, evidence and lock discipline.

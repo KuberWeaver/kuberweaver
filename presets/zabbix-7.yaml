@@ -1,0 +1,49 @@
+id: zabbix-7
+name: Zabbix 7 on one guest
+version: 1
+environment: dev
+description: >-
+  The four bricks of a single-guest Zabbix 7 installation: PostgreSQL, the
+  Zabbix server, the web frontend and the agent. The steps run in dependency
+  order as four one-brick jobs on the guest named by target_uuid.
+target:
+  count: 1
+  note: >-
+    Every step runs on the same guest. Supply target_uuid and ssh_key_id when
+    each step is submitted; they are never stored in this file.
+steps:
+  - id: database
+    brick: db-postgresql
+    requires: []
+    config:
+      db_name: zabbix
+      db_user: zabbix
+      listen_port: 5432
+      handoff_path: /etc/kuberweaver/postgresql/handoff.json
+  - id: server
+    brick: zabbix-server
+    requires:
+      - database
+    config:
+      server_port: 10051
+      database_handoff: /etc/kuberweaver/postgresql/handoff.json
+      zabbix_version: "7.4"
+  - id: web
+    brick: zabbix-web
+    requires:
+      - server
+    config:
+      server_host: 127.0.0.1
+      server_port: 10051
+      database_handoff: /etc/kuberweaver/postgresql/handoff.json
+      listen_port: 80
+      zabbix_version: "7.4"
+  - id: agent
+    brick: zabbix-agent
+    requires:
+      - server
+    config:
+      server_host: 127.0.0.1
+      agent_hostname: zabbix-01
+      listen_port: 10050
+      zabbix_version: "7.4"

@@ -116,7 +116,14 @@ def _read_database(path, allowed, required, rename=None):
 def inspect_source(state_dir):
     state_dir = Path(state_dir)
     required = {'users', 'sessions', 'audit', 'jobs', 'blueprints', 'settings'}
-    result = _read_database(state_dir / 'platform.sqlite3', required | {'agent_tokens', 'connections'}, required)
+    result = _read_database(state_dir / 'platform.sqlite3', required | {'agent_tokens', 'connections',
+                                                                        'environment_state',
+                                                                        'environment_state_documents',
+                                                                        'environment_state_claim',
+                                                                        'environment_state_adoption',
+                                                                        'environment_state_destroy',
+                                                                        'environment_state_drift',
+                                                                        'declaration_run'}, required)
     candidates = [state_dir / 'notifications' / 'deliveries.sqlite3',
                   state_dir / 'data' / 'notifications' / 'deliveries.sqlite3']
     outboxes = [path for path in candidates if path.exists() or path.is_symlink()]

@@ -27,6 +27,7 @@ import { capabilityState } from "./capabilities";
 import { pageHeading } from "./navigation";
 import { DeploymentCost } from "./DeploymentCost";
 import { ProviderConfiguration } from "./ProviderConfiguration";
+import { SourceOfTruth } from "./SourceOfTruth";
 import {
   useResource,
   PageTitle,
@@ -58,10 +59,13 @@ export function Catalogue({
 }) {
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState("all"),
+    [showPlanned, setShowPlanned] = useState(false),
     [selected, setSelected] = useState<Plugin | null>(null);
   const categories = [...new Set(plugins.map((p) => p.category))];
+  const hidden = plugins.filter((p) => p.capability === "planned").length;
   const filtered = plugins.filter(
     (p) =>
+      (showPlanned || p.capability !== "planned") &&
       (category === "all" || p.category === category) &&
       `${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()),
   );
@@ -94,6 +98,16 @@ export function Catalogue({
             ))}
           </select>
         </label>
+        {hidden > 0 && (
+          <label className="inline-label">
+            <input
+              type="checkbox"
+              checked={showPlanned}
+              onChange={(e) => setShowPlanned(e.target.checked)}
+            />{" "}
+            Show {hidden} planned
+          </label>
+        )}
         <button
           className="icon-button"
           aria-label="Refresh catalogue"
@@ -640,9 +654,17 @@ export function Infrastructure() {
           </button>
         }
       />
-      <Notice>
-        Read only: this view does not create, start or modify GNS3 devices.
-      </Notice>
+      {data?.bound === false ? (
+        <section className="panel empty-state">
+          <h2>No inventory provider selected</h2>
+          <p>{data.message}</p>
+          <p className="muted">
+            A topology source is optional. KuberWeaver provisions from blueprints;
+            bind an inventory provider only if you want to compare it with a live
+            lab network.
+          </p>
+        </section>
+      ) : (
       <ResourceBoundary
         loading={r.loading}
         error={r.error}
@@ -654,7 +676,7 @@ export function Infrastructure() {
             <div className="infra-meta panel">
               <div>
                 <span className="eyebrow">SOURCE</span>
-                <strong>{data.source || "GNS3"}</strong>
+                <strong>{data.source || "Not reported"}</strong>
               </div>
               <div>
                 <span className="eyebrow">PROJECT</span>
@@ -683,13 +705,13 @@ export function Infrastructure() {
                 title="No observable devices"
                 icon={<Network size={28} />}
               >
-                Check the GNS3 provider configuration and project access.
+                Check the inventory provider configuration and project access.
               </Empty>
             ) : (
               <>
                 <section
                   className="infra-flow panel"
-                  aria-label="GNS3 topology"
+                  aria-label="Observed topology"
                 >
                   <ReactFlow
                     nodes={nodes}
@@ -741,6 +763,7 @@ export function Infrastructure() {
           </>
         )}
       </ResourceBoundary>
+      )}
     </>
   );
 }
@@ -1263,9 +1286,15 @@ export function Audit() {
 export function Integrations({ user }: { user: User }) {
   const r = useResource<any[]>("/integrations");
   const extensions = useResource<any>("/extensions");
+  const [showPlanned, setShowPlanned] = useState(false);
   const registry = Array.isArray(extensions.data)
     ? extensions.data
     : extensions.data?.extensions || extensions.data?.registry || [];
+  const rows = Array.isArray(r.data) ? r.data : [];
+  const planned = rows.filter((row) => capabilityState(row).label === "Planned");
+  const visible = rows.filter(
+    (row) => showPlanned || capabilityState(row).label !== "Planned",
+  );
   return (
     <>
       <PageTitle
@@ -1283,8 +1312,19 @@ export function Integrations({ user }: { user: User }) {
         }
       />
       <Notice>
-        A planned or disabled capability is not an active connection. Secrets and endpoints are configured on the server.
+        A planned capability is not a connection. Endpoints and secrets are configured on the server, never in the browser.
       </Notice>
+      <SourceOfTruth />
+      {planned.length > 0 && (
+        <label className="inline-label">
+          <input
+            type="checkbox"
+            checked={showPlanned}
+            onChange={(e) => setShowPlanned(e.target.checked)}
+          />{" "}
+          Show {planned.length} not configured
+        </label>
+      )}
       <ResourceBoundary
         loading={r.loading}
         error={r.error}
@@ -1292,7 +1332,7 @@ export function Integrations({ user }: { user: User }) {
         label="Loading integrations"
       >
         <div className="integrations-grid">
-          {r.data?.map((integration: any, i: number) => {
+          {visible.map((integration: any, i: number) => {
             const state = capabilityState(integration);
             return (
               <section

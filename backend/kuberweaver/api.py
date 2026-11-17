@@ -11,6 +11,7 @@ import secrets
 from fastapi import Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from .catalog import Catalog
+from . import reporting
 from .policy import Admission
 
 
@@ -25,6 +26,10 @@ def install_api(app, plugins_dir, executor=None):
     app.state.executor = executor if executor is not None else Executor(store.path, plugins_dir)
     jobs = app.state.jobs = Jobs(app)
     app.state.worker = Worker(app)
+    from .environment_state import install_environment_state_api
+    install_environment_state_api(app)
+    from .declarations import install_declarations_api
+    install_declarations_api(app, app.state.environment_states)
     from .runtime import configure
     configure(app)
     from .ssh_keys import install_ssh_keys_api
@@ -101,6 +106,14 @@ def install_api(app, plugins_dir, executor=None):
 
     @app.get('/api/infrastructure')
     def infrastructure(current=Depends(user)):
+        if getattr(app.state, 'provider_config_error', None):
+            raise HTTPException(503, 'Provider binding configuration is invalid')
+        if not app.state.provider_bindings.get('inventory'):
+            result = {'bound': False, 'provider': None, 'source': None,
+                      'nodes': [], 'links': [], 'errors': [],
+                      'message': 'No inventory provider is selected. Bind one in Providers to read live topology.'}
+            app.state.inventory_cache = result
+            return result
         result = resolve_provider(app, 'inventory').read()
         app.state.inventory_cache = result
         return result
@@ -163,6 +176,10 @@ def install_api(app, plugins_dir, executor=None):
     @app.post('/api/extensions/{identity}/enable')
     def enable_extension(identity: str, data: TrustRequest, current=Depends(role('admin'))):
         return change_extension(app, identity, True, current, data.trusted)
+
+    @app.get('/api/reporting')
+    def reporting_surface(current=Depends(role('admin', 'operator', 'viewer'))):
+        return reporting.describe(app.state.store)
 
     @app.post('/api/extensions/{identity}/disable')
     def disable_extension(identity: str, current=Depends(role('admin'))):

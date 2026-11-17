@@ -50,10 +50,18 @@ def _vm(entity):
             name != summary.config.name or
             summary.runtime.powerState not in {"poweredOn", "poweredOff", "suspended"}):
         raise _InvalidInventory
+    # The annotation is free-form operator text, so only a portal marker leaves
+    # the driver, and only as a digest an adoption can compare against.
+    config = entity.config
+    annotation = None if config is None else config.annotation
+    if annotation is not None and not isinstance(annotation, str):
+        raise _InvalidInventory
+    marker = annotation if annotation and annotation.startswith("kuberweaver-job:") else ""
     return {"id": _text(entity._GetMoId()), "name": name, "uuid": identity,
             "power_state": summary.runtime.powerState,
             "cpu": _integer(summary.config.numCpu, 1),
-            "memory_mb": _integer(summary.config.memorySizeMB, 1)}
+            "memory_mb": _integer(summary.config.memorySizeMB, 1),
+            "ownership_sha256": hashlib.sha256(marker.encode("utf-8")).hexdigest() if marker else None}
 
 
 class _PinnedTLSContext(ssl.SSLContext):

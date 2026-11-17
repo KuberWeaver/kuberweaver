@@ -19,6 +19,7 @@ from .configuration import plugins_dir as configured_plugins_dir
 from .configuration import state_dir as configured_state_dir
 from .login_throttle import LoginThrottle
 from .oidc import OidcConfigurationError, OidcProvider, install_oidc
+from .reporting import ensure_reporting
 from .sessions import SESSION_COOKIE, Sessions
 from .users import UserStore, install_users
 
@@ -45,6 +46,7 @@ def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
 
 def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executor, oidc_http=None):
     agent_tokens = AgentTokens(store)
+    reporting_surface = ensure_reporting(store)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -87,6 +89,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
 
     app = FastAPI(title='KuberWeaver', version='0.1.0', lifespan=lifespan)
     app.state.store = store
+    app.state.reporting = reporting_surface
     app.state.agent_tokens = agent_tokens
     app.state.users = UserStore(store)
     app.state.sessions = Sessions(store)

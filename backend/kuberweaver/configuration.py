@@ -7,6 +7,7 @@ whatever working directory the supervisor happens to use.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +44,11 @@ def plugins_dir() -> Path:
 def frontend_dir() -> Path:
     """Built portal assets: ``KUBERWEAVER_FRONTEND_DIR``."""
     return _path('KUBERWEAVER_FRONTEND_DIR', ROOT / 'frontend' / 'dist')
+
+
+def ansible_playbook() -> Path:
+    """Ansible executable for workload bricks: ``KUBERWEAVER_ANSIBLE_PLAYBOOK``."""
+    return _path('KUBERWEAVER_ANSIBLE_PLAYBOOK', Path(sys.executable).parent / 'ansible-playbook')
 
 
 def ssh_config() -> Path:

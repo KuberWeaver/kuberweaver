@@ -184,6 +184,18 @@ def required_scope(method, path):
         return 'configure'
     if method == 'POST' and re.fullmatch(dashboard + r'/probe', path):
         return 'configure'
+    # Stack state is infrastructure evidence; clearing a lease stays an
+    # administrator action and is never a machine write path.
+    state = r'/api/environment-states/[0-9a-f]{32}'
+    if method == 'GET' and (path == '/api/environment-states' or re.fullmatch(state, path)):
+        return 'read:infrastructure'
+    # Drift is computed evidence about state the caller may already read; the
+    # sweep itself writes a report and stays a human administrator action.
+    if method == 'GET' and (path == '/api/environment-states/drift'
+                            or re.fullmatch(state + r'/drift', path)):
+        return 'read:infrastructure'
+    if method == 'POST' and re.fullmatch(state + r'/lease/release', path):
+        return 'configure'
     if method == 'GET':
         reads = {
             '/api/jobs': 'read:jobs', '/api/plugins': 'read:catalog', '/openapi.json': 'read:catalog',

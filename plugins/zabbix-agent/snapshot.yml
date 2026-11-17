@@ -1,0 +1,45 @@
+---
+- name: Snapshot the zabbix-agent brick target
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the package state
+      ansible.builtin.command:
+        argv: ['dpkg-query', '-W', '-f=${Status}', 'zabbix-agent']
+      register: kw_package
+      changed_when: false
+      failed_when: false
+
+    - name: Read the unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'zabbix-agent']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect the agent configuration
+      ansible.builtin.stat:
+        path: /etc/zabbix/zabbix_agentd.conf
+      register: kw_path
+
+    - name: Read the current configuration
+      ansible.builtin.slurp:
+        src: /etc/zabbix/zabbix_agentd.conf
+      register: kw_body
+      failed_when: false
+      no_log: true
+
+    - name: Persist the snapshot
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'zabbix-agent',
+            'package_installed': 'install ok installed' in (kw_package.stdout | default('')),
+            'unit_active': (kw_unit.stdout | default('') | trim) == 'active',
+            'config_existed': kw_path.stat.exists,
+            'config_content': (kw_body.content | default('') | b64decode)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

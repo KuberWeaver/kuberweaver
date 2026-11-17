@@ -79,6 +79,10 @@ def snapshot(app):
     descriptors = {(row['kind'], row['name']): row for row in app.state.registry.list()}
     for kind in CONSUMER_METHODS:
         name = app.state.provider_bindings.get(kind)
+        if not name:
+            capabilities[kind] = {'provider': None, 'selected': False, 'available': False,
+                                  'status': 'unconfigured', 'probe': None}
+            continue
         available = not invalid_config
         provider = None
         try:
@@ -92,7 +96,7 @@ def snapshot(app):
                               'status': status if available else 'unavailable',
                               'probe': _probe(provider)}
     degraded = (not storage_ok or not worker_alive or invalid_records or invalid_config
-                or any(not row['available'] for row in capabilities.values()))
+                or any(row['selected'] and not row['available'] for row in capabilities.values()))
     return {'schema_version': 1, 'status': 'degraded' if degraded else 'ok',
             'provider_configuration': 'invalid' if invalid_config else 'valid',
             'capabilities': capabilities,
@@ -143,11 +147,11 @@ def metrics_text(app):
         labels = {'kind': kind}
         configured = capability['available'] and capability['status'] == 'configured'
         emit('kuberweaver_provider_configured', configured, 'Selected provider is compatible and configured; not a live probe.', labels=labels)
-        probe = capability['probe']
-        observed = probe['status'] in {'succeeded', 'stale', 'failed'}
+        probe = capability.get('probe') or {}
+        observed = probe.get('status') in {'succeeded', 'stale', 'failed'}
         emit('kuberweaver_provider_probe_observed', observed, 'Provider cached probe evidence exists.', labels=labels)
         if observed:
-            emit('kuberweaver_provider_probe_success', probe['status'] == 'succeeded', 'Cached probe succeeded and remains fresh within 300 seconds.', labels=labels)
-        emit('kuberweaver_provider_last_success_age_seconds', probe['age_seconds'], 'Age of cached successful observation even when latest probe failed.', labels=labels)
+            emit('kuberweaver_provider_probe_success', probe.get('status') == 'succeeded', 'Cached probe succeeded and remains fresh within 300 seconds.', labels=labels)
+        emit('kuberweaver_provider_last_success_age_seconds', probe.get('age_seconds'), 'Age of cached successful observation even when latest probe failed.', labels=labels)
     return '\n'.join(lines) + '\n'
 

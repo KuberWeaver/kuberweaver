@@ -13,7 +13,17 @@ Reference workload brick. It wraps the pinned upstream `geerlingguy.nginx` role
 | data class | `config` |
 
 Inputs: `server_name` (required), `listen_port` (default 80),
-`document_root` (default `/var/www/kuberweaver`), `proxy_pass` (optional).
+`document_root` (default `/var/www/kuberweaver`), `proxy_pass` (optional), plus
+the two portal inputs `target_uuid` and `ssh_key_id` (both required).
+
+## In the portal
+
+The brick is submitted as a one-node job. Preparation validates this contract,
+resolves `target_uuid` against the deployment evidence of a succeeded
+provisioning job, and saves a plan the administrator approves; execution stages
+the managed SSH key, runs snapshot, apply and verify, and records the declared
+assertions in the job result. See `docs/WORKLOADS.md` for the full path, the
+refusals and the evidence layout.
 
 ## Lifecycle
 

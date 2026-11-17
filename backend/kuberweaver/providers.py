@@ -15,7 +15,10 @@ from .storage import now
 CONSUMER_METHODS = {'inventory': ('read',), 'diagnostics': ('read',),
                     'execution': ('execute', 'rollback'), 'notifications': ('send',),
                     'secrets': ('resolve',)}
-DEFAULT_BINDINGS = {'inventory': 'gns3', 'diagnostics': 'rules', 'execution': 'default',
+OPTIONAL_KINDS = frozenset({'inventory'})
+
+# Inventory is opt-in: a topology source is a lab convenience, not a requirement.
+DEFAULT_BINDINGS = {'inventory': '', 'diagnostics': 'rules', 'execution': 'default',
                     'notifications': 'local-outbox', 'secrets': 'restricted-file'}
 
 
@@ -31,6 +34,10 @@ def resolve_provider(app, kind, name=None):
             provider.connections = getattr(app.state, 'connections', None)
         if hasattr(provider, 'ssh_keys'):
             provider.ssh_keys = getattr(app.state, 'ssh_keys', None)
+        if hasattr(provider, 'environments'):
+            # Durable stack state belongs to the kernel, not to a provider's
+            # per-job folder, so a resolved executor is handed the one store.
+            provider.environments = getattr(app.state, 'environment_states', None)
     return provider
 
 
@@ -381,6 +388,13 @@ def register_builtins(registry, app):
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
     registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
+    from .adoption import connection_inspector
+    from .workload_execution import WorkloadProvider
+    registry.register('execution', WorkloadProvider.executor_id,
+                      WorkloadProvider(app.state.state_dir, app.state.catalog.directory,
+                                       store=app.state.store, inspector=connection_inspector(app)),
+                      {'status': 'configured',
+                       'description': 'Pinned Ansible workload bricks on one recorded guest; one saved plan per job.'})
     from .notifications import register_notifications
     register_notifications(registry, app)
     config = app.state.state_dir / 'config' / 'secrets.json'
@@ -413,6 +427,6 @@ def register_builtins(registry, app):
 
 def integrations(app):
     listing = provider_listing(app)
-    rows = [{'id': item['name'], **item} for item in listing['active'].values()]
+    rows = [{'id': item['name'], **item} for item in listing['active'].values() if item.get('name')]
     rows.append({'id': 'local-gitops', 'name': 'Local GitOps', 'kind': 'gitops', 'status': 'configured', 'read_only': False})
     return rows + OPTIONAL

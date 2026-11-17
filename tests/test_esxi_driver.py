@@ -4,6 +4,7 @@ No hypervisor is contacted. InventoryStub implements the pyVmomi accessor/method
 boundary; it does not replace discovery or normalization. TLS tests additionally
 exercise the real SOAP adapter/serializer with an in-memory HTTPS boundary.
 """
+import hashlib
 import importlib.util
 import json
 import socket
@@ -20,6 +21,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 CONNECTION = {"endpoint": "https://192.0.2.10", "tls_sha256": None}
 CREDENTIALS = json.dumps({"username": "offline-reader", "password": "synthetic-password"}).encode()
 UUID = "11111111-1111-4111-8111-111111111111"
+MARKER = "kuberweaver-job:" + "a" * 32
 
 
 @pytest.fixture(autouse=True)
@@ -65,11 +67,13 @@ class InventoryStub:
         self.vm = self.object(vim.VirtualMachine, "vm-2", name="z-vm", summary=vim.vm.Summary(
             config=vim.vm.Summary.ConfigSummary(name="z-vm", uuid=UUID, numCpu=2,
                                                memorySizeMB=1024, annotation="synthetic-vm-secret"),
-            runtime=vim.vm.RuntimeInfo(powerState="poweredOff")))
+            runtime=vim.vm.RuntimeInfo(powerState="poweredOff")),
+            config=vim.vm.ConfigInfo(annotation=MARKER))
         self.vm_first = self.object(vim.VirtualMachine, "vm-1", name="a-vm", summary=vim.vm.Summary(
             config=vim.vm.Summary.ConfigSummary(name="a-vm", uuid="22222222-2222-4222-8222-222222222222",
                                                numCpu=1, memorySizeMB=512),
-            runtime=vim.vm.RuntimeInfo(powerState="poweredOn")))
+            runtime=vim.vm.RuntimeInfo(powerState="poweredOn")),
+            config=vim.vm.ConfigInfo(annotation="operator note, not a portal marker"))
         self.entities = [self.network, self.vm, self.ds, self.pool, self.host,
                          self.vm_first, self.network_first, self.ds_first]
         self.properties[("licenseManager", "licenses")] = [vim.LicenseManager.LicenseInfo(
@@ -152,8 +156,9 @@ def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
         "resource_pools": [{"id": "pool-1", "name": "Resources"}],
         "virtual_machines": [
             {"id": "vm-1", "name": "a-vm", "uuid": "22222222-2222-4222-8222-222222222222",
-             "power_state": "poweredOn", "cpu": 1, "memory_mb": 512},
-            {"id": "vm-2", "name": "z-vm", "uuid": UUID, "power_state": "poweredOff", "cpu": 2, "memory_mb": 1024}],
+             "power_state": "poweredOn", "cpu": 1, "memory_mb": 512, "ownership_sha256": None},
+            {"id": "vm-2", "name": "z-vm", "uuid": UUID, "power_state": "poweredOff", "cpu": 2,
+             "memory_mb": 1024, "ownership_sha256": hashlib.sha256(MARKER.encode()).hexdigest()}],
     }
     assert inventory.events == ["destroy", "disconnect"]
     assert inventory.disconnected == [inventory.si]
@@ -161,6 +166,7 @@ def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
     assert "SYNTHETIC-LICENSE-KEY" not in output
     assert "synthetic-vm-secret" not in output
     assert "synthetic-password" not in output
+    assert MARKER not in output
 
 
 def test_default_connection_uses_pki_timeout_and_no_global_session(monkeypatch):
@@ -672,6 +678,23 @@ def test_readback_preserves_uuid_case_exactly():
     assert driver.read_resource(CONNECTION, CREDENTIALS, identity)["uuid"] == identity
     with pytest.raises(module.ESXiError, match="^ESXi resource not found$"):
         driver.read_resource(CONNECTION, CREDENTIALS, identity.lower())
+
+
+def test_readback_reports_ownership_digest_and_never_the_annotation():
+    module = load_driver()
+    inventory = InventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    current = driver.read_resource(CONNECTION, CREDENTIALS, UUID)
+    assert current["ownership_sha256"] == hashlib.sha256(MARKER.encode()).hexdigest()
+    assert MARKER not in json.dumps(current)
+    foreign = driver.read_resource(CONNECTION, CREDENTIALS, "22222222-2222-4222-8222-222222222222")
+    assert foreign["ownership_sha256"] is None
+    # A changed annotation changes the proof; a cleared one removes it.
+    inventory.properties[("vm-2", "config")].annotation = "kuberweaver-job:" + "b" * 32
+    changed = driver.read_resource(CONNECTION, CREDENTIALS, UUID)
+    assert changed["ownership_sha256"] == hashlib.sha256(("kuberweaver-job:" + "b" * 32).encode()).hexdigest()
+    inventory.properties[("vm-2", "config")].annotation = ""
+    assert driver.read_resource(CONNECTION, CREDENTIALS, UUID)["ownership_sha256"] is None
 
 
 def test_inventory_order_is_stable_when_remote_order_changes():
