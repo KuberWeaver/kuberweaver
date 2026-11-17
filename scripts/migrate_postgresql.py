@@ -122,7 +122,8 @@ def inspect_source(state_dir):
                                                                         'environment_state_claim',
                                                                         'environment_state_adoption',
                                                                         'environment_state_destroy',
-                                                                        'environment_state_drift'}, required)
+                                                                        'environment_state_drift',
+                                                                        'declaration_run'}, required)
     candidates = [state_dir / 'notifications' / 'deliveries.sqlite3',
                   state_dir / 'data' / 'notifications' / 'deliveries.sqlite3']
     outboxes = [path for path in candidates if path.exists() or path.is_symlink()]

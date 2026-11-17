@@ -27,6 +27,8 @@ def install_api(app, plugins_dir, executor=None):
     app.state.worker = Worker(app)
     from .environment_state import install_environment_state_api
     install_environment_state_api(app)
+    from .declarations import install_declarations_api
+    install_declarations_api(app, app.state.environment_states)
     from .runtime import configure
     configure(app)
     from .ssh_keys import install_ssh_keys_api

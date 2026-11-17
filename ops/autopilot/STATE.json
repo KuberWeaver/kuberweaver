@@ -1,7 +1,7 @@
 {
-  "iteration": 17,
+  "iteration": 18,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T14:47:00+01:00",
+  "updated_at": "2026-11-17T15:35:00+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -177,9 +177,9 @@
       "title": "Git-backed declarations",
       "detail": "Load a stack declaration from a repository path with revision pinning, and execute the CI-produced plan artifact as-is.",
       "acceptance": "Tests cover digest mismatch refusal and pinned-revision execution.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "declarations.py owns the only path that turns a committed CI bundle into an execution. A bundle at a pinned commit (a full 40- or 64-hex id, resolved with rev-parse and required to equal the submitted string) names one declaration file and one saved OpenTofu plan with SHA-256 digests; the request pins the revision, the bundle path and the bundle digest. Blobs are read with ls-tree -l and cat-file from the object database at that commit, never from the working tree: only mode 100644/100755 regular files are accepted, a symlink or submodule is refused, and paths use a conservative repository-relative grammar with no traversal, dot components, absolute paths or .lock suffixes. The bundle digest, both file digests, the ZIP plan magic and the declaration (schema_version, environment, stack, and a Graph whose name and environment must match) are checked before anything else; a mismatch is 409 and the applier is never called. POST /api/declarations/verify is administrator-only with CSRF and writes nothing; GET /api/declarations returns the repository status (disabled, configured or configuration_error, never the path), the applier status and one declaration_run row per stack, readable by any signed-in role; agent tokens have no mapping for either route. POST /api/declarations/execute re-verifies (a previous verify is never trusted), refuses 503 when no applier can run, takes the same environment_state claim an apply uses, refuses when the recorded generation differs from the bundle's base_generation or a lease or destruction is active, records status executing, hands the exact bytes to PlanApplier, commits generation+1 with the returned state and resources, audits declaration.executed and marks the run executed. A failure after the applier started keeps the claim and records failed with requires_manual_review and a fixed reason. PlanApplier stages the plan as <state_dir>/declarations/<run>/declaration.tfplan (0700 folder, 0600 O_EXCL and O_NOFOLLOW file), re-hashes it, runs only `tofu apply ... declaration.tfplan` (no init, no plan, no -out=, allowlisted environment including TF_PLUGIN_CACHE_DIR, 600 s, capped output, 0600 artifacts, unexpected-artifact refusal) and reads the result with `tofu show -json`; provider text never leaves the process. Configuration is <state_dir>/config/declarations.json (schema_version 1, enabled, an absolute canonical local path to a worktree or a bare repository; no URL, no network, fail-closed on symlinks, duplicate keys and unknown fields). declaration_run is registered in the PostgreSQL DDL and accepted by the SQLite migration script. docs/DECLARATIONS.md plus README, IMPLEMENTATION, ENVIRONMENT_STATE and CHANGELOG updates. 66 tests in tests/test_declarations.py cover pinned verification with a working-tree edit and a newer commit, each of the three digest refusals, a plan edited under an existing bundle, unknown, short and symbolic revisions, a symlinked blob, six bad paths, invalid bundles and declarations including duplicate JSON keys, a non-plan artifact, base-generation, lease and human-administrator refusals, the configuration statuses, bare and worktree repositories, the PostgreSQL table, kernel wiring, the three routes with role, CSRF and agent checks, the real staging path behind an injected process boundary (apply argv, staged names, modes, unchanged bytes, no plan, init or -out=), a failed apply keeping the claim with a sanitized run row, and an unexpected-artifact refusal. Suite 1748 passed, 2 skipped; secret scan and git diff --check clean; frontend untouched."
     },
     {
       "id": "F1",

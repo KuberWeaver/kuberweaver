@@ -242,8 +242,16 @@ is stored.
 A standalone executor constructed outside the portal (`environments=None`) keeps
 its previous behaviour and its per-job folder remains its only record.
 
+A Git-backed declaration bundle (see [declarations](DECLARATIONS.md)) is the
+other writer: `DeclarationService` verifies a pinned commit, takes the same
+claim, refuses when the recorded generation differs from the bundle's
+`base_generation`, applies the exact saved plan through its applier and commits
+the resulting generation. It never initialises, plans, retries or rolls back,
+and a failure after the applier started keeps the claim for manual review.
+
 The PostgreSQL backend registers `environment_state`,
 `environment_state_documents`, `environment_state_claim`,
-`environment_state_adoption`, `environment_state_destroy` and
-`environment_state_drift`; the SQLite migration script accepts the same six
-tables. The drift report itself is documented in [drift reports](DRIFT.md).
+`environment_state_adoption`, `environment_state_destroy`,
+`environment_state_drift` and `declaration_run`; the SQLite migration script
+accepts the same seven tables. The drift report itself is documented in
+[drift reports](DRIFT.md).
