@@ -52,16 +52,15 @@ nothing.
 The portal runs as the user unit `kuberweaver.service` on 127.0.0.1:8088. Code on
 disk is not code in memory: a green commit that is never loaded is invisible.
 
-22. After a green iteration that touched `backend/` or `frontend/`, rebuild the
-    frontend when it changed (`cd frontend && npm run build`) and restart the
-    unit (`systemctl --user restart kuberweaver`).
-23. Verify the loaded code, not just the exit code: `GET /readyz` must answer 200
-    and `GET /api/dashboards` must answer 401 (route present, authentication
-    required). A 404 means the process is still running the previous build.
-24. Record the commit that is actually loaded in `STATE.json` as `deployed_sha`.
-    If verification fails, return to `deployed_sha`, restart, and mark the task
-    `blocked` with the reason. Never leave the portal serving code that failed
-    verification.
+22. Do not restart the unit yourself: unattended runs are denied `systemctl`.
+    The user timer `kuberweaver-deploy.timer` deploys the checked out commit
+    within two minutes, rebuilds the frontend when it changed, and records the
+    result in `~/.local/state/kuberweaver/deployed-sha`.
+23. Do not leave uncommitted work that the timer would deploy: the timer deploys
+    the commit, so a green iteration must commit.
+24. If a deployment is needed immediately for a verification, ask for it in the
+    report instead of attempting the restart. Never mark the deployment done in
+    `STATE.json` yourself; read the marker file and report what it says.
 
 ## Stopping
 

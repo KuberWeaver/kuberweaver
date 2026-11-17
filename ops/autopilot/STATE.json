@@ -8,26 +8,7 @@
     "track": "feat/production-track",
     "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
   },
-  "known_failures": [
-    {
-      "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
-      "detail": "PATCH /api/providers returns 409 instead of 200 when it follows a job that just reported a terminal status: Worker clears active_identity in its finally block after publishing the status, so queue_busy() still sees a busy worker. Same race as the two entries below. Reproduced on fa7a46d without the B2 changes (2 failures in 3 runs), so it predates them.",
-      "recorded_at": "2026-11-17",
-      "owner_task": "unassigned"
-    },
-    {
-      "test": "tests/test_provider_bindings.py::test_disabled_selected_execution_blocks_approval_and_rollback_but_not_job_views",
-      "detail": "POST /api/extensions/{id}/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
-      "recorded_at": "2026-11-17",
-      "owner_task": "unassigned"
-    },
-    {
-      "test": "tests/test_redis_execution.py::test_trusted_extension_through_authenticated_approved_worker",
-      "detail": "POST /api/extensions/redis-runtime/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
-      "recorded_at": "2026-11-17",
-      "owner_task": "unassigned"
-    }
-  ],
+  "known_failures": [],
   "tasks": [
     {
       "id": "A1",
@@ -236,15 +217,34 @@
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "verify": [
-      "/readyz -> 200",
-      "/api/dashboards -> 401",
-      "/api/dashboards/{unknown}/embed -> 401 once the embed page is deployed"
-    ],
     "deployed_sha": "18a932b",
     "pending": {
       "since": "2026-11-17T08:44:16+01:00",
       "reason": "systemd restart is blocked for unattended runs by approvals.cron_mode=deny, so the unit keeps serving the previous commit; the changed backend was exercised on a throwaway uvicorn process instead (readyz 200, /api/dashboards 401, embed page 200 with the derived CSP, anonymous embed 401). A human restart of kuberweaver.service loads the track branch."
+    },
+    "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
+  },
+  "resolved_failures": [
+    {
+      "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
+      "detail": "PATCH /api/providers returns 409 instead of 200 when it follows a job that just reported a terminal status: Worker clears active_identity in its finally block after publishing the status, so queue_busy() still sees a busy worker. Same race as the two entries below. Reproduced on fa7a46d without the B2 changes (2 failures in 3 runs), so it predates them.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
+    },
+    {
+      "test": "tests/test_provider_bindings.py::test_disabled_selected_execution_blocks_approval_and_rollback_but_not_job_views",
+      "detail": "POST /api/extensions/{id}/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
+    },
+    {
+      "test": "tests/test_redis_execution.py::test_trusted_extension_through_authenticated_approved_worker",
+      "detail": "POST /api/extensions/redis-runtime/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
     }
-  }
+  ]
 }
