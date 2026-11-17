@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import os
 from pathlib import Path
@@ -12,26 +11,13 @@ import threading
 import time
 from datetime import datetime, timezone
 
+from .passwords import check_password, hash_password
 from .postgres import Connection, StorageError, acquire_controller_lock, configured_dsn, initialize
 
 
 def now():
     return datetime.now(timezone.utc).isoformat()
 
-
-def hash_password(password: str, salt: str | None = None):
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 600_000)
-    return f'pbkdf2_sha256$600000${salt}${digest.hex()}'
-
-
-def check_password(password, encoded):
-    try:
-        _, rounds, salt, digest = encoded.split('$')
-        actual = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), int(rounds)).hex()
-        return hmac.compare_digest(digest, actual)
-    except (ValueError, TypeError):
-        return False
 
 
 class Store:

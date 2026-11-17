@@ -58,6 +58,8 @@ Strict FinOps example: `{"label":"finops-reader","role":"viewer","scopes":["read
 
 Existing endpoints may require stricter roles (e.g. operations is admin-only); scopes never elevate roles. Future endpoints must be added explicitly to `agent_auth.required_scope`, with HTTP tests. Query parameters do not change authority; unsupported methods and trailing aliases fail closed.
 
+Account administration (`/api/users`, role changes and password rotation) is human-only in the same way: no agent scope maps to those routes, so even an admin token receives `403`. See `USERS.md`.
+
 ChatOps actions still require their separately signed human-mapped gateway callback. The sole browser-CSRF exemption is **POST /api/chatops/callback**; its adapter performs signature/replay/actor validation. Bearer credentials do not authorize that callback and cannot bypass its authentication.
 
 ## Client credential handling

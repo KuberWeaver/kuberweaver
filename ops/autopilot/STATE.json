@@ -1,7 +1,7 @@
 {
-  "iteration": 4,
+  "iteration": 5,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T01:26:38",
+  "updated_at": "2026-11-17T02:21:26",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -58,9 +58,9 @@
       "title": "User store and password policy",
       "detail": "Add users table with argon2 hashes, roles admin/operator/viewer, creation and rotation of the bootstrap admin, password strength validation.",
       "acceptance": "Tests cover hashing, role checks, weak password refusal, duplicate user refusal.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "passwords.py stores Argon2id (m=19456,t=2,p=1) and still verifies legacy pbkdf2 with an in-place upgrade on login; users.py owns roles admin/operator/viewer, case-insensitive unique lowercase usernames, the 12-512 character policy (blocklist, username containment, 4 distinct characters, no composition rule), last-administrator protection, and rotation that revokes sessions and retires the matching plaintext line from bootstrap-credentials.txt (file deleted when empty). Human-only endpoints GET/POST /api/users, PATCH /api/users/{id}, POST /api/users/{id}/password, never exposed to agent scopes; docs/USERS.md plus README, AGENT_ACCESS, IMPLEMENTATION and CHANGELOG updates; 24 tests cover hashing, legacy upgrade, every refusal reason, duplicate and invalid accounts, role checks, last-admin, self/admin rotation, bootstrap retirement and agent denial"
     },
     {
       "id": "B2",

@@ -14,7 +14,7 @@ Declarative discovery uses `plugins/*/manifest.yaml`. Manifests declare `id`, `n
 
 ## HTTP, authentication and governance
 
-All normal portal routes share `/api` and the same origin. `POST /api/auth/login` takes `username`/`password`, returns user metadata and CSRF token, and sets an HttpOnly same-site session cookie. Browser writes send `X-CSRF-Token`. `GET /api/auth/me` returns the principal; `POST /api/auth/logout` ends the session. Roles are `admin`, `operator`, `viewer`; bootstrap random passwords belong only in private `data/bootstrap-credentials.txt` (0600).
+All normal portal routes share `/api` and the same origin. `POST /api/auth/login` takes `username`/`password`, returns user metadata and CSRF token, and sets an HttpOnly same-site session cookie. Browser writes send `X-CSRF-Token`. `GET /api/auth/me` returns the principal; `POST /api/auth/logout` ends the session. Accounts use Argon2id hashes, with existing PBKDF2 verifiers upgraded on successful login, and the fixed roles `admin`, `operator`, `viewer`; `USERS.md` defines the strength policy, account administration and bootstrap rotation. Bootstrap random passwords belong only in private `data/bootstrap-credentials.txt` (0600), and a rotated account's plaintext line is removed.
 
 | Route | Contract |
 | --- | --- |
@@ -30,6 +30,7 @@ All normal portal routes share `/api` and the same origin. `POST /api/auth/login
 | `POST /api/jobs/{id}/rollback` | Administrator-only serialized rollback for eligible successful changes or verified `rollback_failed` journals, never arbitrary failed/interrupted jobs. |
 | `GET /api/jobs/{id}/events` | SSE with polling fallback. |
 | `GET /api/audit`, `/api/finops`, `/api/diagnostics`, `/api/integrations` | Audit, internal estimates, source-labelled diagnostics and explicit availability. |
+| `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/password` | Human-only account administration: list, create, role change and password rotation, with last-administrator protection. |
 | `/metrics`, `/healthz`, `/readyz` | Local process/job metrics, liveness, and structured readiness for the database, the selected secret source and the plugin directory. |
 
 Transient statuses include `queued`, `running`, `rolling_back`; terminal outcomes include `succeeded`, `failed`, `rolled_back`, `rollback_failed`, `rejected`. Interrupted work remains visible for review rather than silent retry. Current schemas may include additional states for provider-specific preparation and recovery; use OpenAPI rather than inferring unsupported transitions.

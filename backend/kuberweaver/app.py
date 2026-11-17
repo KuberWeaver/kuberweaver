@@ -13,11 +13,12 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from .storage import Store, check_password
+from .storage import Store
 from .agent_auth import AgentTokens, install_agent_tokens, required_scope, permits
 from .configuration import frontend_dir as configured_frontend_dir
 from .configuration import plugins_dir as configured_plugins_dir
 from .configuration import state_dir as configured_state_dir
+from .users import UserStore, install_users
 
 
 class Login(BaseModel):
@@ -85,6 +86,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     app = FastAPI(title='KuberWeaver', version='0.1.0', lifespan=lifespan)
     app.state.store = store
     app.state.agent_tokens = agent_tokens
+    app.state.users = UserStore(store)
     app.state.background_services = []
     app.state.state_dir = state_dir
     app.state.testing = testing
@@ -166,6 +168,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     app.state.user_dependency = user
     app.state.role_dependency = role
     install_agent_tokens(app)
+    install_users(app)
 
     @app.post('/api/auth/login')
     def login(data: Login, request: Request, response: Response):
@@ -175,8 +178,8 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         attempts[:] = [t for t in attempts if timestamp - t < 60]
         if len(attempts) >= 20:
             raise HTTPException(429, 'Too many login attempts; retry in one minute')
-        account = store.one('SELECT * FROM users WHERE username=?', (data.username,))
-        if not check_password(data.password, account['password_hash'] if account else store.dummy_hash):
+        account = app.state.users.authenticate(data.username, data.password)
+        if not account:
             attempts.append(timestamp)
             store.audit('anonymous', 'auth.login_failed')
             raise HTTPException(401, 'Invalid credentials')

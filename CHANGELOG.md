@@ -23,7 +23,9 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Contributor guide and release tooling: `CONTRIBUTING.md` and `scripts/release.py`.
 - Environment-based configuration for the state, plugins, frontend and OpenSSH paths, with drift-free defaults, absolute-path validation and a refusal that names the missing variable.
 - Structured readiness at `GET /readyz` for the database, the selected secret source and the plugin directory, with `/healthz` kept as liveness only.
+- Argon2id password storage, a documented strength policy, administrator-managed accounts with fixed roles, and single-use bootstrap credentials that are retired when an account rotates its password; see `docs/USERS.md`.
 
 ### Security
 
 - Passwords and tokens are never returned in list responses, and the secret scan blocks key material and provider tokens from entering the repository.
+- Legacy PBKDF2 password verifiers are upgraded to Argon2id on the next successful login; self-service rotation revokes every existing session and reissues only the caller's.
