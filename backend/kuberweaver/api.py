@@ -106,6 +106,14 @@ def install_api(app, plugins_dir, executor=None):
 
     @app.get('/api/infrastructure')
     def infrastructure(current=Depends(user)):
+        if getattr(app.state, 'provider_config_error', None):
+            raise HTTPException(503, 'Provider binding configuration is invalid')
+        if not app.state.provider_bindings.get('inventory'):
+            result = {'bound': False, 'provider': None, 'source': None,
+                      'nodes': [], 'links': [], 'errors': [],
+                      'message': 'No inventory provider is selected. Bind one in Providers to read live topology.'}
+            app.state.inventory_cache = result
+            return result
         result = resolve_provider(app, 'inventory').read()
         app.state.inventory_cache = result
         return result

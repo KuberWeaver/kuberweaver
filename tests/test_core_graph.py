@@ -37,6 +37,9 @@ def api(tmp_path):
     plugins = tmp_path / 'plugins'
     manifest(plugins)
     app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
+    # The product ships with no inventory provider; these suites exercise the
+    # provider itself, so they bind it explicitly.
+    app.state.provider_bindings['inventory'] = 'gns3'
     with TestClient(app) as client:
         credentials = bootstrap(tmp_path / 'data')
         response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})

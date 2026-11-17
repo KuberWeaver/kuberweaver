@@ -36,7 +36,11 @@ def load_provider_bindings(app):
         if len(present) > 1:
             raise ValueError('Competing binding sources')
         if present:
-            value = ProviderConfig.model_validate(yaml.safe_load(present[0].read_text()))
+            raw = yaml.safe_load(present[0].read_text())
+            # An empty binding means "not selected", never an invalid provider name.
+            if isinstance(raw, dict) and isinstance(raw.get('bindings'), dict):
+                raw['bindings'] = {kind: name for kind, name in raw['bindings'].items() if name}
+            value = ProviderConfig.model_validate(raw)
             app.state.provider_bindings.update(value.bindings)
     except Exception:
         app.state.provider_config_error = 'Invalid provider configuration; selected capabilities unavailable'
@@ -63,7 +67,8 @@ def change_provider_bindings(app, patch, actor):
         except HTTPException:
             app.state.provider_config_error = previous_error
             raise HTTPException(422, 'Requested provider is missing or has an incompatible consumer protocol')
-        value = {'schema_version': 1, 'bindings': {**app.state.provider_bindings, **patch.bindings}}
+        merged = {kind: name for kind, name in {**app.state.provider_bindings, **patch.bindings}.items() if name}
+        value = {'schema_version': 1, 'bindings': merged}
         try:
             persist_settings(app, 'providers', value)
             load_provider_bindings(app)

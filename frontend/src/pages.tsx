@@ -653,9 +653,17 @@ export function Infrastructure() {
           </button>
         }
       />
-      <Notice>
-        Read only: this view does not create, start or modify GNS3 devices.
-      </Notice>
+      {data?.bound === false ? (
+        <section className="panel empty-state">
+          <h2>No inventory provider selected</h2>
+          <p>{data.message}</p>
+          <p className="muted">
+            A topology source is optional. KuberWeaver provisions from blueprints;
+            bind an inventory provider only if you want to compare it with a live
+            lab network.
+          </p>
+        </section>
+      ) : (
       <ResourceBoundary
         loading={r.loading}
         error={r.error}
@@ -667,7 +675,7 @@ export function Infrastructure() {
             <div className="infra-meta panel">
               <div>
                 <span className="eyebrow">SOURCE</span>
-                <strong>{data.source || "GNS3"}</strong>
+                <strong>{data.source || "Not reported"}</strong>
               </div>
               <div>
                 <span className="eyebrow">PROJECT</span>
@@ -696,13 +704,13 @@ export function Infrastructure() {
                 title="No observable devices"
                 icon={<Network size={28} />}
               >
-                Check the GNS3 provider configuration and project access.
+                Check the inventory provider configuration and project access.
               </Empty>
             ) : (
               <>
                 <section
                   className="infra-flow panel"
-                  aria-label="GNS3 topology"
+                  aria-label="Observed topology"
                 >
                   <ReactFlow
                     nodes={nodes}
@@ -754,6 +762,7 @@ export function Infrastructure() {
           </>
         )}
       </ResourceBoundary>
+      )}
     </>
   );
 }
