@@ -14,6 +14,7 @@ the claim is held and a commit from a stale generation is refused.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import hashlib
 import json
 import os
@@ -29,8 +30,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from .storage import now
 
 ENVIRONMENTS = ('dev', 'staging', 'production')
+DESTROY_ACTIVE = ('quarantined', 'executing')
+DESTROY_STATUSES = DESTROY_ACTIVE + ('cancelled', 'destroyed', 'failed', 'rollback_failed')
 MAX_RESOURCES = 256
 MAX_DOCUMENT = 4 * 1024 * 1024
+MAX_QUARANTINE = 7 * 24 * 3600
 KEY_NAME = 'state.key'
 _ENVELOPE = 1
 _STACK = re.compile(r'[^\x00-\x1f\x7f]{1,160}\Z')
@@ -48,6 +52,19 @@ class StateConflict(StateError):
 
 def _key_error():
     return StateError('State encryption key is unavailable or not protected')
+
+
+def parse_moment(value):
+    """One timezone-aware instant from a stored ISO timestamp."""
+    if not isinstance(value, str):
+        raise StateError('Destruction record is unreadable')
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        raise StateError('Destruction record is unreadable') from None
+    if moment.tzinfo is None:
+        raise StateError('Destruction record is unreadable')
+    return moment
 
 
 def _read_key(path):
@@ -111,6 +128,8 @@ class EnvironmentStates:
 
         self.store.execute('CREATE TABLE IF NOT EXISTS environment_state_adoption('
                            'uuid TEXT PRIMARY KEY, body TEXT NOT NULL)')
+        self.store.execute('CREATE TABLE IF NOT EXISTS environment_state_destroy('
+                           'id TEXT PRIMARY KEY, body TEXT NOT NULL)')
 
     def _has_documents(self):
         return self.store.one('SELECT 1 AS present FROM environment_state_documents LIMIT 1') is not None
@@ -172,10 +191,25 @@ class EnvironmentStates:
             raise StateError('Environment state claim is unreadable')
         return claim
 
+    def _destroy(self, identity):
+        row = self.store.one('SELECT body FROM environment_state_destroy WHERE id=?', (identity,))
+        if row is None:
+            return None
+        try:
+            value = json.loads(row['body'])
+        except (TypeError, ValueError):
+            raise StateError('Destruction record is unreadable') from None
+        if (not isinstance(value, dict) or value.get('id') != identity
+                or value.get('status') not in DESTROY_STATUSES
+                or not isinstance(value.get('destroy_id'), str)):
+            raise StateError('Destruction record is unreadable')
+        return value
+
     def _empty(self, environment, stack, identity):
         return {'id': identity, 'environment': environment, 'stack': stack, 'generation': 0,
                 'resources': [], 'digest': None, 'job_id': None, 'source': 'apply',
-                'adopted': None, 'created_at': self.clock(), 'updated_at': None}
+                'adopted': None, 'destroyed': None, 'created_at': self.clock(),
+                'updated_at': None}
 
     def identity(self, environment, stack):
         """Public validation of one pair; raises ValueError for a bad name."""
@@ -187,10 +221,12 @@ class EnvironmentStates:
                 'resource_count': len(record['resources']), 'resources': record['resources'],
                 'digest': record['digest'], 'job_id': record['job_id'],
                 'source': record.get('source', 'apply'), 'adopted': record.get('adopted'),
+                'destroyed': record.get('destroyed'),
                 'created_at': record['created_at'], 'updated_at': record['updated_at'],
                 'encrypted': True,
                 'lease': None if claim is None else {'job_id': claim['job_id'],
-                                                     'acquired_at': claim['acquired_at']}}
+                                                     'acquired_at': claim['acquired_at']},
+                'destroy': self._destroy(record['id'])}
 
     def collection(self):
         return {'states': self.list()}
@@ -269,6 +305,9 @@ class EnvironmentStates:
                 record = self._empty(environment, stack, identity)
             if record['environment'] != environment or record['stack'] != stack:
                 raise StateError('Environment state identity collision')
+            destroying = self._destroy(identity)
+            if destroying is not None and destroying['status'] in DESTROY_ACTIVE:
+                raise StateConflict('A destruction is in progress for this stack')
             if expected_generation is not None and expected_generation != record['generation']:
                 raise StateConflict('Environment state generation changed')
             claim = self._claim(identity)
@@ -527,6 +566,258 @@ class EnvironmentStates:
                               'connection_id': connection_id})
             return {'state': self._view(stored, None), 'adopted': True, 'unchanged': False}
 
+    def destruction(self, identity):
+        with self.store.lock:
+            return self._destroy(identity) if isinstance(identity, str) else None
+
+    def _put_destroy(self, identity, value):
+        self.store.execute('INSERT OR REPLACE INTO environment_state_destroy(id,body) VALUES(?,?)',
+                           (identity, json.dumps(value, sort_keys=True)))
+
+    def quarantine_destroy(self, identity, *, uuid, marker, connection_id, name,
+                           actor, stamp, quarantine_seconds):
+        """Open the cancellation window for destroying one owned VM.
+
+        Nothing leaves the portal here: the caller proves the VM live first and
+        this method only records the intent plus the instant it becomes
+        executable. The window is the last chance to cancel a typo.
+        """
+        if (not isinstance(identity, str) or not isinstance(uuid, str)
+                or not isinstance(marker, str) or not isinstance(connection_id, str)
+                or not isinstance(name, str)):
+            raise ValueError('Invalid destruction request')
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid destruction actor')
+        if (type(quarantine_seconds) not in (int, float)
+                or not 0 <= quarantine_seconds <= MAX_QUARANTINE):
+            raise ValueError('Invalid quarantine window')
+        not_before = (parse_moment(stamp) + timedelta(seconds=quarantine_seconds)).isoformat()
+        with self.store.lock:
+            record = self._row(identity)
+            if record is None or not record['generation']:
+                raise StateConflict('Stack has no applied resources to destroy')
+            address = 'esxi_vm.' + uuid
+            if (len(record['resources']) != 1 or record['resources'][0]['address'] != address
+                    or record['resources'][0]['mode'] != 'managed'):
+                raise StateConflict('Virtual machine is not owned by this stack')
+            adopted = record.get('adopted') or {}
+            if adopted and (adopted.get('uuid') != uuid or adopted.get('marker') != marker):
+                raise StateConflict('Ownership marker does not match the recorded adoption')
+            if self._claim(identity) is not None:
+                raise StateConflict('An apply holds the state lease for this stack')
+            existing = self._destroy(identity)
+            if existing is not None:
+                if existing['status'] == 'executing':
+                    raise StateConflict('Destruction has started for this stack')
+                if existing['status'] == 'quarantined':
+                    if (existing.get('uuid') == uuid and existing.get('marker') == marker
+                            and existing.get('connection_id') == connection_id):
+                        return {'destroy': existing, 'unchanged': True}
+                    raise StateConflict('Another destruction is already quarantined for this stack')
+                if existing['status'] == 'rollback_failed':
+                    raise StateConflict('A failed destruction requires manual review')
+                if existing['status'] == 'destroyed':
+                    raise StateConflict('Stack resources were already destroyed')
+            value = {'id': identity, 'destroy_id': secrets.token_hex(16),
+                     'status': 'quarantined', 'environment': record['environment'],
+                     'stack': record['stack'], 'uuid': uuid, 'marker': marker,
+                     'connection_id': connection_id, 'name': name,
+                     'resource_address': address, 'requested_at': stamp,
+                     'requested_by': actor, 'not_before': not_before,
+                     'started_at': None, 'started_by': None, 'finished_at': None,
+                     'finished_by': None, 'reason': None,
+                     'requires_manual_review': False, 'resolved_at': None,
+                     'resolved_by': None}
+            self._put_destroy(identity, value)
+            stored = self._destroy(identity)
+            if stored is None or stored.get('destroy_id') != value['destroy_id']:
+                raise StateError('Destruction request could not be confirmed')
+            self.store.audit(actor, 'environment_state.destroy_quarantined', identity,
+                             {'environment': record['environment'], 'stack': record['stack'],
+                              'uuid': uuid, 'marker': marker,
+                              'destroy_id': value['destroy_id'], 'not_before': not_before})
+            return {'destroy': stored, 'unchanged': False}
+
+    def cancel_destroy(self, identity, destroy_id, *, actor, stamp):
+        """Cancel a quarantined destruction; nothing has touched the host yet."""
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid destruction actor')
+        with self.store.lock:
+            value = self._destroy(identity) if isinstance(identity, str) else None
+            if value is None:
+                raise StateConflict('No destruction is recorded for this stack')
+            if value['destroy_id'] != destroy_id:
+                raise StateConflict('Destruction request changed')
+            if value['status'] != 'quarantined':
+                raise StateConflict('Destruction can no longer be cancelled')
+            updated = {**value, 'status': 'cancelled', 'finished_at': stamp,
+                       'finished_by': actor, 'reason': 'cancelled'}
+            self._put_destroy(identity, updated)
+            stored = self._destroy(identity)
+            if stored is None or stored.get('status') != 'cancelled':
+                raise StateError('Destruction cancellation could not be confirmed')
+            self.store.audit(actor, 'environment_state.destroy_cancelled', identity,
+                             {'destroy_id': destroy_id, 'uuid': value['uuid']})
+            return stored
+
+    def start_destroy(self, identity, destroy_id, *, actor, stamp):
+        """Claim one quarantined destruction for execution.
+
+        The transition is the arbiter: a second execute or a cancel racing it is
+        refused before any host call, and the destroyer runs outside the store
+        lock so a slow hypervisor never blocks every other writer.
+        """
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid destruction actor')
+        if not isinstance(destroy_id, str) or not re.fullmatch(r'[0-9a-f]{32}', destroy_id):
+            raise ValueError('Invalid destruction identity')
+        moment = parse_moment(stamp)
+        with self.store.lock:
+            value = self._destroy(identity) if isinstance(identity, str) else None
+            if value is None:
+                raise StateConflict('No destruction is recorded for this stack')
+            if value['destroy_id'] != destroy_id:
+                raise StateConflict('Destruction request changed')
+            if value['status'] != 'quarantined':
+                raise StateConflict('Destruction is no longer quarantined')
+            if moment < parse_moment(value['not_before']):
+                raise StateConflict('Quarantine window has not elapsed')
+            updated = {**value, 'status': 'executing', 'started_at': stamp,
+                       'started_by': actor}
+            self._put_destroy(identity, updated)
+            stored = self._destroy(identity)
+            if stored is None or stored.get('status') != 'executing':
+                raise StateError('Destruction start could not be confirmed')
+            return stored
+
+    def fail_destroy(self, identity, destroy_id, *, status, reason, actor, stamp,
+                     requires_manual_review):
+        """Record a destruction that did not complete, without touching state."""
+        if status not in ('failed', 'rollback_failed'):
+            raise ValueError('Invalid destruction outcome')
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid destruction actor')
+        with self.store.lock:
+            value = self._destroy(identity) if isinstance(identity, str) else None
+            if value is None:
+                raise StateConflict('No destruction is recorded for this stack')
+            if value['destroy_id'] != destroy_id:
+                raise StateConflict('Destruction request changed')
+            if value['status'] != 'executing':
+                raise StateConflict('Destruction is not running')
+            updated = {**value, 'status': status, 'reason': reason,
+                       'finished_at': stamp, 'finished_by': actor,
+                       'requires_manual_review': bool(requires_manual_review)}
+            self._put_destroy(identity, updated)
+            stored = self._destroy(identity)
+            if stored is None or stored.get('status') != status:
+                raise StateError('Destruction outcome could not be confirmed')
+            self.store.audit(actor, 'environment_state.destroy_failed' if status == 'failed'
+                             else 'environment_state.destroy_rollback_failed', identity,
+                             {'destroy_id': destroy_id, 'uuid': value['uuid'],
+                              'reason': reason,
+                              'requires_manual_review': bool(requires_manual_review)})
+            return stored
+
+    def _empty_generation(self, record, value, raw, digest, actor, stamp):
+        """Replace the stack record with an emptied, documented generation."""
+        token = self._cipher(create=True).encrypt(raw)
+        envelope = json.dumps({'version': _ENVELOPE, 'algorithm': 'fernet',
+                               'digest': digest, 'token': token.decode('ascii')},
+                              sort_keys=True)
+        self.store.execute('INSERT OR REPLACE INTO environment_state_documents(id,body) '
+                           'VALUES(?,?)', (record['id'], envelope))
+        updated = {**record, 'generation': record['generation'] + 1, 'resources': [],
+                   'digest': digest, 'job_id': None, 'source': 'destroy',
+                   'adopted': None,
+                   'destroyed': {'uuid': value['uuid'], 'at': stamp, 'by': actor},
+                   'updated_at': stamp}
+        self.store.execute('INSERT OR REPLACE INTO environment_state(id,body) VALUES(?,?)',
+                           (record['id'], json.dumps(updated, sort_keys=True)))
+        stored = self._row(record['id'])
+        if (stored is None or stored.get('generation') != updated['generation']
+                or stored.get('digest') != digest or self._plaintext(record['id']) != raw):
+            raise StateError('Destruction could not be recorded')
+        return stored
+
+    def complete_destroy(self, identity, destroy_id, *, actor, stamp, document):
+        """Commit the emptied generation after a proven destruction."""
+        raw = self._encode(document)
+        digest = hashlib.sha256(raw).hexdigest()
+        with self.store.lock:
+            value = self._destroy(identity) if isinstance(identity, str) else None
+            record = self._row(identity) if isinstance(identity, str) else None
+            if value is None or record is None:
+                raise StateConflict('No destruction is recorded for this stack')
+            if value['destroy_id'] != destroy_id:
+                raise StateConflict('Destruction request changed')
+            if value['status'] != 'executing':
+                raise StateConflict('Destruction is not running')
+            stored = self._empty_generation(record, value, raw, digest, actor, stamp)
+            # The destruction row changes last: if anything above failed, the
+            # record still says executing and the caller can mark it unverified.
+            updated = {**value, 'status': 'destroyed', 'finished_at': stamp,
+                       'finished_by': actor, 'reason': None,
+                       'requires_manual_review': False}
+            self._put_destroy(identity, updated)
+            destroyed = self._destroy(identity)
+            if destroyed is None or destroyed.get('status') != 'destroyed':
+                raise StateError('Destruction could not be confirmed')
+            self.store.audit(actor, 'environment_state.destroyed', identity,
+                             {'environment': record['environment'], 'stack': record['stack'],
+                              'uuid': value['uuid'], 'marker': value['marker'],
+                              'generation': stored['generation'],
+                              'destroy_id': destroy_id})
+            return {'state': self._view(stored, None), 'destroy': destroyed}
+
+    def resolve_destroy(self, identity, destroy_id, *, outcome, actor, stamp, document=None):
+        """Close a rollback_failed destruction with observed host evidence.
+
+        ``intact`` returns the stack to its recorded resources, so a corrected
+        request can be made. ``destroyed`` commits the emptied generation the
+        failed attempt could not write. Neither path is automatic.
+        """
+        if outcome not in ('intact', 'destroyed'):
+            raise ValueError('Expected intact or destroyed')
+        if not isinstance(actor, str) or not actor:
+            raise ValueError('Invalid destruction actor')
+        with self.store.lock:
+            value = self._destroy(identity) if isinstance(identity, str) else None
+            record = self._row(identity) if isinstance(identity, str) else None
+            if value is None or record is None:
+                raise StateConflict('No destruction is recorded for this stack')
+            if value['destroy_id'] != destroy_id:
+                raise StateConflict('Destruction request changed')
+            if value['status'] != 'rollback_failed':
+                raise StateConflict('Only an unverified destruction can be resolved')
+            if outcome == 'intact':
+                updated = {**value, 'status': 'failed', 'reason': 'resolved_intact',
+                           'requires_manual_review': False, 'resolved_at': stamp,
+                           'resolved_by': actor}
+                self._put_destroy(identity, updated)
+                stored = self._destroy(identity)
+                if stored is None or stored.get('status') != 'failed':
+                    raise StateError('Destruction resolution could not be confirmed')
+                self.store.audit(actor, 'environment_state.destroy_resolved', identity,
+                                 {'destroy_id': destroy_id, 'uuid': value['uuid'],
+                                  'outcome': 'intact', 'generation': record['generation']})
+                return {'state': self._view(record, self._claim(identity)), 'destroy': stored}
+            raw = self._encode(document)
+            digest = hashlib.sha256(raw).hexdigest()
+            stored = self._empty_generation(record, value, raw, digest, actor, stamp)
+            updated = {**value, 'status': 'destroyed', 'reason': 'resolved_destroyed',
+                       'requires_manual_review': False, 'resolved_at': stamp,
+                       'resolved_by': actor, 'finished_at': stamp, 'finished_by': actor}
+            self._put_destroy(identity, updated)
+            destroyed = self._destroy(identity)
+            if destroyed is None or destroyed.get('status') != 'destroyed':
+                raise StateError('Destruction resolution could not be confirmed')
+            self.store.audit(actor, 'environment_state.destroy_resolved', identity,
+                             {'destroy_id': destroy_id, 'uuid': value['uuid'],
+                              'outcome': 'destroyed', 'generation': stored['generation'],
+                              'marker': value['marker']})
+            return {'state': self._view(stored, None), 'destroy': destroyed}
+
     def release_lease(self, identity, job_id, actor):
         """Administrator recovery for an interrupted apply; never a silent retry."""
         if not isinstance(job_id, str) or not re.fullmatch(r'[0-9a-f]{32}', job_id):
@@ -561,7 +852,9 @@ def install_environment_state_api(app):
     service = app.state.environment_states = EnvironmentStates(app.state.store)
     original_count = len(app.router.routes)
     from .adoption import install_adoption_api
+    from .destruction import install_destroy_api
     install_adoption_api(app, service)
+    install_destroy_api(app, service)
 
     @app.get('/api/environment-states')
     def listing(current=Depends(app.state.user_dependency)):

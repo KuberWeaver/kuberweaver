@@ -1,7 +1,7 @@
 {
-  "iteration": 15,
+  "iteration": 16,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T12:46:28+01:00",
+  "updated_at": "2026-11-17T13:36:00+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -159,9 +159,9 @@
       "title": "Destroy with ownership proof",
       "detail": "Destroy action with annotation and UUID proof, quarantine window, cancellation, and rollback_failed semantics.",
       "acceptance": "Tests cover refusal on foreign VM, quarantine cancel, and failed destroy state.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "destruction.py owns the irreversible path. POST /api/environment-states/{id}/destroy takes connection_id, the VM UUID and the kuberweaver-job marker; it is administrator-only, needs the session CSRF token and is unmapped for agent tokens. It refuses unless the record has exactly one managed esxi_vm.<uuid> resource, no apply lease is held, and the live VM proves the UUID and annotation digest exactly as adoption does; for an adopted record the submitted marker must also equal the recorded one, so a re-annotation does not transfer ownership. The request writes environment_state_destroy (id PRIMARY KEY, registered in the PostgreSQL DDL and accepted by the SQLite migration) with status quarantined, a random destroy_id and not_before = requested_at + 15 minutes, and changes nothing on the host after the one proof read; a repeat with the same connection, UUID and marker returns changed=false with the original window, and a different VM is refused. While a destruction is quarantined or executing, an apply claim on the stack is refused. /destroy/cancel accepts only the current destroy_id and only while quarantined, writes cancelled and audits environment_state.destroy_cancelled; it can no longer succeed once execution has started. /destroy/execute is refused before not_before, after a cancel and on a second call, transitions atomically to executing, re-reads and re-proves the VM (the annotation can change during the window) and only then calls the driver's destroy_resource(connection, credentials, uuid, marker), which must return True only after confirming the VM is gone. Success writes generation+1 with resources [], source=destroy, job_id=null and destroyed {uuid, at, by}, then marks the destruction destroyed and audits environment_state.destroyed; the empty generation is written before the destruction row, so a failure in between is reported as unverified rather than success. A proof refusal or a driver without the method leaves failed with the stack unchanged and a new request allowed; a driver error, a non-True return or an unconfirmed state write leaves rollback_failed with requires_manual_review and audits environment_state.destroy_rollback_failed. /destroy/resolve closes only a rollback_failed record: intact re-reads the VM and requires the recorded UUID and marker, returns the record to failed with resolved_intact and allows a new request; destroyed records the administrator's observed evidence and commits the emptied generation with resolved_destroyed. The state record is never deleted, the adoption index keeps the UUID as a tombstone, and the bundled ESXi extension stays read-only, so execute answers 503 until a write-capable destroy_resource exists. docs/ENVIRONMENT_STATE.md gains the state machine, refusal table and resolution rules; IMPLEMENTATION, V2_HYPERVISORS, README and CHANGELOG follow. 38 tests in tests/test_destruction.py cover the quarantined record and audit, idempotent repeat, foreign-VM refusal before any host read, cross-stack refusal, changed and missing marker, unreadable VM, unknown state, held lease, apply refusal while quarantined, cancel and stale destroy_id, cancellation racing execution, early execute, the successful emptied generation with its encrypted document, re-proof at execution, unreadable VM at execution, rollback_failed on a driver error and on a failed state write, resolve intact with live verification, resolve destroyed, resolve refusals, multi-resource refusal, restart survival, administrator/CSRF/agent refusals, invalid bodies, the connection_destroyer confirmed-write contract and PostgreSQL. Suite 1646 passed, 2 skipped; secret scan and git diff --check clean. Frontend untouched."
     },
     {
       "id": "E4",

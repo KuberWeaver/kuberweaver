@@ -32,7 +32,7 @@ All normal portal routes share `/api` and the same origin. `POST /api/auth/login
 | `GET /api/audit`, `/api/finops`, `/api/diagnostics`, `/api/integrations` | Audit, internal estimates, source-labelled diagnostics and explicit availability. |
 | `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/password` | Human-only account administration: list, create, role change and password rotation, with last-administrator protection. |
 | `GET/POST /api/dashboards`, `GET/PATCH/DELETE /api/dashboards/{id}`, `GET /api/dashboards/{id}/embed`, `POST /api/dashboards/{id}/probe` | External observability registry: link, kind, default probe path and an embed flag gated by the origin allowlist. The embed page frames the URL only for an enabled, allowlisted record and otherwise offers the deep link. A periodic read-only probe records one health observation per enabled record, surfaced as a `health` column with a drift flag and never auto-remediated. No credential is stored, no redirect is followed and no dashboard is proxied. |
-| `GET /api/environment-states`, `GET /api/environment-states/{id}`, `POST /api/environment-states/{id}/lease/release`, `GET/POST /api/environment-states/adoptions` | One durable record per environment and stack: generation, applied resource list, committing job and the encrypted document, never the document itself. An execution provider writes state through the apply claim; the audited adoption path records one existing VM after proving its UUID and ownership marker against the hypervisor; an administrator may clear a stuck apply claim explicitly. |
+| `GET /api/environment-states`, `GET /api/environment-states/{id}`, `POST /api/environment-states/{id}/lease/release`, `GET/POST /api/environment-states/adoptions`, `POST /api/environment-states/{id}/destroy`, `/destroy/cancel`, `/destroy/execute`, `/destroy/resolve` | One durable record per environment and stack: generation, applied resource list, committing job and the encrypted document, never the document itself. An execution provider writes state through the apply claim; the audited adoption path records one existing VM after proving its UUID and ownership marker against the hypervisor; destruction proves the same marker, opens a 15-minute cancellation window, re-proves the VM before calling a write-capable driver, and records an emptied generation or an unverified `rollback_failed` outcome; an administrator may clear a stuck apply claim explicitly. |
 | `/metrics`, `/healthz`, `/readyz` | Local process/job metrics, liveness, and structured readiness for the database, the selected secret source and the plugin directory. |
 
 Transient statuses include `queued`, `running`, `rolling_back`; terminal outcomes include `succeeded`, `failed`, `rolled_back`, `rollback_failed`, `rejected`. Interrupted work remains visible for review rather than silent retry. Current schemas may include additional states for provider-specific preparation and recovery; use OpenAPI rather than inferring unsupported transitions.
@@ -79,8 +79,16 @@ and the store records generation 1 for an empty stack with `source: adoption` an
 `job_id: null`. A marker mismatch, a foreign UUID, a stack that already has a
 generation, a held lease or a repeated UUID under another stack is refused;
 repeating the same request is a no-op that keeps the generation.
-`ENVIRONMENT_STATE.md` lists the record fields, limits, adoption refusals and
-encryption threat model.
+
+Destruction is the third writer and the only one that empties a record. It
+requires the same live proof, records a 15-minute quarantine during which an
+administrator can cancel and an apply cannot claim the stack, then re-reads the
+VM and hands it to the driver's `destroy_resource`. Success writes generation
+`n + 1` with no resources and `source: destroy`; a driver error, a missing
+capability or an unconfirmed state write leaves `rollback_failed` with
+`requires_manual_review`, which only an administrator's observed `intact` or
+`destroyed` resolution closes. `ENVIRONMENT_STATE.md` lists the record fields,
+limits, adoption and destruction refusals, and the encryption threat model.
 
 ## Execution provider
 

@@ -29,12 +29,12 @@ from .environment_state import ENVIRONMENTS, StateConflict, StateError
 from .storage import now
 
 MARKER_PREFIX = 'kuberweaver-job:'
-_MARKER_PATTERN = re.escape(MARKER_PREFIX) + '[0-9a-f]{32}'
+MARKER_PATTERN = re.escape(MARKER_PREFIX) + '[0-9a-f]{32}'
 ADDRESS_PREFIX = 'esxi_vm.'
 _POWER_STATES = ('poweredOn', 'poweredOff', 'suspended')
 _UUID = re.compile(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z')
 _CONNECTION = re.compile(r'[0-9a-f]{32}\Z')
-_MARKER = re.compile(_MARKER_PATTERN + r'\Z')
+_MARKER = re.compile(MARKER_PATTERN + r'\Z')
 _MAX_NAME = 128
 
 
@@ -47,13 +47,42 @@ def resource_address(uuid):
     return ADDRESS_PREFIX + uuid
 
 
+def live_ownership(row, uuid, marker):
+    """Validate one live row and compare its annotation digest.
+
+    Adoption and destruction share this proof so a VM that cannot be proven
+    ours is refused by both, with the same sanitized reasons.
+    """
+    if not isinstance(row, dict):
+        raise HTTPException(409, 'Virtual machine could not be read; ownership is unverified')
+    live_uuid = row.get('uuid')
+    if not isinstance(live_uuid, str) or live_uuid.lower() != uuid:
+        raise HTTPException(409, 'Virtual machine UUID does not match the recorded resource')
+    name = row.get('name')
+    if (not isinstance(name, str) or not name or len(name) > _MAX_NAME
+            or any(ord(character) < 32 or ord(character) == 127 for character in name)):
+        raise HTTPException(409, 'Virtual machine inventory is inconsistent')
+    if row.get('power_state') not in _POWER_STATES:
+        raise HTTPException(409, 'Virtual machine inventory is inconsistent')
+    for key in ('cpu', 'memory_mb'):
+        if type(row.get(key)) is not int or row[key] < 1:
+            raise HTTPException(409, 'Virtual machine inventory is inconsistent')
+    digest = row.get('ownership_sha256')
+    if digest is None:
+        raise HTTPException(409, 'Virtual machine carries no KuberWeaver ownership marker')
+    if not isinstance(digest, str) or not hmac.compare_digest(digest, marker_digest(marker)):
+        raise HTTPException(409, 'Ownership marker does not match the virtual machine')
+    return {'name': name, 'power_state': row['power_state'],
+            'cpu': row['cpu'], 'memory_mb': row['memory_mb']}
+
+
 class AdoptionRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     environment: str = Field(pattern=r'^(dev|staging|production)$')
     stack: str = Field(min_length=1, max_length=160)
     connection_id: str = Field(pattern=r'^[0-9a-f]{32}$')
     uuid: str = Field(pattern=r'^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$')
-    marker: str = Field(pattern='^' + _MARKER_PATTERN + '$')
+    marker: str = Field(pattern='^' + MARKER_PATTERN + '$')
 
 
 def connection_inspector(app):
@@ -83,27 +112,7 @@ class AdoptionService:
             raise
         except (Exception, SystemExit):
             raise HTTPException(409, 'Virtual machine could not be read; ownership is unverified') from None
-        if not isinstance(row, dict):
-            raise HTTPException(409, 'Virtual machine could not be read; ownership is unverified')
-        live_uuid = row.get('uuid')
-        if not isinstance(live_uuid, str) or live_uuid.lower() != uuid:
-            raise HTTPException(409, 'Virtual machine UUID does not match the recorded resource')
-        name = row.get('name')
-        if (not isinstance(name, str) or not name or len(name) > _MAX_NAME
-                or any(ord(character) < 32 or ord(character) == 127 for character in name)):
-            raise HTTPException(409, 'Virtual machine inventory is inconsistent')
-        if row.get('power_state') not in _POWER_STATES:
-            raise HTTPException(409, 'Virtual machine inventory is inconsistent')
-        for key in ('cpu', 'memory_mb'):
-            if type(row.get(key)) is not int or row[key] < 1:
-                raise HTTPException(409, 'Virtual machine inventory is inconsistent')
-        digest = row.get('ownership_sha256')
-        if digest is None:
-            raise HTTPException(409, 'Virtual machine carries no KuberWeaver ownership marker')
-        if not isinstance(digest, str) or not hmac.compare_digest(digest, marker_digest(marker)):
-            raise HTTPException(409, 'Ownership marker does not match the virtual machine')
-        return {'name': name, 'power_state': row['power_state'],
-                'cpu': row['cpu'], 'memory_mb': row['memory_mb']}
+        return live_ownership(row, uuid, marker)
 
     def adopt(self, environment, stack, connection_id, uuid, marker, actor):
         """Verify the live VM, then record it; a repeat is a no-op."""

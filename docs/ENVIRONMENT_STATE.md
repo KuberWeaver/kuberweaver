@@ -23,12 +23,14 @@ forge a resource list or advance a generation.
 | `resources` | Address, type, name and mode of every resource declared by the last applied document, sorted by address. |
 | `resource_count` | Length of `resources`. |
 | `digest` | SHA-256 of the canonical plaintext document, `null` before the first commit. |
-| `job_id` | Job that committed the current generation, `null` for an adopted generation. |
-| `source` | `apply` for an execution provider, `adoption` for an imported VM. |
+| `job_id` | Job that committed the current generation, `null` for an adopted or destroyed generation. |
+| `source` | `apply` for an execution provider, `adoption` for an imported VM, `destroy` for an emptied generation. |
 | `adopted` | `{uuid, name, marker, connection_id, by}` for an adopted generation, otherwise `null`. |
+| `destroyed` | `{uuid, at, by}` for a destroyed generation, otherwise `null`. |
 | `created_at`, `updated_at` | First claim and last commit timestamps. |
 | `encrypted` | Always `true`: the document is stored as ciphertext. |
 | `lease` | `{job_id, acquired_at}` while an apply holds the claim, otherwise `null`. |
+| `destroy` | The destruction record below, or `null` when the stack was never asked to destroy anything. |
 
 Read responses never include the document itself. `GET /api/environment-states`
 lists records and `GET /api/environment-states/{id}` returns one; both are
@@ -106,6 +108,90 @@ changed annotation makes the repeat fail. `GET
 A driver that does not report ownership evidence fails closed: an older ESXi
 extension makes adoption answer 409 rather than adopt an unproven VM.
 
+## Destruction of an owned VM
+
+A destroy is irreversible, so it is an explicit state machine tied to one
+recorded stack. The portal changes nothing on the host before the last step, and
+only a VM that the record owns and whose live annotation still matches is ever
+handed to a driver.
+
+```
+POST /api/environment-states/{id}/destroy
+{"connection_id": "<32 hex>", "uuid": "11111111-1111-4111-8111-111111111111",
+ "marker": "kuberweaver-job:<32 hex job id>"}
+```
+
+The route is administrator-only, needs the session CSRF token, and is not mapped
+to any agent scope. It is refused unless the stack has a committed generation
+with exactly one managed resource whose address is `esxi_vm.<uuid>`, no apply
+holds the stack's lease, and the live VM proves the same ownership as adoption:
+the UUID matches and the annotation digest matches the submitted marker. For an
+adopted record the submitted marker must also equal the recorded one, so
+re-annotating the VM with a different marker does not transfer ownership.
+
+The request writes a destruction record with status `quarantined`, a random
+`destroy_id` and `not_before = requested_at + 15 minutes`. Nothing is read from
+or changed on the host after the proof read. Repeating the same connection, UUID
+and marker returns `{"changed": false}` with the original window; a different VM
+or a second concurrent request is refused. While a destruction is `quarantined`
+or `executing`, an apply claim on that stack is refused.
+
+```
+POST /api/environment-states/{id}/destroy/cancel  {"destroy_id": "..."}
+```
+
+Cancellation is allowed only during the quarantine window. It writes `cancelled`
+and changes nothing else; a host call cannot have happened. Once execution has
+started, cancellation is refused because the driver may already be deleting.
+
+```
+POST /api/environment-states/{id}/destroy/execute  {"destroy_id": "..."}
+```
+
+Execution is refused before `not_before`, after a cancellation, and on a second
+call. The transition to `executing` is the arbiter, so a cancel racing it loses.
+The portal then re-reads the VM and re-proves the UUID and annotation, because
+the annotation can change while the window is open, and only then calls the
+driver's `destroy_resource(connection, credentials, uuid, marker)`. The method
+must return `True` only after it has confirmed the VM is gone; any other return
+value is treated as unproven.
+
+On success the stack receives generation `n + 1` with `resources: []`,
+`source: "destroy"`, `job_id: null` and `destroyed: {uuid, at, by}`, and the
+destruction record becomes `destroyed`. The emptied generation is written
+before the destruction record, so a failure in between leaves the record
+`executing` and is reported as unverified rather than as success.
+
+| Situation | Destruction status | Stack record |
+| --- | --- | --- |
+| The live proof fails before the driver is called | `failed`, `reason: ownership_unverified` | unchanged |
+| The driver has no `destroy_resource` method | `failed`, `reason: destruction_unsupported` | unchanged |
+| The driver raises or does not return `True` | `rollback_failed`, `requires_manual_review: true` | unchanged |
+| The VM was destroyed but the empty generation could not be written | `rollback_failed`, `requires_manual_review: true` | unchanged or partially written, never trusted |
+
+A `failed` record changes nothing on the host, so it can be replaced by a new
+request once the cause is fixed. A `rollback_failed` record is closed only by an
+administrator who has looked at the host:
+
+```
+POST /api/environment-states/{id}/destroy/resolve
+{"destroy_id": "...", "outcome": "intact"}
+```
+
+`intact` re-reads the VM and requires the recorded UUID and marker to still be
+present; the destruction becomes `failed` with `reason: resolved_intact`, the
+generation is untouched, and a new request is allowed. With `outcome:
+"destroyed"` the administrator asserts that the VM is gone; the portal commits
+the emptied generation and records `destroyed` with `reason:
+resolved_destroyed`. Neither outcome is inferred by the portal and nothing is
+retried automatically.
+
+The state record is never deleted, and the UUID stays in the adoption index as a
+tombstone, so a destroyed VM's UUID cannot later be adopted by another stack.
+The `destroy` object in a read response carries the status, UUID, marker,
+connection, requested/started/finished timestamps, `reason` and
+`requires_manual_review`; it never carries a document.
+
 ## Encryption at rest
 
 The state document is a JSON object, encrypted with Fernet before it is stored.
@@ -157,6 +243,6 @@ A standalone executor constructed outside the portal (`environments=None`) keeps
 its previous behaviour and its per-job folder remains its only record.
 
 The PostgreSQL backend registers `environment_state`,
-`environment_state_documents`, `environment_state_claim` and
-`environment_state_adoption`; the SQLite migration script accepts the same four
-tables.
+`environment_state_documents`, `environment_state_claim`,
+`environment_state_adoption` and `environment_state_destroy`; the SQLite
+migration script accepts the same five tables.
