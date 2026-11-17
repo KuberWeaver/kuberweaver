@@ -1,7 +1,7 @@
 {
-  "iteration": 16,
+  "iteration": 17,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T13:36:00+01:00",
+  "updated_at": "2026-11-17T14:28:39+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -107,7 +107,7 @@
       "acceptance": "Snapshot-level tests for the page registry, no French or prototype wording in tracked UI strings.",
       "status": "done",
       "attempts": 1,
-      "note": "frontend/src/navigation.ts is now the single page registry: 13 entries with id, label, group, adminOnly, eyebrow, title and description, four groups (Build, Operate, Govern, Administer), pageHeading() feeding every PageTitle, and navigationFor(role) hiding Operations and Agent access from operators and viewers. The sidebar renders the groups with captions, the dead workspace switcher and the nav-separator hack are gone, the breadcrumb follows the registry and an unknown hash renders a Page not found empty state. Prototype copy is removed from every page heading and from the login story, and index.html is English (title and meta description). ui.tsx adds LoadingState (role=status, aria-busy, skeleton rows, Loading\u2026 kept) used by ResourceBoundary with per-page labels, and Empty takes an optional action; Jobs links back to the canvas, Keys, Agent access and Operations gained empty states. navigation.test.ts snapshots the full registry and the per-role grouped navigation plus id uniqueness, group order and unknown page refusal; ui.test.tsx covers empty action, loading status and boundary precedence; pages.test.tsx covers the empty-deployments action; English.test.ts scans the registry copy and the document title. docs/NAVIGATION.md plus README and CHANGELOG updates. Frontend 290 tests, tsc and build green; backend 1445 passed, 2 skipped; secret scan and diff check clean."
+      "note": "frontend/src/navigation.ts is now the single page registry: 13 entries with id, label, group, adminOnly, eyebrow, title and description, four groups (Build, Operate, Govern, Administer), pageHeading() feeding every PageTitle, and navigationFor(role) hiding Operations and Agent access from operators and viewers. The sidebar renders the groups with captions, the dead workspace switcher and the nav-separator hack are gone, the breadcrumb follows the registry and an unknown hash renders a Page not found empty state. Prototype copy is removed from every page heading and from the login story, and index.html is English (title and meta description). ui.tsx adds LoadingState (role=status, aria-busy, skeleton rows, Loading… kept) used by ResourceBoundary with per-page labels, and Empty takes an optional action; Jobs links back to the canvas, Keys, Agent access and Operations gained empty states. navigation.test.ts snapshots the full registry and the per-role grouped navigation plus id uniqueness, group order and unknown page refusal; ui.test.tsx covers empty action, loading status and boundary precedence; pages.test.tsx covers the empty-deployments action; English.test.ts scans the registry copy and the document title. docs/NAVIGATION.md plus README and CHANGELOG updates. Frontend 290 tests, tsc and build green; backend 1445 passed, 2 skipped; secret scan and diff check clean."
     },
     {
       "id": "D1",
@@ -168,9 +168,9 @@
       "title": "Drift report",
       "detail": "Nightly read-only comparison of declared versus live resources, producing a diff report with no remediation.",
       "acceptance": "Tests cover drift detection per field and the absence of any write call.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "drift.py compares each durable state record with the hypervisor, field by field, and writes one report per record: the declared side is the encrypted document (adoption attributes at the top level, an applied document's resource values otherwise), the live side is one read_resource through the connection recorded for the stack. Compared fields are uuid, name, power_state, cpu and memory_mb; a field the document does not declare is not compared and does not appear in checked, so an absent attribute is never reported as null drift. Statuses are in_sync, drift (fields each carry declared and live), unverified (read failure, no inspector, no connection, or an apply lease or destruction in progress), unsupported (resource type or data source without a read-only reader), empty (no recorded resources) and unavailable (document cannot be decrypted); a read failure is never drift and absence is never inferred from a driver exception. POST /api/environment-states/drift/run is administrator-only with CSRF and audits environment_state.drift_checked with the counts; a concurrent run answers 409. The nightly DriftLoop runs every KUBERWEAVER_DRIFT_SECONDS (default 86400, 0 disables, 60..604800 accepted, an unusable value falls back and is reported in schedule.error) and writes no audit row; it starts outside testing only or when the interval is named explicitly. GET /api/environment-states/drift and GET /api/environment-states/{id}/drift answer any signed-in role and an agent token with read:infrastructure; the run route has no agent mapping. environment_state_drift is registered in the PostgreSQL DDL and accepted by the SQLite migration script; docs/DRIFT.md plus README, IMPLEMENTATION, ENVIRONMENT_STATE and CHANGELOG follow. 36 tests in tests/test_drift.py cover per-field drift for each of the four attributes, a foreign UUID, an unreadable resource, no reader, no connection, unsupported and data resource types, a lease, a quarantined destruction, generation 0, a missing key, an applied document that declares only its identity, both document shapes, restart survival, the absence of every write (the only driver call is read_resource, the state row and document bytes are unchanged, no claim or destruction row, one report row, and no audit row from the loop against one from the manual route), administrator and CSRF refusals, agent scope separation, unknown and unchecked states, interval parsing, loop repetition and failure isolation, kernel wiring and the PostgreSQL table; suite 1682 passed, 2 skipped; secret scan and git diff --check clean; frontend untouched."
     },
     {
       "id": "E5",
@@ -228,8 +228,8 @@
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "67ae3bbb744e0c45c25eaaa384d36a3c5481d408",
-    "note": "marker read at 2026-11-17T11:19+01:00: the timer had deployed 67ae3bb (2fad12a plus the STATE record); /readyz answered 200. This iteration's commit is not deployed yet; the timer deploys it within two minutes and this run never restarts the unit. Deployment prerequisites added by this iteration: the ESXi extension in data/extensions must expose ownership_sha256, and the deployed copy was refreshed from examples/extensions/esxi-runtime/module.py with a backup under data/extension-source-backups (both untracked), so the restart after the deploy loads it. If that refresh were missing, POST /api/environment-states/adoptions would answer 409 for every VM and adopt nothing.",
+    "deployed_sha": "17b2464b43603eca91611d41347df4f484bea5a2",
+    "note": "marker read at 2026-11-17T14:28+01:00: the timer had deployed 17b2464 (E3); /readyz answered 200. This iteration's commit is not deployed yet; the timer deploys it within two minutes and this run never restarts the unit. No deployment prerequisite was added: the drift reader uses the already deployed read_resource and the report table is created by the service at startup.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [

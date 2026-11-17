@@ -244,5 +244,6 @@ its previous behaviour and its per-job folder remains its only record.
 
 The PostgreSQL backend registers `environment_state`,
 `environment_state_documents`, `environment_state_claim`,
-`environment_state_adoption` and `environment_state_destroy`; the SQLite
-migration script accepts the same five tables.
+`environment_state_adoption`, `environment_state_destroy` and
+`environment_state_drift`; the SQLite migration script accepts the same six
+tables. The drift report itself is documented in [drift reports](DRIFT.md).

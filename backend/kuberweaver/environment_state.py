@@ -853,8 +853,10 @@ def install_environment_state_api(app):
     original_count = len(app.router.routes)
     from .adoption import install_adoption_api
     from .destruction import install_destroy_api
+    from .drift import install_drift_api
     install_adoption_api(app, service)
     install_destroy_api(app, service)
+    install_drift_api(app, service)
 
     @app.get('/api/environment-states')
     def listing(current=Depends(app.state.user_dependency)):

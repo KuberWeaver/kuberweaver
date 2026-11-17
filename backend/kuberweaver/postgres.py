@@ -32,6 +32,7 @@ COLUMNS = {
     'environment_state_claim': ('id', 'body'),
     'environment_state_adoption': ('uuid', 'body'),
     'environment_state_destroy': ('id', 'body'),
+    'environment_state_drift': ('id', 'body'),
 }
 ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards',
            'environment_state'}
@@ -48,7 +49,8 @@ DDL = {
 KEY_COLUMNS = {'settings': 'key', 'environment_state_adoption': 'uuid'}
 for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards',
                'environment_state', 'environment_state_documents', 'environment_state_claim',
-               'environment_state_adoption', 'environment_state_destroy'):
+               'environment_state_adoption', 'environment_state_destroy',
+               'environment_state_drift'):
     DDL[_table] = KEY_COLUMNS.get(_table, 'id') + ' TEXT PRIMARY KEY, body TEXT NOT NULL'
 for _table in ORDERED:
     DDL[_table] += ', _kw_rowid BIGSERIAL UNIQUE NOT NULL'
