@@ -230,7 +230,8 @@
   ],
   "constraints": [
     "no GitHub API token is available on the host: no pull request creation, no branch protection change",
-    "data/ and docs/prompt/ stay untracked"
+    "data/ and docs/prompt/ stay untracked",
+    "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
