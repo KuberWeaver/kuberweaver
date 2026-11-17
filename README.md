@@ -29,7 +29,7 @@ Local `admin`, `operator` and `viewer` accounts have separate random passwords i
 
 ## External agents
 
-A human administrator issues a token with a maximum role, explicit scopes and an expiry in **Agent access**. The token is displayed once; store it in a private 0600 file. Tokens are not kept in browser storage. Revocation blocks new requests immediately.
+A human administrator issues a token with a maximum role, explicit scopes and an expiry in **Agent access**. The token is displayed once; store it in a private 0600 file. Tokens are not kept in browser storage. Revocation blocks new requests immediately, rotation replaces the secret in place without changing identity, scopes or expiry, and every authenticated call leaves an audit row.
 
 For financial inspection alone, use `read:finops`, not broad `read` or `read:overview`. For deployment proposals, grant the required reads, `plan` and `submit`, without `approve`. Role and scopes are cumulative limits; MCP never replaces API enforcement.
 

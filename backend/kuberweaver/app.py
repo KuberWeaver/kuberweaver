@@ -130,6 +130,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
                 store.audit(principal['username'], 'agent.request_denied', detail={'method': request.method, 'scope': scope or 'unsupported'})
                 return JSONResponse({'detail': 'Agent scope does not permit this operation'}, status_code=403)
             request.state.agent = principal
+            request.state.agent_scope = scope
         if request.method not in ('GET', 'HEAD', 'OPTIONS'):
             try:
                 too_large = int(request.headers.get('content-length', '0')) > 1_048_576
@@ -150,6 +151,9 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
                 if not hmac.compare_digest(request.headers.get('x-csrf-token', ''), request.state.session['csrf']):
                     return JSONResponse({'detail': 'CSRF token required'}, status_code=403)
         response = await call_next(request)
+        if request.state.agent:
+            agent_tokens.record_use(request.state.agent, request.method, request.url.path,
+                                    response.status_code, getattr(request.state, 'agent_scope', None))
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['Referrer-Policy'] = 'same-origin'

@@ -1,7 +1,7 @@
 {
-  "iteration": 6,
+  "iteration": 7,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T03:25:34",
+  "updated_at": "2026-11-17T04:09:41",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -88,9 +88,9 @@
       "title": "API tokens for agents",
       "detail": "Scope-limited tokens with expiry, rotation and revocation, audit entry per use, read-only scope still enforced for infrastructure reads.",
       "acceptance": "Tests cover expiry, revocation, scope denial and audit records.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "The prototype already stored tokens as SHA-256 digests with role-capped scopes, an absolute expiry, idempotent revocation, a closed required_scope map and human-admin-only management; this iteration added the two missing pieces. POST /api/agent-tokens/{id}/rotate replaces the secret in place, keeps id/label/role/scopes/created_at and the original expires_at so rotation cannot renew, invalidates the previous secret at once, answers 409 for revoked or expired tokens and 404 for unknown ids, requires a human admin session with CSRF and records agent_token.rotated. The middleware writes one agent.request row per authenticated machine request (actor agent:<id>, resource the token id, detail method/path/status/scope, never the credential); scope denials keep writing agent.request_denied and are not counted as uses; only the agent.request tail is bounded (newest 50000, pruned at most hourly, clock injectable) so issue/rotate/revoke/denial evidence is never pruned, and the retention DELETE is covered by the PostgreSQL translation test. docs/AGENT_ACCESS.md documents rotation, the audit trail and the retention, with README, IMPLEMENTATION and CHANGELOG updates. 6 new tests cover rotation in place, refusals (revoked, expired, unknown, viewer/operator, agent token, missing CSRF), per-use audit and denial separation, retention with decisions preserved, and a read:infrastructure token reading infrastructure while every write and unrelated read stays 403; suite 1430 passed, 2 skipped, 1 known queue_busy race. Frontend AgentAccess.tsx still exposes only issue and revoke."
     },
     {
       "id": "B4",

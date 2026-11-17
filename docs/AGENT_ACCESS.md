@@ -16,9 +16,15 @@ Returns `{"token":"<shown once>","metadata":{"id":"<32 hex>","label":"deploy-con
 
 `GET /api/agent-tokens` returns `{"tokens":[<metadata>],"available_scopes":[...],"role_scopes":{"viewer":[...],"operator":[...],"admin":[...]}}`.
 
+Role and integer lifetime are required. Lifetime is 60–2592000 seconds (30 days). Scopes default to `["read"]`, **never approve**, even for admin. Empty, unknown, duplicated or role-incompatible scopes are rejected (422). Labels are 1–80 printable ASCII characters, start alphanumeric, and may subsequently contain spaces, `. _ : @ -`. No unknown JSON fields are accepted.
+
 `DELETE /api/agent-tokens/{id}` returns the safe metadata directly, with `revoked_at` set to an epoch timestamp. Revocation is idempotent; unknown IDs return 404. Revoked entries remain visible in GET.
 
-Role and integer lifetime are required. Lifetime is 60–2592000 seconds (30 days). Scopes default to `["read"]`, **never approve**, even for admin. Empty, unknown, duplicated or role-incompatible scopes are rejected (422). Labels are 1–80 printable ASCII characters, start alphanumeric, and may subsequently contain spaces, `. _ : @ -`. No unknown JSON fields are accepted.
+`POST /api/agent-tokens/{id}/rotate` (200) replaces the secret in place and returns `{"token":"<shown once>","metadata":{...}}`. The id, label, role and scopes stay unchanged and `expires_at` keeps the original deadline, so rotation cannot extend a token's life: it is a credential change, not a renewal. The previous secret stops working at once. Revoked or expired tokens return 409 (`issue a new token`), unknown IDs 404. Like issuance, rotation requires a human administrator session and its CSRF token.
+
+## Audit trail
+
+Every authenticated machine request appends exactly one `agent.request` row: actor `agent:<id>`, resource the token ID, detail `{"method","path","status","scope"}`. The path is recorded without its query string, and no row ever contains the credential or its digest. A request refused by the scope map writes `agent.request_denied` (method and the missing scope) instead, so a denial is evidence and is not counted as a use. Issuance, rotation, revocation and denial rows are kept indefinitely; only the high-volume `agent.request` tail is capped, at the newest 50 000 rows, pruned at most hourly. `GET /api/audit` shows all of them next to human actions, which requires `read:audit` for an agent.
 
 ## Machine HTTP contract
 
@@ -64,7 +70,7 @@ ChatOps actions still require their separately signed human-mapped gateway callb
 
 ## Client credential handling
 
-Store the one-time value in a user-owned 0600 file inside a 0700 directory, never localStorage, command arguments, logs, URLs, examples, or tool results. A CLI/MCP client reads that file and attaches the Bearer header to each request, maintaining no cookie jar. Do not expose token-management tools to agents. Prefer viewer/read for inspection and operator/read+plan+submit for deployment proposals. Only deliberately issued admin+approve tokens can approve through the API. Rotate by issuing replacement, validating `/api/auth/me`, switching clients, then revoking the old ID and reading back its metadata.
+Store the one-time value in a user-owned 0600 file inside a 0700 directory, never localStorage, command arguments, logs, URLs, examples, or tool results. A CLI/MCP client reads that file and attaches the Bearer header to each request, maintaining no cookie jar. Do not expose token-management tools to agents. Prefer viewer/read for inspection and operator/read+plan+submit for deployment proposals. Only deliberately issued admin+approve tokens can approve through the API. Rotate with `POST /api/agent-tokens/{id}/rotate` and rewrite the same private file; the previous secret stops working immediately. For a switch that cannot restart the client, issue a replacement, validate `/api/auth/me`, move the client, then revoke the old ID and read back its metadata.
 
 The dedicated `agent_tokens` table in the selected durable store contains only a SHA-256 digest of 256-bit random credentials. Metadata/list/audit contain no clear token or digest. Private state uses 0700/0600 permissions; in SQLite mode this also applies to DB/WAL/SHM files. Revocation/expiry are checked against the selected store on every new authenticated request, including after restart. See `POSTGRESQL.md` for the documented local backend selection.
 

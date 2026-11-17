@@ -182,6 +182,10 @@ def test_sql_translation_preserves_literals():
     assert 'ON CONFLICT (id) DO UPDATE' in sql
     assert '_kw_rowid' in sql
     assert translate_sql('insert into users values(?,?,?,?)').startswith('insert into users (id,username,role,password_hash) VALUES')
+    prune = translate_sql('DELETE FROM audit WHERE action=? AND id NOT IN '
+                          '(SELECT id FROM audit WHERE action=? ORDER BY id DESC LIMIT ?)',
+                          ('agent.request', 'agent.request', 50_000))
+    assert prune.count('%s') == 3 and '?' not in prune and prune.endswith('LIMIT %s)')
 
 
 def test_private_config_file_required(tmp_path, monkeypatch):
