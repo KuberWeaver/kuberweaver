@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, ErrorNotice, LoadingState, errorMessage, useResource } from "./ui";
 
 type Descriptor = { kind: string; name: string; available?: boolean; status?: string; description?: string };
 type ProviderConfig = { bindings: Record<string, string>; available: Descriptor[]; errors: unknown[] };
@@ -20,7 +20,7 @@ function parseConfig(value: unknown): ProviderConfig | null {
 function describeError(value: unknown): string {
   if (typeof value === "string") return value;
   if (isRecord(value) && typeof value.error === "string") return value.error;
-  return JSON.stringify(value) ?? "Erreur de configuration";
+  return JSON.stringify(value) ?? "Configuration error";
 }
 export function ProviderConfiguration({ user }: { user: User }) {
   const resource = useResource<unknown>("/providers");
@@ -42,11 +42,11 @@ export function ProviderConfiguration({ user }: { user: User }) {
       await api("/providers", { method: "PATCH", body: JSON.stringify({ bindings: changes }) });
       const exact = await api<unknown>("/providers");
       const confirmed = parseConfig(exact);
-      if (!confirmed) throw new Error("Vérification des liaisons échouée : réponse serveur non prise en charge.");
+      if (!confirmed) throw new Error("Binding verification failed: unsupported server response.");
       resource.setData(exact);
       if (Object.entries(changes).some(([kind, name]) => confirmed.bindings[kind] !== name ||
         !confirmed.available.some((row) => row.kind === kind && row.name === name && row.available === true))) {
-        throw new Error("Vérification des liaisons échouée : sélection non confirmée par le serveur.");
+        throw new Error("Binding verification failed: selection not confirmed by the server.");
       }
       setDraft({});
       setSaved(true);
@@ -56,27 +56,27 @@ export function ProviderConfiguration({ user }: { user: User }) {
       setBusy(false);
     }
   }
-  return <section className="panel settings-panel provider-configuration" aria-label="Configuration des providers">
-    <div className="panel-title"><h2>Providers sélectionnés</h2><button disabled={busy} onClick={() => { setDraft({}); setSaved(false); setError(""); resource.refresh(); }}>Actualiser les providers</button></div>
-    <p className="muted">Sélection des implémentations enregistrées par capacité. Changer une liaison ne donne aucune confiance et n’active aucune extension. L’activation de code Python reste une opération de confiance explicite distincte.</p>
+  return <section className="panel settings-panel provider-configuration" aria-label="Provider configuration">
+    <div className="panel-title"><h2>Selected providers</h2><button disabled={busy} onClick={() => { setDraft({}); setSaved(false); setError(""); resource.refresh(); }}>Refresh providers</button></div>
+    <p className="muted">Select registered implementations by capability. Changing a binding does not grant trust or activate extensions. Enabling Python code remains a separate, explicit trust decision.</p>
     {error && <ErrorNotice message={error} />}
-    {saved && <p className="notice success" role="status">Liaisons enregistrées et vérifiées depuis le serveur.</p>}
-    {resource.loading ? <Spinner /> : resource.error || !config ? <p className="notice" role="status">Configuration des providers indisponible. {resource.error || "Réponse serveur non prise en charge."}</p> : <>
+    {saved && <p className="notice success" role="status">Bindings saved and verified from the server.</p>}
+    {resource.loading ? <LoadingState label="Loading provider configuration" /> : resource.error || !config ? <p className="notice" role="status">Provider configuration unavailable. {resource.error || "Unsupported server response."}</p> : <>
       {config.errors.map((value, index) => <p className="notice error" role="alert" key={index}>{describeError(value)}</p>)}
-      {!Object.keys(config.bindings).length && <p className="muted">Aucune capacité déclarée par le serveur.</p>}
+      {!Object.keys(config.bindings).length && <p className="muted">No capabilities declared by the server.</p>}
       {Object.entries(config.bindings).map(([kind, current]) => {
         const choices = config.available.filter((row) => row.kind === kind);
         const active = choices.find((row) => row.name === current);
         const available = active?.available === true;
         return <div className="setting-row" key={kind}>
-          <div><label htmlFor={`provider-${kind}`}>Provider {kind}</label><small>{current} · {available ? "Actif" : "Indisponible"}</small><Badge tone={available ? "success" : "warning"}>{available ? "Liaison active" : "Liaison indisponible"}</Badge></div>
+          <div><label htmlFor={`provider-${kind}`}>Provider {kind}</label><small>{current} · {available ? "Active" : "Unavailable"}</small><Badge tone={available ? "success" : "warning"}>{available ? "Active binding" : "Binding unavailable"}</Badge></div>
           <div><select id={`provider-${kind}`} disabled={busy || user.role !== "admin"} value={draft[kind] ?? current} onChange={(event) => { setSaved(false); setError(""); setDraft({ ...draft, [kind]: event.target.value }); }}>
-            {!active && <option value={current} disabled>{current} · Indisponible</option>}
-            {choices.map((choice) => <option key={choice.name} value={choice.name} disabled={choice.available !== true}>{choice.name}{choice.available === true ? "" : " · Indisponible"}</option>)}
+            {!active && <option value={current} disabled>{current} · Unavailable</option>}
+            {choices.map((choice) => <option key={choice.name} value={choice.name} disabled={choice.available !== true}>{choice.name}{choice.available === true ? "" : " · Unavailable"}</option>)}
           </select>{typeof active?.description === "string" && <small>{active.description}</small>}</div>
         </div>;
       })}
-      {user.role === "admin" && <div className="provider-actions"><button className="primary" disabled={busy || !validChanges || !Object.keys(changes).length} onClick={save}>{busy ? "Enregistrement…" : "Enregistrer les providers"}</button></div>}
+      {user.role === "admin" && <div className="provider-actions"><button className="primary" disabled={busy || !validChanges || !Object.keys(changes).length} onClick={save}>{busy ? "Saving…" : "Save providers"}</button></div>}
     </>}
   </section>;
 }

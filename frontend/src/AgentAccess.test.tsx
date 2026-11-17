@@ -14,13 +14,13 @@ it("issues narrowly scoped token only on explicit action and never persists clea
   });
   vi.stubGlobal("fetch", fetcher);
   render(<AgentAccess user={admin} />);
-  fireEvent.change(await screen.findByLabelText("Nom de l’agent"), { target: { value: "Agent de test" } });
+  fireEvent.change(await screen.findByLabelText("Agent name"), { target: { value: "Agent de test" } });
   fireEvent.click(screen.getByLabelText("read"));
-  fireEvent.click(screen.getByRole("button", { name: "Créer un accès agent" }));
+  fireEvent.click(screen.getByRole("button", { name: "Create agent access" }));
   expect(await screen.findByText("kw-test-one-time-value")).toBeTruthy();
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
   expect(fetcher.mock.calls.some(([,o]) => o?.method === "POST" && JSON.parse(o.body as string).role === "operator")).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Masquer le jeton" }));
+  fireEvent.click(screen.getByRole("button", { name: "Hide token" }));
   expect(screen.queryByText("kw-test-one-time-value")).toBeNull();
 });
 it("accepts the numeric expiry timestamps emitted by the real API", async () => {
@@ -28,11 +28,11 @@ it("accepts the numeric expiry timestamps emitted by the real API", async () => 
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...state, tokens: [row] }))));
   render(<AgentAccess user={admin} />);
   expect(await screen.findByText("Timestamp agent")).toBeTruthy();
-  expect(screen.getByText(`Expire : ${new Date(row.expires_at * 1000).toISOString()}`)).toBeTruthy();
+  expect(screen.getByText(`Expires: ${new Date(row.expires_at * 1000).toISOString()}`)).toBeTruthy();
 });
 it("does not fetch or expose creation controls to non administrators", () => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   render(<AgentAccess user={{ ...admin, role: "operator" }} />);
-  expect(screen.getByText(/Réservé aux administrateurs/)).toBeTruthy();
+  expect(screen.getByText(/Administrators only/)).toBeTruthy();
   expect(fetcher).not.toHaveBeenCalled();
 });

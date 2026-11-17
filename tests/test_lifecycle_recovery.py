@@ -41,9 +41,13 @@ def test_example_observes_actual_worker_and_selected_diagnostics_reads_durable_e
 
 @pytest.mark.parametrize('automatic', [False, True])
 @pytest.mark.parametrize('restart', [False, True])
-def test_real_executor_partial_rollback_can_be_retried_through_serialized_api(api, automatic, restart):
+def test_real_executor_partial_rollback_can_be_retried_through_serialized_api(api, automatic, restart, tmp_path, monkeypatch):
+    from kuberweaver import execution as execution_module
     from kuberweaver.execution import Executor
     from test_execution import SimulatedAnsible
+    ssh_config = tmp_path / 'ssh_config'
+    ssh_config.write_text('Host infra-app infra-branch-client\n  StrictHostKeyChecking yes\n')
+    monkeypatch.setattr(execution_module, 'SSH_CONFIG', ssh_config)
     client, app = api
     shutil.copytree(ROOT / 'plugins/nginx', app.state.plugins_dir / 'nginx')
 

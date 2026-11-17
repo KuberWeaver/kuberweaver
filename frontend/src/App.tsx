@@ -18,15 +18,16 @@ import {
   X,
   ArrowRight,
   LockKeyhole,
-  ChevronDown,
+  Bot,
   Command,
-  FlaskConical,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, setCsrf, ApiError } from "./api";
 import type { User, Plugin } from "./model";
 import { Canvas } from "./Canvas";
 import { Operations } from "./Operations";
 import { AgentAccess } from "./AgentAccess";
+import { Keys } from "./Keys";
 import { Connections } from "./Connections";
 import {
   Catalogue,
@@ -38,21 +39,30 @@ import {
   Audit,
   Integrations,
 } from "./pages";
-import { ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
-const nav = [
-  { id: "canvas", label: "Canvas", icon: LayoutDashboard },
-  { id: "catalogue", label: "Catalogue", icon: Package },
-  { id: "jobs", label: "Déploiements", icon: Play },
-  { id: "infrastructure", label: "Infrastructure", icon: Network },
-  { id: "connections", label: "Connexions", icon: Server },
-  { id: "governance", label: "Gouvernance", icon: ShieldCheck },
-  { id: "finops", label: "FinOps", icon: ChartNoAxesCombined },
-  { id: "diagnostics", label: "Diagnostic", icon: Stethoscope },
-  { id: "audit", label: "Audit", icon: History },
-  { id: "integrations", label: "Intégrations", icon: Blocks },
-  { id: "operations", label: "Opérations", icon: Command },
-  { id: "agents", label: "Accès agents", icon: LockKeyhole },
-];
+import { Empty, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { ThemeToggle } from "./ThemeToggle";
+import {
+  defaultPageId,
+  navigationFor,
+  pageFor,
+} from "./navigation";
+import type { PageId } from "./navigation";
+
+const pageIcons: Record<PageId, LucideIcon> = {
+  canvas: LayoutDashboard,
+  catalogue: Package,
+  jobs: Play,
+  infrastructure: Network,
+  connections: Server,
+  keys: LockKeyhole,
+  governance: ShieldCheck,
+  finops: ChartNoAxesCombined,
+  diagnostics: Stethoscope,
+  audit: History,
+  integrations: Blocks,
+  operations: Command,
+  agents: Bot,
+};
 export function App() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -155,18 +165,18 @@ function Login({
       <aside className="login-story">
         <Brand />
         <div className="login-message">
-          <div className="eyebrow">DE L’INTENTION À L’INFRASTRUCTURE</div>
+          <div className="eyebrow">INFRASTRUCTURE WORKSPACE</div>
           <h1>
-            Composez.
+            Compose.
             <br />
-            Vérifiez.
+            Verify.
             <br />
-            <span>Déployez.</span>
+            <span>Deploy.</span>
           </h1>
           <p>
-            Un noyau léger. Des extensions explicites.
+            Blueprints, policies and deployments
             <br />
-            Votre infrastructure, sous contrôle.
+            in one auditable workspace.
           </p>
           <div className="login-diagram">
             <div>
@@ -176,20 +186,23 @@ function Login({
             <span>→</span>
             <div>
               <ShieldCheck size={22} />
-              Politiques
+              Policies
             </div>
             <span>→</span>
             <div>
               <Network size={22} />
-              Laboratoire
+              Workspace
             </div>
           </div>
         </div>
         <div className="login-foot">
-          <FlaskConical size={16} /> Espace laboratoire · Opérations traçables
+          <ShieldCheck size={16} /> Infrastructure workspace · Auditable operations
         </div>
       </aside>
       <main className="login-form">
+        <div className="login-theme">
+          <ThemeToggle />
+        </div>
         <div className="login-mobile-brand">
           <Brand />
         </div>
@@ -197,41 +210,40 @@ function Login({
           <span className="login-lock">
             <LockKeyhole size={23} />
           </span>
-          <h2>Bienvenue dans votre espace.</h2>
-          <p>Connectez-vous pour accéder à la plateforme.</p>
+          <h2>Welcome to your workspace.</h2>
+          <p>Sign in to access the platform.</p>
           {error && <ErrorNotice message={error} retry={onRetry} />}
           <form onSubmit={submit}>
-            <label htmlFor="username">Identifiant</label>
+            <label htmlFor="username">Username</label>
             <input
               id="username"
               name="username"
               autoComplete="username"
               autoFocus
               required
-              placeholder="Votre identifiant"
+              placeholder="Your username"
             />
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">Password</label>
             <input
               id="password"
               name="password"
               type="password"
               autoComplete="current-password"
               required
-              placeholder="Votre mot de passe"
+              placeholder="Your password"
             />
             {failure && <ErrorNotice message={failure} />}
             <button className="primary login-submit" disabled={busy}>
-              {busy ? "Connexion…" : "Se connecter"}
+              {busy ? "Signing in…" : "Sign in"}
               <ArrowRight size={17} />
             </button>
           </form>
           <div className="login-hint">
-            <ShieldCheck size={16} /> Accès nominatif · Droits définis par votre
-            rôle
+            <ShieldCheck size={16} /> Individual access · Role-based permissions
           </div>
         </div>
         <footer>
-          KuberWeaver <span>Portail d’infrastructure modulaire</span>
+          KuberWeaver <span>Modular infrastructure portal</span>
         </footer>
       </main>
     </div>
@@ -242,18 +254,18 @@ function BoxMark() {
 }
 function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [page, setPage] = useState(
-      () => window.location.hash.slice(1) || "canvas",
+      () => window.location.hash.slice(1) || defaultPageId,
     ),
     [drawer, setDrawer] = useState(false),
     [logoutError, setLogoutError] = useState(""),
     [loggingOut, setLoggingOut] = useState(false);
   const plugins = useResource<Plugin[]>("/plugins");
   useEffect(() => {
-    const sync = () => setPage(window.location.hash.slice(1) || "canvas");
+    const sync = () => setPage(window.location.hash.slice(1) || defaultPageId);
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
-  const navigate = (id: string) => {
+  const navigate = (id: PageId) => {
     setPage(id);
     window.location.hash = id;
     setDrawer(false);
@@ -269,13 +281,13 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
       setLoggingOut(false);
     }
   }
-  const current = nav.find((n) => n.id === page) || nav[0];
+  const current = pageFor(page);
   return (
     <div className="shell">
       {drawer && (
         <button
           className="drawer-overlay"
-          aria-label="Fermer la navigation"
+          aria-label="Close navigation"
           onClick={() => setDrawer(false)}
         />
       )}
@@ -284,40 +296,37 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Brand />
           <button
             className="icon-button mobile-close"
-            aria-label="Fermer le menu"
+            aria-label="Close menu"
             onClick={() => setDrawer(false)}
           >
             <X size={20} />
           </button>
         </div>
-        <div className="workspace-switch">
-          <span className="workspace-avatar">L</span>
-          <div>
-            Laboratoire<small>Espace d’infrastructure</small>
-          </div>
-          <ChevronDown size={14} />
-        </div>
-        <div className="nav-caption">PLATEFORME</div>
-        <nav aria-label="Navigation principale">
-          {nav.map((n) => (
-            <button
-              key={n.id}
-              className={`${page === n.id ? "active" : ""} ${n.id === "governance" ? "nav-separated" : ""}`}
-              onClick={() => navigate(n.id)}
-              aria-current={page === n.id ? "page" : undefined}
-            >
-              <n.icon size={18} />
-              {n.label}
-              {n.id === "integrations" && (
-                <span className="nav-submark">+</span>
-              )}
-            </button>
+        <nav aria-label="Main navigation">
+          {navigationFor(user.role).map((group) => (
+            <div className="nav-group" key={group.id}>
+              <div className="nav-caption">{group.label}</div>
+              {group.pages.map((item) => {
+                const Icon = pageIcons[item.id];
+                return (
+                  <button
+                    key={item.id}
+                    className={page === item.id ? "active" : ""}
+                    onClick={() => navigate(item.id)}
+                    aria-current={page === item.id ? "page" : undefined}
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="kernel-label">
-            <span /> Noyau modulaire
-            <small>Capacités déclarées par les extensions</small>
+            <span /> Modular core
+            <small>Capabilities declared by extensions</small>
           </div>
           <div className="user-block">
             <span className="user-avatar">
@@ -327,16 +336,16 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
               {user.username}
               <small>
                 {user.role === "admin"
-                  ? "Administrateur"
+                  ? "Administrator"
                   : user.role === "viewer"
-                    ? "Lecture seule"
-                    : "Opérateur"}
+                    ? "Read only"
+                    : "Operator"}
               </small>
             </div>
             <button
               className="icon-button"
-              aria-label="Se déconnecter"
-              title="Se déconnecter"
+              aria-label="Sign out"
+              title="Sign out"
               disabled={loggingOut}
               onClick={logout}
             >
@@ -350,20 +359,17 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           <div className="breadcrumbs">
             <button
               className="icon-button mobile-menu"
-              aria-label="Ouvrir le menu"
+              aria-label="Open menu"
               onClick={() => setDrawer(true)}
             >
               <Menu size={22} />
             </button>
-            <span className="breadcrumb-home">Plateforme</span>
+            <span className="breadcrumb-home">Platform</span>
             <span className="breadcrumb-slash">/</span>
-            <strong>{current.label}</strong>
+            <strong>{current?.label || "Page not found"}</strong>
           </div>
           <div className="topbar-right">
-            <span className="scope">
-              <FlaskConical size={14} />
-              Laboratoire
-            </span>
+            <ThemeToggle />
             <span className="role-pill">{user.role}</span>
           </div>
         </header>
@@ -391,8 +397,11 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
               onCanvas={() => navigate("canvas")}
             />
           )}
-          {page === "jobs" && <Jobs user={user} />}
+          {page === "jobs" && (
+            <Jobs user={user} onCreate={() => navigate("canvas")} />
+          )}
           {page === "infrastructure" && <Infrastructure />}
+          {page === "keys" && <Keys user={user} />}
           {page === "connections" && <Connections user={user} />}
           {page === "governance" && <Governance user={user} />}
           {page === "finops" && <FinOps />}
@@ -401,21 +410,27 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           {page === "integrations" && <Integrations user={user} />}
           {page === "operations" && <Operations user={user} />}
           {page === "agents" && <AgentAccess user={user} />}
-          {!nav.some((n) => n.id === page) && (
+          {!current && (
             <div className="panel">
-              Page introuvable.{" "}
-              <button onClick={() => navigate("canvas")}>
-                Revenir au canvas
-              </button>
+              <Empty
+                title="Page not found"
+                icon={<Blocks size={27} />}
+                action={
+                  <button onClick={() => navigate(defaultPageId)}>
+                    Return to canvas
+                  </button>
+                }
+              >
+                The address does not match any portal page.
+              </Empty>
             </div>
           )}
         </main>
         <footer className="app-footer">
           <span>
-            KuberWeaver <span className="footer-dot">·</span> Infrastructure par
-            composition
+            KuberWeaver <span className="footer-dot">·</span> Infrastructure by composition
           </span>
-          <span>Laboratoire isolé · EUR / mois</span>
+          <span>EUR / month</span>
         </footer>
       </div>
     </div>

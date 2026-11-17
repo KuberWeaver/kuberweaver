@@ -1,0 +1,7 @@
+{
+  "geerlingguy.nginx": {
+    "version": "3.3.1",
+    "sha256": "d413372d531361b345719460729389b4fc36a17d77421003945cc959dc8a7fd7",
+    "license": "MIT"
+  }
+}

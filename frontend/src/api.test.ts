@@ -20,7 +20,7 @@ it("envoie les cookies et le jeton CSRF uniquement aux mutations", async () => {
   await api('/plugins');
   expect(fetcher.mock.calls[1][1].headers['X-CSRF-Token']).toBeUndefined();
 });
-it('explique une erreur sans corps au lieu d’afficher null',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(null,{status:500})));await expect(api('/auth/me')).rejects.toThrow('Aucun détail fourni par le serveur');});
+it('explique une erreur sans corps au lieu d’afficher null',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(null,{status:500})));await expect(api('/auth/me')).rejects.toThrow('No details provided by the server');});
 it("ne transforme pas une erreur de validation en succès et conserve ses détails", async () => {
   vi.stubGlobal(
     "fetch",
@@ -29,13 +29,13 @@ it("ne transforme pas une erreur de validation en succès et conserve ses détai
       .mockResolvedValue(
         new Response(
           JSON.stringify({
-            detail: [{ loc: ["body", "graph"], msg: "invalide" }],
+            detail: [{ loc: ["body", "graph"], msg: "invalid" }],
           }),
           { status: 422 },
         ),
       ),
   );
-  await expect(api("/jobs", { method: "POST" })).rejects.toThrow("invalide");
+  await expect(api("/jobs", { method: "POST" })).rejects.toThrow("invalid");
 });
 it("signale les réponses hors JSON sans masquer le statut", async () => {
   vi.stubGlobal(

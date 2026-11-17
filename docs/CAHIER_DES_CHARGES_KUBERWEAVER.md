@@ -1,135 +1,134 @@
-# KuberWeaver, cahier des charges
+# KuberWeaver requirements
 
-Version 2.0, rédaction simplifiée · EFREI Paris
+Version 2.0, simplified specification · EFREI Paris
 
-Proposition à valider par l’équipe et le mentor. Les responsabilités de référence sont conservées ; les priorités, dates et moyens restent à confirmer. Les résultats techniques cités proviennent des comptes rendus existants, pas de nouveaux essais.
+This document separates requirements and proposed priorities from delivered capabilities. Reference responsibilities are retained; priorities, dates and resources require team/mentor approval. Technical results cited here come from existing reports, not new acceptance runs. See the README for current operational scope.
 
-## 1. Le projet et son périmètre
+## 1. Purpose and scope
 
-### Le besoin
+### Need
 
-Déployer un service informatique demande souvent de coordonner plusieurs outils et des procédures manuelles. KuberWeaver doit réunir ces opérations dans un portail interne : choisir un service, préparer sa configuration, faire approuver le changement et vérifier le résultat.
+Deploying an IT service often requires several tools and manual procedures. KuberWeaver brings that workflow into an internal portal: select a service, configure it, approve the change and verify the result. The intended benefit is reuse of reviewed organizational procedures without removing security rules or replacing existing automation engines.
 
-Le bénéfice recherché est de réutiliser les procédures validées de l’organisation, sans supprimer ses règles de sécurité. Le projet n’a pas vocation à remplacer les outils d’automatisation existants.
+### Users and workflow
 
-### Les utilisateurs et le parcours
+- Operators prepare, save and submit requests.
+- Administrators approve/reject, manage policy and authorize extensions.
+- Viewers inspect permitted information without mutation.
+- External AI agents use the API/MCP within rights explicitly delegated by a human administrator; an embedded model or AI subscription is not mandatory.
 
-- L’opérateur prépare, enregistre et soumet une demande.
-- L’administrateur approuve ou refuse, gère les règles et autorise les extensions.
-- Le lecteur consulte les informations auxquelles il a accès, sans les modifier.
-- Un agent d’intelligence artificielle externe utilise les mêmes fonctions, dans les limites des droits explicitement accordés par un administrateur humain.
+Expected flow: choose service → provide parameters → check policy and estimated cost → obtain approval → back up and deploy progressively where supported → verify independently.
 
-Parcours attendu : choisir un service → renseigner les paramètres → vérifier les règles et le coût estimé → faire approuver → sauvegarder et déployer progressivement → contrôler le résultat.
+On failure, stop progression and attempt service-appropriate restoration **only where supported**. Incomplete recovery remains visible and requires human intervention. Create-only provisioning is not universal rollback.
 
-En cas d’échec, la plateforme arrête la progression et tente une restauration adaptée au service. Un rétablissement incomplet doit rester visible et demander une intervention humaine.
+### Evidence and limits
 
-### Ce qui existe, ce qui reste à prouver
-
-| Situation | Périmètre |
+| Situation | Scope |
 | --- | --- |
-| Déjà exercé dans le laboratoire | Portail, catalogue, droits, approbation, déploiement de NGINX et Apache, contrôles et retour à la version précédente. |
-| Testé localement, intégration réelle encore à valider | Notifications, approbation par messagerie, publication Git distante et injection des secrets d’exécution. |
-| Préparé mais non validé sur une cible réelle | Création de machines avec OpenTofu, service Redis persistant et configuration Cisco/pfSense. |
-| Hors livraison initiale | Place de marché publique, paiements, service commercial partagé entre plusieurs organisations et exécution de code tiers non fiable. |
+| Exercised on real lab targets | Portal, catalogue, roles, approval, NGINX/Apache deployment, checks and previous-version restoration. |
+| Locally tested; external integration still requires acceptance | Notifications, messaging approval, remote Git publication and execution-secret injection. |
+| Separate provisioning contracts | VMware OVF import is create-only; blank-disk vSphere and libvirt paths retain their documented blockers/planned state. Local tests do not prove target OS or SSH startup. |
+| Prepared but not validated on real targets | Persistent Redis, Cisco/pfSense and cloud placeholders. |
+| Outside the delivered scope | Public marketplace, payments, multi-organization SaaS and execution of untrusted third-party code. |
 
-Le prototype n’est pas prêt pour la production. Malgré son nom, il ne pilote pas Kubernetes. L’estimation de coût n’est pas une facture ; les liens du schéma ordonnent les déploiements sans configurer le réseau.
+Passing tests does not establish production maturity. KuberWeaver does not orchestrate Kubernetes merely because of its name. Cost estimates are not invoices; graph edges order deployments without configuring networks. PostgreSQL is supported and selected by the documented local service; see its recovery guide rather than assuming SQLite is current or an automatic fallback.
 
 <!-- pagebreak -->
 
-## 2. Les fonctions indispensables
+## 2. Required platform guarantees
 
-Le socle ci-dessous est à préserver et à vérifier lors de la réception du projet. Chaque exigence est associée à un test observable. Les identifiants historiques sont conservés : le test CRT-001 correspond à EXG-001, et ainsi de suite.
+Preserve and verify this baseline during acceptance. Historical IDs remain stable: CRT-001 corresponds to EXG-001, and so on.
 
-| Référence | Fonction attendue | Test d’acceptation |
+| Reference | Required function | Acceptance criterion |
 | --- | --- | --- |
-| EXG-001 | Appliquer les droits côté serveur. | Un lecteur ne peut ni soumettre ni approuver ; un opérateur ne peut administrer, même par accès direct à l’API. |
-| EXG-002 | Découvrir les modèles de service du catalogue. | Un modèle valide apparaît après rechargement ; un modèle invalide est signalé sans masquer les autres. |
-| EXG-003 | Composer et sauvegarder un schéma. | Le rechargement conserve les éléments, leurs paramètres, positions et dépendances ; les cycles sont refusés. |
-| EXG-004 | Produire les formulaires depuis les modèles. | Les valeurs par défaut et contraintes sont affichées ; le serveur refuse aussi les valeurs invalides. |
-| EXG-005 | Contrôler règles, cibles et quotas. | Une cible inconnue, un dépassement, une configuration interdite ou une commande libre sont bloqués avant modification. |
-| EXG-006 | Faire approuver le plan exact. | La décision est datée et attribuée ; modifier le plan ou ses sources après approbation bloque l’exécution concernée. |
-| EXG-007 | Conserver une trace de chaque changement. | On retrouve le plan sans secrets, sa version Git, la décision et le résultat de l’exécution. |
-| EXG-008 | Conserver les opérations et leur historique. | Après redémarrage, l’historique subsiste ; une opération interrompue attend une revue, sans relance automatique. |
-| EXG-009 | Déployer progressivement. | Deux cibles réelles sont utilisées : sauvegarde, première cible, contrôle, puis poursuite ; le service est vérifié indépendamment. |
-| EXG-010 | Restaurer après un échec. | Toutes les cibles modifiées retrouvent leur état initial, y compris l’absence de service ; une restauration ratée n’est jamais affichée comme réussie. Le retour manuel n’est proposé que s’il est autorisé et possible. |
-| EXG-011 | Afficher l’inventaire réellement observé. | Une cible indisponible est indiquée comme telle, sans résultat inventé ni confusion avec le schéma demandé. |
-| EXG-012 | Présenter le coût avant approbation. | Total, détail par ressource, devise et caractère estimatif correspondent au calcul du serveur. |
-| EXG-013 | Contrôler l’activation des extensions. | Le code d’une extension désactivée n’est pas chargé ; une extension défaillante n’empêche pas le portail de fonctionner. |
+| EXG-001 | Enforce roles server-side. | Viewers cannot submit/approve; operators cannot administer, including through direct API calls. |
+| EXG-002 | Discover service templates. | Valid templates appear after reload; invalid templates are reported without hiding valid peers. |
+| EXG-003 | Compose and save a graph. | Reload preserves nodes, configuration, positions and dependencies; cycles are rejected. |
+| EXG-004 | Generate forms from templates. | Defaults/constraints are displayed; invalid values are also rejected server-side. |
+| EXG-005 | Enforce policy, targets and quotas. | Unknown targets, excess quotas, forbidden configuration and arbitrary commands are blocked before mutation. |
+| EXG-006 | Approve the exact plan. | Decision, actor and time persist; changes to the plan or approved sources block the affected execution. |
+| EXG-007 | Trace each change. | Sanitized plan, actual Git version, decision and execution outcome are retrievable. |
+| EXG-008 | Persist operations/history. | History survives restart; interrupted work awaits review without automatic replay. |
+| EXG-009 | Deploy progressively. | Two actual targets exercise backup, canary, checks and rollout, with independent service verification. |
+| EXG-010 | Recover after failure where supported. | Modified targets regain their prior state, including absence; failed restoration is never shown as success. Manual rollback is offered only when authorized and eligible. |
+| EXG-011 | Display observed inventory. | Unavailable targets are explicit, with no fabricated results or confusion with desired graphs. |
+| EXG-012 | Show cost before approval. | Total, per-resource breakdown, currency and estimated nature match server calculation. |
+| EXG-013 | Govern extension activation. | Disabled code is not loaded; failed extensions do not break the portal or leave partial registrations. |
 
-Le succès d’un test automatique ne remplace pas un essai sur les ressources réelles lorsqu’il s’agit de démontrer un déploiement ou une restauration.
+Automated tests do not replace actual resource acceptance when proving deployment or restoration. A service-specific rollback guarantee must not be generalized to providers advertising no rollback.
 
 <!-- pagebreak -->
 
-## 3. La suite proposée et les options
+## 3. Proposed next work and options
 
-Les quatre lignes « Suite » sont prioritaires après consolidation du socle. Les options ne sont engagées qu’après arbitrage de l’équipe et du mentor. Un responsable identifié ne vaut pas engagement de livraison.
+The four “Next” entries are proposed priorities after consolidating the baseline. Options require explicit team/mentor selection. Naming an owner does not create a delivery commitment or imply the function is absent/present in every integration.
 
-| Référence | Résultat attendu | Test d’acceptation |
+| Reference | Intended outcome | Acceptance criterion |
 | --- | --- | --- |
-| EXG-014 · Suite | Ajouter une autre catégorie de service. | Déployer, vérifier et restaurer ce service sans modifier le cœur ; documenter les limites de conservation des données. |
-| EXG-015 · Suite | Utiliser un coffre de secrets. | Un déploiement réel obtient un accès limité depuis le coffre ; expiration ou révocation bloquent proprement, sans fuite. |
-| EXG-016 · Suite | Envoyer une notification réelle. | Le destinataire reçoit l’événement ; les erreurs et les risques de doublons sont traités explicitement. |
-| EXG-017 · Suite | Suivre l’état du portail. | Santé, opérations et erreurs sont consultables ; une panne est visible et la durée de conservation des traces est documentée. |
-| EXG-021 · À préserver | Permettre le pilotage par un agent externe. | Des échanges MCP réels lisent et soumettent via l’API ; droits insuffisants, expiration et révocation bloquent l’accès. Une approbation exige une délégation explicite. |
-| EXG-018 · Option | Créer une ressource avec OpenTofu. | Approuver le plan sauvegardé exact, créer, vérifier indépendamment et supprimer avec autorisation ; protéger l’état. |
-| EXG-019 · Option | Configurer un équipement réseau. | Modifier puis restaurer une cible autorisée en préservant un accès de secours. |
-| EXG-020 · Option | Approuver depuis une messagerie. | L’acteur est identifié et lié au plan exact ; une action répétée, expirée ou interdite est refusée et tracée. |
-| EXG-022 · Option | Publier les plans dans un dépôt Git distant. | Le dépôt reçoit la version attendue, sans secrets ; les échecs de publication et divergences sont signalés. |
-| EXG-023 · Option | Exploiter les mesures de consommation. | Chaque mesure indique sa source, sa période et sa fraîcheur ; elle reste distincte d’une estimation ou d’une facture. |
-| EXG-024 · Long terme | Distribuer des extensions tierces. | Définir et tester provenance, intégrité, versions, contrôles, révocation et isolation avant toute exécution non fiable. |
+| EXG-014 · Next | Add another service category. | Deploy, verify and restore without kernel business changes; document data-retention limits. |
+| EXG-015 · Next | Use a secret vault for execution. | A real deployment obtains a least-privilege secret; expiry/revocation fail cleanly without disclosure. |
+| EXG-016 · Next | Send an actual notification. | Recipient receives the event; failures and duplicate risks are explicit. |
+| EXG-017 · Next | Observe portal operations. | Health, operations and errors are readable; controlled failure is visible and retention documented. |
+| EXG-021 · Preserve | Permit external-agent control. | Real MCP exchanges read/submit through the API; insufficient grants, expiry and revocation deny access. Approval requires explicit delegation. |
+| EXG-018 · Option | Provision through OpenTofu. | Approve the exact saved plan, create, independently verify and separately authorize deletion; protect state. A create-only provider must state its narrower scope. |
+| EXG-019 · Option | Configure a network device. | Authorized change and restoration preserve a recovery access path. |
+| EXG-020 · Option | Approve through messaging. | Authenticated actor binds to the exact plan; repeated, expired or unauthorized actions are rejected/audited. |
+| EXG-022 · Option | Publish plans to remote Git. | Destination receives the expected sanitized version; publication failures/divergence remain visible. |
+| EXG-023 · Option | Use measured consumption. | Each measurement identifies source, period and freshness; it remains distinct from estimates/invoices. |
+| EXG-024 · Long term | Distribute third-party extensions. | Define/test provenance, integrity, versions, checks, revocation and isolation before untrusted execution. |
 
-### Principe technique
+### Technical model
 
-Le portail React/TypeScript utilise une API FastAPI ; SQLite conserve l’état, Git les versions et Ansible exécute les changements dans le laboratoire GNS3. Des composants remplaçables gèrent l’inventaire, l’exécution, les secrets et les notifications.
-
-Un plugin, mot anglais pour « extension », ajoute une capacité. Les modèles compatibles alimentent le catalogue et ses formulaires, mais pas de nouvelles pages spécialisées. Aucun modèle d’IA intégré ni abonnement IA n’est obligatoire.
+React/TypeScript uses a FastAPI API; PostgreSQL or explicitly selected SQLite preserves state, Git records approved versions and Ansible executes reviewed web-service changes on GNS3 guests. Replaceable providers handle inventory, execution, secrets and notifications. Plugins add capabilities; compatible templates feed catalogue/forms, not automatic specialized pages. No built-in AI model is required.
 
 <!-- pagebreak -->
 
-## 4. Organisation et sécurité
+## 4. Organization and safety
 
-### L’équipe
+### Reference team
 
-Les rôles de référence ci-dessous restent inchangés. La répartition pratique est proposée ; la sécurité relève de toute l’équipe, avec une revue croisée des changements sensibles.
+The reference roles remain unchanged in substance. Practical allocation is proposed; security is shared across the team, with independent review of sensitive changes.
 
-| Personne | Rôle de référence | Contribution principale proposée |
+| Person | Reference role | Proposed principal contribution |
 | --- | --- | --- |
-| Etienne MURZEAU | Référent / Déposant, Intégration AI / Infrastructure | Coordination, intégration des agents, cohérence technique et démonstration. Diagnostic IA en lecture seule si retenu. |
-| Rayan CHOUCHANE | Infrastructure Terraform / Ansible + GitOPS, Pipeline : Lint + Conteneur | Versionnement, contrôles automatiques et chaîne de livraison. |
-| Alex YAO | Infrastructure Terraform / Ansible | Ressources, inventaire et préparation des cibles. |
-| Vidjay VELAYOUDAM | FinOps / Business | Besoins métier, modèle de coûts et analyse économique. |
-| Abdel-Waheb SAKKAL | Infrastructure Terraform / Ansible | Configuration des services, extensions, vérifications et restauration. |
-| Priyank SOLANKI | Développeur web, Full Stack | Portail, API, droits et parcours utilisateur. |
+| Etienne MURZEAU | Project lead / submitter, AI / infrastructure integration | Coordination, agent integration, architectural consistency and acceptance presentation; optional read-only AI diagnostics. |
+| Rayan CHOUCHANE | Terraform / Ansible infrastructure + GitOPS, lint/container pipeline | Versioning, automated checks and delivery pipeline. |
+| Alex YAO | Terraform / Ansible infrastructure | Resources, inventory and target preparation. |
+| Vidjay VELAYOUDAM | FinOps / Business | Business needs, cost model and economic analysis. |
+| Abdel-Waheb SAKKAL | Terraform / Ansible infrastructure | Services, extensions, verification and recovery. |
+| Priyank SOLANKI | Full Stack web developer | Portal, API, authorization and user workflow. |
 
-### Les règles de sécurité et de qualité
+### Safety and quality rules
 
-- Limiter les actions aux cibles et ressources autorisées. Ne pas modifier la production pour une démonstration.
-- Garder les secrets hors du code, des plans partagés, des journaux et des captures. Limiter les accès techniques ; exiger une autorisation avant tout transfert de données vers une IA externe.
-- N’activer une extension exécutable qu’après autorisation explicite. Le prototype n’isole pas le code tiers non fiable.
-- Sauvegarder avant modification, vérifier le service obtenu et prévoir une reprise manuelle. Une restauration de conteneur ne prouve pas la cohérence des données.
-- Afficher des erreurs compréhensibles et des états qui ne reposent pas seulement sur une couleur. Mesurer la performance avant de fixer un engagement de délai.
+- Restrict actions to authorized targets and owned resources. Do not change production for acceptance.
+- Keep secrets out of code, shared plans, logs and captures. Use least-privilege access; require authorization before sending infrastructure data to external AI.
+- Explicitly trust executable extensions. Current Python extensions have server privileges and do not isolate untrusted code.
+- Back up before mutation, verify outcomes and provide manual recovery. Container restoration does not prove transactional data consistency. PostgreSQL and vault key/ciphertext require their own backups and restoration tests.
+- Maintain verified TLS or explicitly confirmed socket-level pins where supported. One driver's pin does not bypass another provider's PKI requirements.
+- Provide understandable errors and status indicators beyond color. Measure performance before setting response-time commitments.
+- Managed SSH-key creation/selection/disabling/export is separate from guest revocation or automatic remote rotation. Export requires explicit administrator/password confirmation; see `SSH_KEYS.md`.
 
 <!-- pagebreak -->
 
-## 5. Livraison et décisions
+## 5. Delivery and decisions
 
-### Les étapes et les livrables
+### Milestones and artifacts
 
-1. Valider le périmètre et les tests retenus avec le mentor.
-2. Faire reproduire le parcours web et sa restauration par une autre personne.
-3. Intégrer le nouveau service et les fonctions « Suite » retenues, puis une option seulement si les moyens le permettent.
-4. Remettre le code, les modèles de service, les procédures d’installation et de reprise, les résultats des tests et la liste des limites.
+1. Validate selected scope and acceptance criteria with the responsible team/mentor.
+2. Have another operator reproduce the web-service flow and restoration.
+3. Integrate the chosen service and next-work items, then an option only if resources permit.
+4. Deliver code, service templates, installation/recovery procedures, test records and explicit limitations.
 
-La réception finale doit montrer une demande interdite bloquée, un service réellement disponible, une restauration vérifiée et une extension ajoutée sans modification du cœur. Toute exigence retenue a un résultat et une preuve ; un écart est corrigé ou accepté explicitement.
+Acceptance must demonstrate a blocked forbidden request, an actually available service, independently verified recovery where supported and extension without kernel business changes. Each selected requirement needs evidence; deviations are corrected or explicitly accepted. A completed implementation plan is not itself evidence of a delivered capability.
 
-### Les décisions encore ouvertes
+### Open decisions
 
-Choisir le nouveau service et l’éventuelle option, confirmer les tâches, dates, moyens et licences. Fixer la conservation des traces et décider si une personne peut approuver sa propre demande. Principaux risques : dispersion du périmètre, perte de données, perte d’accès réseau et fuite de secrets.
+Choose the next service/optional integration; confirm tasks, dates, capacity and licenses. Set retention and decide whether the requester may approve their own change. Main risks are scope dispersion, data loss, lost network access and secret disclosure.
 
-La trajectoire PostgreSQL, les exécuteurs et le catalogue de plugins sont précisés dans [Architecture cible](ARCHITECTURE_CIBLE.md). Ce sont des propositions, pas des fonctions déjà livrées.
+[Architecture direction](ARCHITECTURE_CIBLE.md) distinguishes completed PostgreSQL storage work from proposed executor separation, service lifecycle and package distribution. Planned architecture does not become delivered functionality through documentation.
 
-### Repères et sources
+### Terms and references
 
-API signifie interface de programmation ; MCP est le protocole d’accès des agents. FinOps désigne la gestion économique des ressources informatiques. Les rôles historiques conservent AI, GitOPS, Lint et Full Stack : intelligence artificielle, gestion des changements par Git, contrôles statiques et développement de l’interface comme du serveur. Rollback signifie retour à l’état précédent.
+API is the programming interface; MCP is the external-agent protocol. FinOps covers economic resource management. AI, GitOPS, lint and Full Stack retain their technical meanings; rollback means a service-appropriate return to earlier state, not guaranteed universal undo.
 
-Sources : besoin et vision d’origine, README, COMPLETION_STATUS.md, EXECUTION.md et EXTENSIONS.md. Le compte rendu du 6 novembre 2026 fait référence pour les essais récents. Les détails techniques restent dans ces documents, pas dans ce cahier des charges. Ancienne version : archives/CAHIER_DES_CHARGES_KUBERWEAVER_v1.3.md. Rédaction assistée par IA, validation humaine attendue.
+Sources: original need/vision and the repository README, `COMPLETION_STATUS.md`, `EXECUTION.md`, `EXTENSIONS.md`. The 6 November 2026 report is historical, not fresh verification. Detailed contracts remain in those guides. Earlier specification: `archives/CAHIER_DES_CHARGES_KUBERWEAVER_v1.3.md`. Proposed decisions require human approval.

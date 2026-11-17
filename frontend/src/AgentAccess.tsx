@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, Empty, ErrorNotice, LoadingState, PageTitle, errorMessage, useResource } from "./ui";
+import { pageHeading } from "./navigation";
 
 type Metadata = { id: string; label: string; role: string; scopes: string[]; expires_at: string | number; revoked_at: string | number | null };
 type Registry = { tokens: Metadata[]; available_scopes: string[]; role_scopes: Record<string, string[]> };
@@ -17,7 +18,7 @@ function isRegistry(value: unknown): value is Registry {
     && !!r.role_scopes && ["viewer", "operator", "admin"].every((role) => Array.isArray(r.role_scopes[role]) && r.role_scopes[role].every((s) => typeof s === "string"));
 }
 export function AgentAccess({ user }: { user: User }) {
-  return user.role === "admin" ? <Administration /> : <section className="panel"><h1>Accès des agents</h1><p>Réservé aux administrateurs : création et révocation des accès API et MCP.</p></section>;
+  return user.role === "admin" ? <Administration /> : <section className="panel"><h1>Agent access</h1><p>Administrators only: create and revoke API and MCP access.</p></section>;
 }
 function Administration() {
   const resource = useResource<unknown>("/agent-tokens");
@@ -32,7 +33,7 @@ function Administration() {
   const [notice, setNotice] = useState("");
   async function refreshed() {
     const exact = await api<unknown>("/agent-tokens");
-    if (!isRegistry(exact)) throw new Error("Lecture de contrôle des accès indisponible.");
+    if (!isRegistry(exact)) throw new Error("Access registry readback unavailable.");
     resource.setData(exact); return exact;
   }
   async function create() {
@@ -40,13 +41,13 @@ function Administration() {
     setBusy(true); setError(""); setToken(""); setNotice("");
     try {
       const created = await api<{ token: string; metadata: Metadata }>("/agent-tokens", { method: "POST", body: JSON.stringify({ label: label.trim(), role, scopes, expires_in_seconds: Number(hours) * 3600 }) });
-      if (typeof created.token !== "string" || !created.token || !created.metadata?.id) throw new Error("Réponse de création non prise en charge. Vérifiez les accès avant de réessayer.");
+      if (typeof created.token !== "string" || !created.token || !created.metadata?.id) throw new Error("Unsupported creation response. Check existing access before trying again.");
       // Keep the one-time value in component memory only, even if the following
       // readback fails: losing it would leave an inaccessible active credential.
       setToken(created.token);
       const exact = await refreshed();
-      if (!exact.tokens.some((t) => t.id === created.metadata.id && !t.revoked_at)) throw new Error("Accès créé mais non confirmé par la relecture du registre.");
-      setLabel(""); setScopes([]); setNotice("Accès créé et confirmé. Le jeton ne sera plus affiché après fermeture de cette vue.");
+      if (!exact.tokens.some((t) => t.id === created.metadata.id && !t.revoked_at)) throw new Error("Access created but not confirmed by registry readback.");
+      setLabel(""); setScopes([]); setNotice("Access created and confirmed. The token will not be shown again after closing this view.");
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -57,30 +58,30 @@ function Administration() {
       await api(`/agent-tokens/${encodeURIComponent(id)}`, { method: "DELETE" });
       const exact = await refreshed();
       const target = exact.tokens.find((t) => t.id === id);
-      if (target && !target.revoked_at) throw new Error("Révocation non confirmée par le serveur.");
-      setNotice("Révocation confirmée. Les prochaines requêtes de cet accès seront refusées.");
+      if (target && !target.revoked_at) throw new Error("Revocation was not confirmed by the server.");
+      setNotice("Revocation confirmed. Future requests using this credential will be denied.");
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <>
-    <div className="page-heading"><div><h1>Accès des agents</h1><p className="muted">Piloter KuberWeaver depuis Hermes ou tout agent compatible API/MCP, sans partager un compte humain.</p></div></div>
+    <PageTitle {...pageHeading("agents")} />
     {error && <ErrorNotice message={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}
-    {token && <section className="panel" aria-label="Jeton affiché une seule fois"><h2>À conserver dans un fichier privé</h2><p>Ce secret donne accès aux opérations autorisées. Ne le collez pas dans une conversation, un blueprint ou Git.</p><code style={{ overflowWrap: "anywhere" }}>{token}</code><div><button onClick={() => setToken("")}>Masquer le jeton</button></div></section>}
-    {resource.loading ? <Spinner /> : !registry || resource.error ? <ErrorNotice message={resource.error || "Registre des agents indisponible."} /> : <>
-      <section className="panel settings-panel"><h2>Créer un accès limité</h2>
-        <div className="setting-row"><label htmlFor="agent-label">Nom de l’agent</label><input id="agent-label" value={label} maxLength={80} disabled={busy} onChange={(e) => setLabel(e.target.value)} /></div>
-        <div className="setting-row"><label htmlFor="agent-role">Rôle maximal</label><select id="agent-role" value={role} disabled={busy} onChange={(e) => { setRole(e.target.value); setScopes([]); }}><option value="viewer">Lecteur</option><option value="operator">Opérateur</option><option value="admin">Administrateur, délégation explicite</option></select></div>
-        <div className="setting-row"><label htmlFor="agent-hours">Expiration, en heures</label><input id="agent-hours" type="number" min={1} max={720} value={hours} disabled={busy} onChange={(e) => setHours(e.target.value)} /></div>
-        <fieldset disabled={busy}><legend>Actions autorisées, aucune sélection par défaut</legend>{registry.role_scopes[role].map((scope) => <label className="setting-row" key={scope}><span>{scope}</span><input type="checkbox" checked={scopes.includes(scope)} onChange={(e) => setScopes(e.target.checked ? [...scopes, scope] : scopes.filter((s) => s !== scope))} /></label>)}</fieldset>
-        {role === "admin" && <p className="notice">Un agent administrateur auquel vous accordez l’approbation peut approuver un déploiement. Ne déléguez ce droit que volontairement ; le rôle opérateur permet de soumettre sans approuver.</p>}
-        <button className="primary" disabled={busy || !label.trim() || !scopes.length || !Number.isFinite(Number(hours)) || Number(hours) < 1 || Number(hours) > 720} onClick={create}>Créer un accès agent</button>
+    {token && <section className="panel" aria-label="One-time token display"><h2>Save in a private file</h2><p>This secret grants access to authorized operations. Never paste it into a conversation, blueprint or Git.</p><code style={{ overflowWrap: "anywhere" }}>{token}</code><div><button onClick={() => setToken("")}>Hide token</button></div></section>}
+    {resource.loading ? <LoadingState label="Loading agent access" /> : !registry || resource.error ? <ErrorNotice message={resource.error || "Agent registry unavailable."} /> : <>
+      <section className="panel settings-panel"><h2>Create limited access</h2>
+        <div className="setting-row"><label htmlFor="agent-label">Agent name</label><input id="agent-label" value={label} maxLength={80} disabled={busy} onChange={(e) => setLabel(e.target.value)} /></div>
+        <div className="setting-row"><label htmlFor="agent-role">Maximum role</label><select id="agent-role" value={role} disabled={busy} onChange={(e) => { setRole(e.target.value); setScopes([]); }}><option value="viewer">Viewer</option><option value="operator">Operator</option><option value="admin">Administrator, explicit delegation</option></select></div>
+        <div className="setting-row"><label htmlFor="agent-hours">Expiration in hours</label><input id="agent-hours" type="number" min={1} max={720} value={hours} disabled={busy} onChange={(e) => setHours(e.target.value)} /></div>
+        <fieldset disabled={busy}><legend>Allowed actions, none selected by default</legend>{registry.role_scopes[role].map((scope) => <label className="setting-row" key={scope}><span>{scope}</span><input type="checkbox" checked={scopes.includes(scope)} onChange={(e) => setScopes(e.target.checked ? [...scopes, scope] : scopes.filter((s) => s !== scope))} /></label>)}</fieldset>
+        {role === "admin" && <p className="notice">An administrator agent granted approval permission can approve deployments. Delegate this permission deliberately; operators can submit without approving.</p>}
+        <button className="primary" disabled={busy || !label.trim() || !scopes.length || !Number.isFinite(Number(hours)) || Number(hours) < 1 || Number(hours) > 720} onClick={create}>Create agent access</button>
       </section>
-      <section className="panel"><div className="panel-title"><h2>Accès existants</h2><button disabled={busy} onClick={() => resource.refresh()}>Actualiser</button></div>
-        {!registry.tokens.length && <p className="muted">Aucun accès agent émis.</p>}
-        {registry.tokens.map((item) => <div className="setting-row" key={item.id}><div><strong>{item.label}</strong><small>{item.role} · {item.scopes.join(", ")}</small><small>Expire : {formatExpiry(item.expires_at)}</small></div><div><Badge tone={item.revoked_at ? "warning" : "info"}>{item.revoked_at ? "Révoqué" : "Non révoqué"}</Badge><button disabled={busy || !!item.revoked_at} onClick={() => revoke(item.id)}>Révoquer {item.label}</button></div></div>)}
+      <section className="panel"><div className="panel-title"><h2>Existing access</h2><button disabled={busy} onClick={() => resource.refresh()}>Refresh</button></div>
+        {!registry.tokens.length && <Empty title="No agent access issued">Tokens you create appear here. The secret is shown once at creation.</Empty>}
+        {registry.tokens.map((item) => <div className="setting-row" key={item.id}><div><strong>{item.label}</strong><small>{item.role} · {item.scopes.join(", ")}</small><small>Expires: {formatExpiry(item.expires_at)}</small></div><div><Badge tone={item.revoked_at ? "warning" : "info"}>{item.revoked_at ? "Revoked" : "Not revoked"}</Badge><button disabled={busy || !!item.revoked_at} onClick={() => revoke(item.id)}>Revoke {item.label}</button></div></div>)}
       </section>
     </>}
-    <section className="panel"><h2>L’agent respecte les mêmes règles que le portail</h2><p>Les scopes limitent les actions ; le rôle limite les pouvoirs. Les demandes, approbations, quotas, secrets et traces restent gérés par KuberWeaver. Le MCP n’offre ni commande système libre ni accès direct aux secrets.</p></section>
+    <section className="panel"><h2>Agents follow the same rules as the portal</h2><p>Scopes limit actions; roles limit authority. Requests, approvals, quotas, secrets and audit records remain managed by KuberWeaver. MCP provides neither unrestricted system commands nor direct secret access.</p></section>
   </>;
 }

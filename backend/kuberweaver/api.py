@@ -27,8 +27,12 @@ def install_api(app, plugins_dir, executor=None):
     app.state.worker = Worker(app)
     from .runtime import configure
     configure(app)
+    from .ssh_keys import install_ssh_keys_api
+    install_ssh_keys_api(app)
     from .connections import install_connections_api
     install_connections_api(app)
+    from .dashboards import install_dashboards_api
+    install_dashboards_api(app)
     if hasattr(app.state.executor, 'secret_resolver'):
         app.state.executor.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
     from .notification_dispatcher import NotificationDispatcher
@@ -239,7 +243,7 @@ def install_api(app, plugins_dir, executor=None):
                     refreshed = app.state.agent_tokens.authenticate(bearer)
                     if not refreshed or not ({'read', 'read:jobs'} & set(refreshed['scopes'])):
                         return
-                elif not store.session(request.cookies.get('kw_session')):
+                elif not app.state.sessions.resolve(request.cookies.get('kw_session')):
                     return
                 job = jobs.get(identity)
                 for event in job['events']:

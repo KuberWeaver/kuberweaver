@@ -22,6 +22,14 @@ ROLE_SCOPES = {
     'operator': (*READ_SCOPES, 'plan', 'submit', 'diagnose'),
     'admin': SCOPES,
 }
+TOKEN_PREFIX = 'kw_agent_'
+TOKEN_PATTERN = re.compile(r'kw_agent_[A-Za-z0-9_-]{43}')
+# One audit row per machine request is the operational record of what a token
+# did. At a steady poll rate those rows can outgrow the decision trail, so the
+# per-use rows alone are capped; issue, rotation, revocation and denials are
+# never pruned.
+USE_AUDIT_RETENTION = 50_000
+USE_AUDIT_PRUNE_INTERVAL = 3600
 
 
 def permits(scopes, required):
@@ -38,8 +46,13 @@ class TokenIssue(BaseModel):
 
 
 class AgentTokens:
-    def __init__(self, store):
+    def __init__(self, store, *, clock=time.time, use_audit_retention=USE_AUDIT_RETENTION,
+                 use_audit_prune_interval=USE_AUDIT_PRUNE_INTERVAL):
         self.store = store
+        self.clock = clock
+        self.use_audit_retention = use_audit_retention
+        self.use_audit_prune_interval = use_audit_prune_interval
+        self._next_prune = 0.0
         # Store opens WAL before restricting the main file on first bootstrap.
         # The private directory protects this startup interval; restrict sidecars
         # before any machine credential is persisted. Recreated WAL inherits 0600.
@@ -58,15 +71,28 @@ class AgentTokens:
                 for key in ('id', 'label', 'role', 'scopes', 'expires_at', 'revoked_at')}
 
     def authenticate(self, token):
-        if not re.fullmatch(r'kw_agent_[A-Za-z0-9_-]{43}', token):
+        if not isinstance(token, str) or not TOKEN_PATTERN.fullmatch(token):
             return None
         row = self.store.one('SELECT * FROM agent_tokens WHERE token_hash=? AND revoked_at IS NULL AND expires_at>?',
-                             (hashlib.sha256(token.encode()).hexdigest(), time.time()))
+                             (hashlib.sha256(token.encode()).hexdigest(), self.clock()))
         if not row:
             return None
         return {'id': 'agent:' + row['id'], 'username': 'agent:' + row['id'],
                 'role': row['role'], 'label': row['label'], 'principal_type': 'agent',
                 'token_id': row['id'], 'scopes': json.loads(row['scopes'])}
+
+    def record_use(self, principal, method, path, status, scope):
+        """Append the per-request audit row, then bound the high-volume tail."""
+        self.store.audit(principal['username'], 'agent.request', principal['token_id'],
+                         {'method': method, 'path': path, 'status': status, 'scope': scope})
+        current = self.clock()
+        if current < self._next_prune:
+            return
+        self._next_prune = current + self.use_audit_prune_interval
+        self.store.execute(
+            'DELETE FROM audit WHERE action=? AND id NOT IN '
+            '(SELECT id FROM audit WHERE action=? ORDER BY id DESC LIMIT ?)',
+            ('agent.request', 'agent.request', self.use_audit_retention))
 
 
 def install_agent_tokens(app):
@@ -87,7 +113,7 @@ def install_agent_tokens(app):
     def issue(data: TokenIssue, current=Depends(human_admin)):
         if not set(data.scopes).issubset(ROLE_SCOPES[data.role]) or len(set(data.scopes)) != len(data.scopes):
             raise HTTPException(422, 'Scopes are not permitted for this role or are duplicated')
-        token = 'kw_agent_' + secrets.token_urlsafe(32)
+        token = TOKEN_PREFIX + secrets.token_urlsafe(32)
         identity = secrets.token_hex(16)
         stamp = time.time()
         row = {'id': identity, 'token_hash': hashlib.sha256(token.encode()).hexdigest(),
@@ -98,6 +124,27 @@ def install_agent_tokens(app):
         store.audit(current['username'], 'agent_token.issued', identity,
                     {'label': data.label, 'role': data.role, 'scopes': data.scopes, 'expires_at': row['expires_at']})
         return {'token': token, 'metadata': tokens.metadata(row)}
+
+    @app.post('/api/agent-tokens/{identity}/rotate')
+    def rotate(identity: str, current=Depends(human_admin)):
+        # Rotation replaces the secret only. Identity, role, scopes and the
+        # original expiry are kept, so a rotation schedule cannot renew a token
+        # indefinitely and monitoring keeps one identity per client.
+        with store.lock:
+            row = store.one('SELECT * FROM agent_tokens WHERE id=?', (identity,))
+            if not row:
+                raise HTTPException(404, 'Unknown agent token')
+            if row['revoked_at'] is not None:
+                raise HTTPException(409, 'Revoked tokens cannot be rotated; issue a new token')
+            if row['expires_at'] <= tokens.clock():
+                raise HTTPException(409, 'Expired tokens cannot be rotated; issue a new token')
+            token = TOKEN_PREFIX + secrets.token_urlsafe(32)
+            store.execute('UPDATE agent_tokens SET token_hash=? WHERE id=?',
+                          (hashlib.sha256(token.encode()).hexdigest(), identity))
+            store.audit(current['username'], 'agent_token.rotated', identity,
+                        {'label': row['label'], 'role': row['role'], 'scopes': json.loads(row['scopes']),
+                         'expires_at': row['expires_at']})
+            return {'token': token, 'metadata': tokens.metadata(store.one('SELECT * FROM agent_tokens WHERE id=?', (identity,)))}
 
     @app.delete('/api/agent-tokens/{identity}')
     def revoke(identity: str, current=Depends(human_admin)):
@@ -114,6 +161,9 @@ def install_agent_tokens(app):
 def required_scope(method, path):
     if method == 'GET' and path == '/api/auth/me':
         return ''
+    if method == 'GET' and (path == '/api/ssh-keys' or re.fullmatch(r'/api/ssh-keys/[0-9a-f]{32}', path)):
+        return 'read:infrastructure'
+    # SSH key writes and private export deliberately have no agent scope mapping.
     # Connection configuration never grants secret ingestion to machine clients.
     connection = r'/api/connections/[0-9a-f]{32}'
     if method == 'GET' and (path in {'/api/connections', '/api/connection-drivers'}
@@ -124,6 +174,16 @@ def required_scope(method, path):
         return 'configure'
     if method == 'POST' and re.fullmatch(connection + r'/(test|discover)', path):
         return 'read:infrastructure'
+    # A dashboard record is a link and a probe path, never a credential store.
+    dashboard = r'/api/dashboards/[0-9a-f]{32}'
+    if method == 'GET' and (path == '/api/dashboards'
+                            or re.fullmatch(dashboard + r'(?:/embed)?', path)):
+        return 'read:integrations'
+    if ((method == 'POST' and path == '/api/dashboards')
+            or (method in ('PATCH', 'DELETE') and re.fullmatch(dashboard, path))):
+        return 'configure'
+    if method == 'POST' and re.fullmatch(dashboard + r'/probe', path):
+        return 'configure'
     if method == 'GET':
         reads = {
             '/api/jobs': 'read:jobs', '/api/plugins': 'read:catalog', '/openapi.json': 'read:catalog',
@@ -133,6 +193,7 @@ def required_scope(method, path):
             '/api/blueprints': 'read:blueprints', '/api/audit': 'read:audit', '/api/finops': 'read:finops',
             '/api/overview': 'read:overview', '/api/operations': 'read:operations',
             '/api/operations/notifications': 'read:operations', '/metrics': 'read:operations', '/healthz': '',
+            '/readyz': '',
         }
         if path in reads:
             return reads[path]

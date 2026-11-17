@@ -4,7 +4,7 @@ name: CI
   pull_request:
     branches: [develop, main]
   push:
-    branches: [develop, main]
+    branches: [develop, main, 'feat/**']
 
 permissions:
   contents: read
@@ -14,6 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan tracked files and history
+        run: python3 ops/ci/secret_scan.py --history
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refuse conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>) ' -- . ; then
+            echo "conflict markers found"; exit 1
+          fi
+      - name: Refuse private notes and runtime state
+        run: |
+          if git ls-files | grep -E '^(data/|docs/prompt/)' ; then
+            echo "runtime state or private notes are tracked"; exit 1
+          fi
+
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -52,6 +83,20 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Install pinned OpenTofu
+        # Offline saved-plan tests hash this exact distribution; the archive and
+        # binary digests below are pinned to the same release as TOFU_SHA256.
+        shell: bash
+        run: |
+          set -eu
+          umask 077
+          curl -fsSL -o "$RUNNER_TEMP/tofu.tar.gz" \
+            https://github.com/opentofu/opentofu/releases/download/v1.13.9/tofu_1.13.9_linux_amd64.tar.gz
+          echo "b34b327cc1ef07178207b6f2cd1f5276537d3e5b7be316500f6dac50d4c0a857  $RUNNER_TEMP/tofu.tar.gz" | sha256sum -c -
+          mkdir -p tools
+          tar -xzf "$RUNNER_TEMP/tofu.tar.gz" -C tools tofu
+          chmod 700 tools/tofu
+          echo "9ce9173bf161f6466ef57dab7edebe8f55089fdf81caa967415323c25d004990  tools/tofu" | sha256sum -c -
       - name: Install backend and integration dependencies
         run: >-
           python -m pip install

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Jobs } from "./pages";
 import { emptyGraph, money } from "./model";
 
@@ -25,14 +25,14 @@ function loadJob(overrides = {}) {
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 it("shows server-priced internal monthly estimate and per-resource costs before approval", async () => {
   loadJob();
-  const estimate = await screen.findByRole("region", { name: "Estimation interne du déploiement" });
-  expect(estimate.textContent).toContain(`${money(42.75)} / mois`);
-  expect(estimate.textContent).toContain("EUR / mois");
-  expect(estimate.textContent).toContain("pas une facturation mesurée");
+  const estimate = await screen.findByRole("region", { name: "Internal deployment estimate" });
+  expect(estimate.textContent).toContain(`${money(42.75)} / month`);
+  expect(estimate.textContent).toContain("EUR / month");
+  expect(estimate.textContent).toContain("not metered billing");
   expect(estimate.textContent).toContain("web-1");
   expect(estimate.textContent).toContain("web");
-  expect(within(estimate).getByRole("columnheader", { name: "Cibles" })).toBeTruthy();
-  expect(estimate.compareDocumentPosition(screen.getByRole("button", { name: "Approuver" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(estimate).getByRole("columnheader", { name: "Targets" })).toBeTruthy();
+  expect(estimate.compareDocumentPosition(screen.getByRole("button", { name: "Approve" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 it.each([
@@ -41,6 +41,15 @@ it.each([
   { status: "rollback_failed", requires_manual_review: true },
 ])("hides rollback for an ineligible job: %j", async (overrides) => {
   loadJob(overrides);
-  await screen.findByRole("region", { name: "Estimation interne du déploiement" });
-  expect(screen.queryByRole("button", { name: "Rollback manuel" })).toBeNull();
+  await screen.findByRole("region", { name: "Internal deployment estimate" });
+  expect(screen.queryByRole("button", { name: "Manual rollback" })).toBeNull();
+});
+
+it("offers a way back to the canvas from an empty deployment list", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })));
+  let opened = 0;
+  render(<Jobs user={admin} onCreate={() => { opened += 1; }} />);
+  expect(await screen.findByText("No deployments yet")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Open canvas" }));
+  expect(opened).toBe(1);
 });

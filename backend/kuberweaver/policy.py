@@ -105,7 +105,14 @@ class Admission:
             try:
                 for error in validator.iter_errors(config):
                     # Do not echo values: jsonschema messages may contain inline secrets.
-                    deny('config_schema', f'Config violates {error.validator} at ' + '.'.join(str(p) for p in error.absolute_path), identity)
+                    path = '.'.join(str(p) for p in error.absolute_path)
+                    if error.validator == 'additionalProperties':
+                        # Field names are schema-level metadata, never values.
+                        extra = sorted(set(error.instance) - set(error.schema.get('properties', {})))
+                        deny('config_schema', 'Config violates additionalProperties at '
+                             + (path or '<root>') + ': ' + ', '.join(extra), identity)
+                        continue
+                    deny('config_schema', f'Config violates {error.validator} at ' + path, identity)
             except Exception:
                 deny('config_schema', 'Plugin schema could not validate this configuration', identity)
             targets = [] if virtual_machine else config.get('targets', [])
@@ -132,8 +139,13 @@ class Admission:
             node_resources = {}
             for resource, default in [('cpu', 1), ('memory_mb', 256), ('disk_gb', 2)]:
                 value = config.get(resource, plugin.get('resources', {}).get(resource, default))
+                if resource == 'cpu' and resource not in config:
+                    # Topology manifests declare sockets and cores instead of a total.
+                    sockets, cores = config.get('cpu_sockets'), config.get('cores_per_socket')
+                    if type(sockets) is int and type(cores) is int:
+                        value = sockets * cores
                 if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
-                    deny('invalid_resources', 'Resource values must be finite and nonnegative', identity)
+                    deny('invalid_resources', f'Resource value must be a finite nonnegative number: {resource}', identity)
                     value = 0
                 node_resources[resource] = value
                 # Charge each target, not merely each graph node.

@@ -1,0 +1,257 @@
+{
+  "iteration": 13,
+  "started_at": "2026-11-17T00:00:00",
+  "updated_at": "2026-11-17T09:55:38+01:00",
+  "branch_policy": {
+    "prod": "main",
+    "integration": "develop",
+    "track": "feat/production-track",
+    "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
+  },
+  "known_failures": [
+    {
+      "sha": "c609b5d",
+      "check": "tests",
+      "status": "failing",
+      "summary": "21 OVF/VMware tests fail only in CI: tests/test_ovf_provisioning.py and tests/test_vmware_ssh_keys.py call OVFExecutor.prepare_plan, which runs tools/tofu; tools/ is gitignored so the CI checkout has no binary, and provisioning.py _errors turns the missing command into a generic ProvisioningError. The same 21 tests failed on 22d9994 (run 44042872260), so the failure predates D3. Local suite with tools/tofu present: 1530 passed, 2 skipped. Fixing it means obtaining a pinned OpenTofu in CI, which is a separate task and an unpinned install is forbidden."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "A1",
+      "title": "Repo hygiene and CI",
+      "detail": "Add docs/prompt/ and data/ to ignore rules, remove prototype leftovers listed in CLEANUP.md, add .github/workflows/ci.yml running backend tests, frontend typecheck/build and a secret scan.",
+      "acceptance": "CI workflow runs on push, backend suite green, no prototype TODO markers left in tracked files.",
+      "status": "done",
+      "attempts": 1,
+      "note": "CI extended (secret scan, hygiene, feat branches), ignore rules, CLEANUP.md inventory"
+    },
+    {
+      "id": "A2",
+      "title": "Branch and release policy",
+      "detail": "Document main/develop/feat flow in CONTRIBUTING.md, add CHANGELOG.md with an Unreleased section, add a release script that tags from develop.",
+      "acceptance": "CONTRIBUTING.md describes the flow, CHANGELOG exists, release script tested in dry-run.",
+      "status": "done",
+      "attempts": 1,
+      "note": "CONTRIBUTING.md, CHANGELOG.md with Unreleased, scripts/release.py (dry-run, refusals) covered by 17 tests in tests/test_release_script.py"
+    },
+    {
+      "id": "A3",
+      "title": "Configuration from environment",
+      "detail": "Remove remaining hardcoded absolute paths from backend modules, read them from environment with documented defaults, fail fast with a clear message when required values are missing.",
+      "acceptance": "Tests cover missing and invalid configuration, no absolute developer path remains in backend/.",
+      "status": "done",
+      "attempts": 1,
+      "note": "configuration.py reads state/plugins/frontend/SSH paths from the environment with checkout defaults; explicit values must be absolute; require_ssh_config refuses a missing file before any remote command in the container, Redis and OpenTofu executors; docs/CONFIGURATION.md; 18 tests cover defaults, overrides, blank, relative refusal, missing file and the backend tree carrying no developer path, plus a runner-untouched refusal in the container executor"
+    },
+    {
+      "id": "A4",
+      "title": "Health and readiness split",
+      "detail": "/healthz stays liveness, add /readyz that checks PostgreSQL, vault and plugin directory, with a structured body.",
+      "acceptance": "Tests cover each dependency failing and the aggregate result.",
+      "status": "done",
+      "attempts": 1,
+      "note": "health.py adds GET /readyz (200 ready / 503 not_ready) with fixed database, vault and plugins keys; database runs SELECT 1 on the active backend, vault resolves the selected secrets provider and verifies local-vault key+marker through a read-only verify() hook, plugins requires a real directory with at least one manifest; unconfigured vault is reported without blocking, unavailable blocks; response is no-store and omits paths, driver text and secrets; agent scope mapping keeps /readyz scope-free; docs/HEALTH.md; 16 tests cover each failing dependency, aggregate, corrupt/missing vault material, provider False and exceptions, empty and file plugin paths, no-session access, no state writes and the PostgreSQL backend"
+    },
+    {
+      "id": "B1",
+      "title": "User store and password policy",
+      "detail": "Add users table with argon2 hashes, roles admin/operator/viewer, creation and rotation of the bootstrap admin, password strength validation.",
+      "acceptance": "Tests cover hashing, role checks, weak password refusal, duplicate user refusal.",
+      "status": "done",
+      "attempts": 1,
+      "note": "passwords.py stores Argon2id (m=19456,t=2,p=1) and still verifies legacy pbkdf2 with an in-place upgrade on login; users.py owns roles admin/operator/viewer, case-insensitive unique lowercase usernames, the 12-512 character policy (blocklist, username containment, 4 distinct characters, no composition rule), last-administrator protection, and rotation that revokes sessions and retires the matching plaintext line from bootstrap-credentials.txt (file deleted when empty). Human-only endpoints GET/POST /api/users, PATCH /api/users/{id}, POST /api/users/{id}/password, never exposed to agent scopes; docs/USERS.md plus README, AGENT_ACCESS, IMPLEMENTATION and CHANGELOG updates; 24 tests cover hashing, legacy upgrade, every refusal reason, duplicate and invalid accounts, role checks, last-admin, self/admin rotation, bootstrap retirement and agent denial"
+    },
+    {
+      "id": "B2",
+      "title": "Session security",
+      "detail": "Replace the ad-hoc session with httpOnly SameSite=Strict cookies, absolute and idle timeouts, CSRF token bound to the session, logout invalidation, rate limited login.",
+      "acceptance": "Tests cover cookie flags, expiry, CSRF mismatch, brute-force throttling.",
+      "status": "done",
+      "attempts": 1,
+      "note": "sessions.py owns the kw_session cookie (HttpOnly, SameSite=Strict, Path=/, Secure over HTTPS, Max-Age 28800) and hashed tokens of the form <issued-at>.<secret>, so the 8h absolute deadline is derived from the token and survives restarts without a schema change; sessions.expires is the 30 min idle deadline, pushed forward only inside its last minute and capped at the absolute deadline, expired rows are deleted when presented and the stale cookie is cleared with Max-Age=0. login_throttle.py adds two 60s sliding windows (10 failures per client and account, 30 per client), answered with 429 and Retry-After before the password is checked, unknown accounts counted like wrong passwords, bounded to 1024 keys and cleared per pair on success. Login replaces any presented cookie (fixation), logout deletes the row and clears the cookie, rotation reuses the same service. CSRF stays bound to the session and the middleware now resolves sessions only for /api paths so /readyz still reports a dead database. docs/SESSIONS.md plus README, USERS, IMPLEMENTATION and CHANGELOG updates; 15 new tests cover cookie flags over HTTP and HTTPS, invalid credentials issuing no cookie, idle expiry with row deletion and cookie clearing, the absolute deadline on an otherwise live token, sliding refresh, activity never extending the absolute cap, CSRF absence/mismatch/cross-session reuse, logout replay, session fixation, brute-force and unknown-account throttling, bounded limiter memory, hashed storage, legacy token refusal and restart survival; suite 1422 passed, 2 skipped, with the three known queue_busy races"
+    },
+    {
+      "id": "B3",
+      "title": "API tokens for agents",
+      "detail": "Scope-limited tokens with expiry, rotation and revocation, audit entry per use, read-only scope still enforced for infrastructure reads.",
+      "acceptance": "Tests cover expiry, revocation, scope denial and audit records.",
+      "status": "done",
+      "attempts": 1,
+      "note": "The prototype already stored tokens as SHA-256 digests with role-capped scopes, an absolute expiry, idempotent revocation, a closed required_scope map and human-admin-only management; this iteration added the two missing pieces. POST /api/agent-tokens/{id}/rotate replaces the secret in place, keeps id/label/role/scopes/created_at and the original expires_at so rotation cannot renew, invalidates the previous secret at once, answers 409 for revoked or expired tokens and 404 for unknown ids, requires a human admin session with CSRF and records agent_token.rotated. The middleware writes one agent.request row per authenticated machine request (actor agent:<id>, resource the token id, detail method/path/status/scope, never the credential); scope denials keep writing agent.request_denied and are not counted as uses; only the agent.request tail is bounded (newest 50000, pruned at most hourly, clock injectable) so issue/rotate/revoke/denial evidence is never pruned, and the retention DELETE is covered by the PostgreSQL translation test. docs/AGENT_ACCESS.md documents rotation, the audit trail and the retention, with README, IMPLEMENTATION and CHANGELOG updates. 6 new tests cover rotation in place, refusals (revoked, expired, unknown, viewer/operator, agent token, missing CSRF), per-use audit and denial separation, retention with decisions preserved, and a read:infrastructure token reading infrastructure while every write and unrelated read stays 403; suite 1430 passed, 2 skipped, 1 known queue_busy race. Frontend AgentAccess.tsx still exposes only issue and revoke."
+    },
+    {
+      "id": "B4",
+      "title": "OIDC-ready authentication",
+      "detail": "Add a provider abstraction so an external identity provider (Authentik, Keycloak, Entra) can be configured without touching the login path; disabled by default.",
+      "acceptance": "Tests cover disabled provider, discovery failure, and successful claim mapping with a stub.",
+      "status": "done",
+      "attempts": 1,
+      "note": "oidc.py owns the optional provider: KUBERWEAVER_OIDC_ISSUER enables it, a partial or invalid configuration is reported as configuration_error without breaking password login, and discovery/JWKS are cached for 300s. GET /api/auth/oidc/start stores a single-use attempt (10 min, 1024 entries) with nonce and S256 PKCE, sets a SameSite=Lax kw_oidc state cookie and redirects; the callback requires that cookie to match state (login CSRF), exchanges the code with client_secret_post, verifies JWKS signature with an allowlisted algorithm, iss/aud/exp/iat, nonce and at_hash, then signs in only an existing local account: unknown accounts and accounts already bound to another subject are refused, first sign-in binds (issuer,sub) with a SHA-256 id, and the local role stays authoritative. New idempotent table oidc_identities registered in the PostgreSQL DDL translator; PyJWT pinned in requirements. docs/OIDC.md plus README, CONFIGURATION, IMPLEMENTATION and CHANGELOG updates. 14 tests cover the disabled default with working password login, incomplete configuration, discovery failure and issuer mismatch, full claim mapping with a stub (PKCE params, state cookie flags, binding, subject-wins over a renamed claim), unknown and already-linked accounts, state replay and cross-browser callback refusal, wrong nonce/audience/expiry/unsigned/foreign-key tokens, access-token hash, token endpoint refusal and no audit row for random states; suite 1445 passed, 2 skipped on the first full run; a second full run reproduced the recorded queue_busy race in test_provider_bindings (1444 passed, 1 known failure), unchanged from earlier iterations. Frontend login page not touched (API-only iteration)."
+    },
+    {
+      "id": "C1",
+      "title": "Black and light theme",
+      "detail": "CSS variables for both themes, persisted preference, no flash of wrong theme, no remote fonts.",
+      "acceptance": "Frontend tests cover preference persistence and default; build passes.",
+      "status": "done",
+      "attempts": 1,
+      "note": "style.css opens with one 60-token layer: black values in :root, which is the default, and light overrides under :root[data-theme=light]; every other rule reads var() and theme.test.ts refuses a colour literal outside the two blocks, a token missing from either theme, a token read but never defined, and any remote font (@import, font CDN, url(https). public/theme-boot.js applies kuberweaver.theme from <head> before the app module, as a classic script because the origin sends script-src 'self' and refuses inline code; index.html carries data-theme=dark plus the matching theme-color, and the test evaluates the boot script for unset, light, unknown and throwing storage and compares its key and both colours with theme.ts. useTheme keeps the document in step when it mounts without the boot script, follows storage events from another tab, and survives a refused write. The toggle (name 'Black theme', aria-pressed carries the state) sits in the top bar and on the login card. The light palette was consolidated into surfaces, text, borders and status scales; muted, faint, ghost and the four status texts were darkened so body text clears 4.5:1 and captions 3.5:1. Both themes were measured in headless Chromium: black shows no light surface at all, light keeps only the intended dark chrome (sidebar, primary button, console), and the faintest text is a decorative separator at 4.08 and 3.45; all body text and badges measure 4.5 or more. docs/THEMING.md, CHANGELOG and IMPLEMENTATION updated. Frontend 279 tests, tsc and build green; backend 1445 passed, 2 skipped."
+    },
+    {
+      "id": "C2",
+      "title": "Navigation and empty states",
+      "detail": "Restructure navigation, remove prototype wording from every page, add empty states and loading states.",
+      "acceptance": "Snapshot-level tests for the page registry, no French or prototype wording in tracked UI strings.",
+      "status": "done",
+      "attempts": 1,
+      "note": "frontend/src/navigation.ts is now the single page registry: 13 entries with id, label, group, adminOnly, eyebrow, title and description, four groups (Build, Operate, Govern, Administer), pageHeading() feeding every PageTitle, and navigationFor(role) hiding Operations and Agent access from operators and viewers. The sidebar renders the groups with captions, the dead workspace switcher and the nav-separator hack are gone, the breadcrumb follows the registry and an unknown hash renders a Page not found empty state. Prototype copy is removed from every page heading and from the login story, and index.html is English (title and meta description). ui.tsx adds LoadingState (role=status, aria-busy, skeleton rows, Loading\u2026 kept) used by ResourceBoundary with per-page labels, and Empty takes an optional action; Jobs links back to the canvas, Keys, Agent access and Operations gained empty states. navigation.test.ts snapshots the full registry and the per-role grouped navigation plus id uniqueness, group order and unknown page refusal; ui.test.tsx covers empty action, loading status and boundary precedence; pages.test.tsx covers the empty-deployments action; English.test.ts scans the registry copy and the document title. docs/NAVIGATION.md plus README and CHANGELOG updates. Frontend 290 tests, tsc and build green; backend 1445 passed, 2 skipped; secret scan and diff check clean."
+    },
+    {
+      "id": "D1",
+      "title": "External dashboard registry",
+      "detail": "Model external observability tools (Grafana, Uptime Kuma, Prometheus, Netdata) as integrations with URL, kind, health probe and optional embed flag; no built-in dashboard code.",
+      "acceptance": "Schema validated, CRUD tested, refusal for non-http URLs and for embed without allowlist.",
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboards.py owns the registry: a dashboard is label, kind (grafana, uptime-kuma, prometheus, netdata, custom), absolute http/https URL, optional health_path on the same origin, embed and enabled, with revision, created_at and created_by. Reads add computed origin, probe_path (kind default /api/health, /, /-/healthy, /api/v1/info, /) and embeddable; nothing derived is stored. GET/POST /api/dashboards plus GET/PATCH/DELETE /api/dashboards/{id}; PATCH needs the current revision (409 otherwise), DELETE takes ?revision= and confirms the row is gone, browser writes need CSRF, admin-only writes and any-role reads. Embedding is refused 422 unless the URL origin is on KUBERWEAVER_DASHBOARD_EMBED_ORIGINS (comma-separated origins, default empty, default ports and a trailing slash normalized, path/query/fragment/credentials/wildcard refused); a malformed allowlist is reported in embed_error without stopping the app and keeps embedding refused, and embeddable is recomputed on read so a shrunken allowlist falls back to a link. Agent scopes read:integrations for reads and configure for writes. dashboards(id, body) is registered in the PostgreSQL DDL with insertion order, and every create/update/delete writes one dashboard.* audit row. docs/DASHBOARDS.md plus README, CONFIGURATION, IMPLEMENTATION and CHANGELOG updates. 48 tests cover CRUD and restart persistence, all five default probe paths and the explicit override, 23 invalid specifications including non-http/javascript/relative URLs, credentials, fragments, bad ports, control characters and relative or traversal health paths, embed refusal without and outside an allowlist, allowlist normalization and malformed values, partial updates and revision conflicts, delete conflicts, role/CSRF refusal, agent scope separation including a configure token performing create/update/delete, the audit trail and the PostgreSQL registration; backend suite 1493 passed, 2 skipped."
+    },
+    {
+      "id": "D2",
+      "title": "Dashboard embedding policy",
+      "detail": "Serve an embed page that only frames allowlisted origins, with CSP frame-src derived from the registry, falling back to a deep link when embedding is not allowed.",
+      "acceptance": "Tests cover CSP header content and the fallback link.",
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboards.py serves GET /api/dashboards/{id}/embed as text/html with no-store. The page frames the recorded URL only when embed is true, enabled is true and the origin is on KUBERWEAVER_DASHBOARD_EMBED_ORIGINS; it then carries a per-record policy (default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src <origin>; frame-ancestors 'self') and X-Frame-Options SAMEORIGIN, so only the portal origin can frame it. Otherwise the page has no iframe, sets frame-src 'none', names one of three reasons (embedding not requested, record disabled, origin not on the allowlist) and serves the deep link with target=_blank rel=noopener noreferrer. Label and URL are HTML-escaped and the page loads no remote script, style or font. The middleware now leaves an explicit Content-Security-Policy or X-Frame-Options on a response alone; every other response keeps frame-ancestors 'none' with XFO DENY, and a test pins both defaults. Access follows the registry: any signed-in role, agents need read:integrations, unknown ids are 404. docs/DASHBOARDS.md documents the page, the policy, the three fallbacks and the fact that the allowlist cannot force a remote tool to accept a frame; CHANGELOG, README and IMPLEMENTATION updated. 8 tests cover the exact CSP of a framed page, the per-record derivation across two allowlisted origins, the three fallbacks (including an allowlist shrunk across a restart and a disabled record), HTML escaping, refusals (404, 401, viewer/operator read, agent scope separation) and the untouched default policy; tests/test_dashboards.py 56 passed, backend suite 1501 passed, 2 skipped. Local deployment not applied: systemctl --user restart is denied for unattended runs (approvals.cron_mode: deny), so the unit still serves 18a932b; the route was verified live on a throwaway uvicorn process (200 embed page with the expected headers, 401 anonymous), and the deployed 8088 answers 404 for the new path."
+    },
+    {
+      "id": "D3",
+      "title": "Integration health and drift",
+      "detail": "Periodic read-only probe of each integration, stored result, surfaced as a status column, never auto-remediated.",
+      "acceptance": "Tests cover healthy, unreachable and malformed responses.",
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboard_health.py probes each enabled dashboard with one GET on origin+probe_path: no cookie, bearer token, client certificate or redirect, TLS verified, 64 KiB body cap, 5 s default timeout, 300 s default interval. Observations live in dashboard_health(dashboard_id, body), one row per record and no history, tied to the measured probe URL: label/embed edits keep the column, URL/kind/health_path edits turn it back to unknown, deletion removes it. Reads expose health {status, observed_at, http_status, latency_ms, detail, drift}; statuses are healthy, unhealthy, unreachable, malformed, unknown and disabled, drift is true only for the three failure states, and detail is a fixed explanation rather than response content. POST /api/dashboards/{id}/probe is administrator-only (agent scope configure), refuses a disabled record with 409 and is the only probe path that audits dashboard.probed; the loop writes no audit row and never edits the registry. KUBERWEAVER_DASHBOARD_PROBE_SECONDS (0 disables, 1..86400, default 300) and KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT (0.5..30, default 5) are reported in collection.probe with a non-fatal error; a testing app starts the loop only when the interval is named explicitly. PostgreSQL registers dashboard_health. docs/DASHBOARDS.md has the health section; 30 tests cover healthy, unhealthy, unreachable, timeout, malformed per kind, redirect, disabled, stale probe URL, restart persistence, deletion, audit split, roles and agent scope, settings, loop repetition and failure isolation, and the transport request shape."
+    },
+    {
+      "id": "E1",
+      "title": "Durable environment state",
+      "detail": "Add state per environment and stack, encrypted at rest, with generation and resource list, replacing per-job state as the source of truth.",
+      "acceptance": "Tests cover concurrent apply refusal, generation increment, and state surviving restart.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E2",
+      "title": "Import existing resources",
+      "detail": "Adopt an existing VM into state by UUID and ownership marker without recreating it.",
+      "acceptance": "Tests cover adoption, refusal when the marker mismatches, and idempotent re-import.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E3",
+      "title": "Destroy with ownership proof",
+      "detail": "Destroy action with annotation and UUID proof, quarantine window, cancellation, and rollback_failed semantics.",
+      "acceptance": "Tests cover refusal on foreign VM, quarantine cancel, and failed destroy state.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E4",
+      "title": "Drift report",
+      "detail": "Nightly read-only comparison of declared versus live resources, producing a diff report with no remediation.",
+      "acceptance": "Tests cover drift detection per field and the absence of any write call.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "E5",
+      "title": "Git-backed declarations",
+      "detail": "Load a stack declaration from a repository path with revision pinning, and execute the CI-produced plan artifact as-is.",
+      "acceptance": "Tests cover digest mismatch refusal and pinned-revision execution.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F1",
+      "title": "Workload bricks in the portal",
+      "detail": "Wire the workload executor into job preparation so a workload node can be planned, approved and executed from the UI, with evidence visible.",
+      "acceptance": "Tests cover the full path with a stub playbook and refusal for unpinned roles.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F2",
+      "title": "Zabbix preset",
+      "detail": "Compose the PostgreSQL, Zabbix server, web and agent bricks as a preset graph on one VM.",
+      "acceptance": "Preset validates, plan ordering respects dependencies, no new code path.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F3",
+      "title": "Backup and restore",
+      "detail": "Nightly PostgreSQL dump plus vault copy, restore procedure documented and exercised against a scratch database.",
+      "acceptance": "Restore test proves data equality on a scratch instance.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    },
+    {
+      "id": "F4",
+      "title": "Observability",
+      "detail": "Structured logs, request ids, basic metrics endpoint, and error budget documentation.",
+      "acceptance": "Tests cover log shape and metrics exposure.",
+      "status": "pending",
+      "attempts": 0,
+      "note": ""
+    }
+  ],
+  "constraints": [
+    "no GitHub API token is available on the host: no pull request creation, no branch protection change",
+    "data/ and docs/prompt/ stay untracked",
+    "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol"
+  ],
+  "deployment": {
+    "unit": "kuberweaver.service",
+    "url": "http://127.0.0.1:8088",
+    "deployed_sha": "18a932b",
+    "pending": {
+      "since": "2026-11-17T08:44:16+01:00",
+      "reason": "systemd restart is blocked for unattended runs by approvals.cron_mode=deny, so the unit keeps serving the previous commit; the changed backend was exercised on a throwaway uvicorn process instead (readyz 200, /api/dashboards 401, embed page 200 with the derived CSP, anonymous embed 401). A human restart of kuberweaver.service loads the track branch."
+    },
+    "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
+  },
+  "resolved_failures": [
+    {
+      "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
+      "detail": "PATCH /api/providers returns 409 instead of 200 when it follows a job that just reported a terminal status: Worker clears active_identity in its finally block after publishing the status, so queue_busy() still sees a busy worker. Same race as the two entries below. Reproduced on fa7a46d without the B2 changes (2 failures in 3 runs), so it predates them.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
+    },
+    {
+      "test": "tests/test_provider_bindings.py::test_disabled_selected_execution_blocks_approval_and_rollback_but_not_job_views",
+      "detail": "POST /api/extensions/{id}/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
+    },
+    {
+      "test": "tests/test_redis_execution.py::test_trusted_extension_through_authenticated_approved_worker",
+      "detail": "POST /api/extensions/redis-runtime/disable returns 409 for the same worker race: the job reports succeeded before active_identity is cleared.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "tests wait for queue_busy() to clear before changing a provider or an extension (wait_idle helper)"
+    }
+  ]
+}

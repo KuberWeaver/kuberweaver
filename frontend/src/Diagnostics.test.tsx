@@ -8,16 +8,16 @@ it("describes selected LLM without triggering paid inference on mount", async ()
   const fetcher = vi.fn(async () => new Response(JSON.stringify(state)));
   vi.stubGlobal("fetch", fetcher);
   render(<Diagnostics />);
-  expect(await screen.findByText("Diagnostic IA")).toBeTruthy();
-  expect(screen.getByText(/Aucune analyse IA exécutée/)).toBeTruthy();
+  expect(await screen.findByText("AI diagnostics")).toBeTruthy();
+  expect(screen.getByText(/No AI analysis executed/)).toBeTruthy();
   expect(fetcher.mock.calls).toHaveLength(1);
-  expect(screen.queryByText(/Aucun modèle d’IA configuré/)).toBeNull();
+  expect(screen.queryByText(/No AI model configured/)).toBeNull();
 });
 it("runs selected provider only on explicit click and displays returned provenance", async () => {
   const fetcher = vi.fn(async (_path: string, options?: RequestInit) => new Response(JSON.stringify(options?.method === "POST" ? { ...state, status: "cached", findings: [{ id: "f", severity: "warning", title: "Constat contrôlé", message: "Analyse", resource: "job-1", recommendation: "Revue humaine", citations: [{ job_id: "job-1", event_id: 2 }] }] } : state)));
   vi.stubGlobal("fetch", fetcher);
   render(<Diagnostics />);
-  fireEvent.click(await screen.findByRole("button", { name: "Lancer une analyse explicite" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Run explicit analysis" }));
   expect(await screen.findByText("Constat contrôlé")).toBeTruthy();
   expect(screen.getByText(/job-1.*2/)).toBeTruthy();
   expect(fetcher.mock.calls.some(([p,o]) => p === "/api/diagnostics/run" && o?.method === "POST")).toBe(true);

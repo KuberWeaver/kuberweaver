@@ -1,90 +1,85 @@
-# KuberWeaver, premier prototype fonctionnel
+# KuberWeaver
 
-## Documents du projet
+Self-hosted infrastructure management with a visual service catalogue, governed requests, explicit approvals and verifiable execution. KuberWeaver connects a React/TypeScript portal and an API/MCP interface to replaceable inventory, execution, secrets, notification and diagnostic providers. It does not require an embedded AI model or Kubernetes.
 
-- [Note de cadrage, deux pages avec infographie](docs/note-cadrage/KuberWeaver_note_de_cadrage.pdf), avec [version texte](docs/note-cadrage/KuberWeaver_note_de_cadrage.txt).
-- [Architecture cible et gestion des plugins](docs/ARCHITECTURE_CIBLE.md), propositions pour le cycle de vie des services et le catalogue ; le stockage PostgreSQL est désormais livré séparément.
-- [Connexions hyperviseur V2](docs/V2_HYPERVISORS.md), modules, références de secrets, confiance TLS et limites de la recette ESXi. Les correctifs Worker sont validés et le portail local a redémarré ; les limites de création ESXi restent explicites.
-- [PostgreSQL](docs/POSTGRESQL.md), stockage principal et notifications sur serveur réel, migration vérifiée et sauvegarde SQLite conservée. L’instance locale utilise PostgreSQL sans repli silencieux. Le coffre local Fernet est optionnel ; OpenBao reste interchangeable.
+## Documentation
 
-- [Cahier des charges simplifié](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md), également disponible en [PDF](docs/CAHIER_DES_CHARGES_KUBERWEAVER.pdf), avec périmètre, tests d’acceptation et répartition de l’équipe EFREI Paris.
-- [Cadrage original](docs/cadrage-original/), vision initiale et infographie, à distinguer des fonctions effectivement livrées.
-- [Recette et limites](docs/ACCEPTANCE.md) et [résultats de vérification](docs/VERIFICATION.md).
-- [Contrats des extensions](docs/EXTENSIONS.md) et [cycle d'exécution](docs/EXECUTION.md).
-- [Accès agents et droits API](docs/AGENT_ACCESS.md), [serveur MCP](docs/MCP.md) et [recette de complétion](docs/COMPLETION_STATUS.md).
+- [Connections and hypervisors](docs/V2_HYPERVISORS.md): discovery, credentials, TLS trust and provisioning boundaries.
+- [VMware Ubuntu deployment](examples/extensions/esxi-ovf/README.md): create-only OVF import through an approved OpenTofu plan.
+- [SSH keys](docs/SSH_KEYS.md): create, select, disable and explicitly export managed keys.
+- [PostgreSQL](docs/POSTGRESQL.md) and [local encrypted vault](examples/extensions/local-vault/README.md): durable state, backup requirements and threat model.
+- [Execution](docs/EXECUTION.md), [configuration](docs/CONFIGURATION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts, environment settings and operating limits.
+- [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
+- [Navigation and page states](docs/NAVIGATION.md): the page registry, grouped sidebar, role gating, loading and empty states.
+- [External dashboards](docs/DASHBOARDS.md): the registry for Grafana, Uptime Kuma, Prometheus and Netdata links, probe paths, the periodic read-only health and drift column, the embed allowlist and the embed page.
+- [Users and roles](docs/USERS.md): Argon2id password storage, the password policy and account rotation. [Sessions](docs/SESSIONS.md): cookie flags, absolute and idle timeouts, CSRF binding and login throttling. [Single sign-on](docs/OIDC.md): optional OpenID Connect provider, claim mapping and account linking.
+- [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
+- [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.
+- [Architecture direction](docs/ARCHITECTURE_CIBLE.md) and [requirements](docs/CAHIER_DES_CHARGES_KUBERWEAVER.md): distinguish design proposals from delivered capabilities. Historical framing documents and generated presentations are not current capability evidence.
 
-Ce dépôt contient les sources, tests, manifestes, scripts et documents du prototype. Les secrets, comptes locaux, états d'exécution, snapshots, fichiers d'état IaC et dépendances installées sont exclus. Les VM du laboratoire, images système et accès SSH existants ne sont pas embarqués : un clone ne reconstitue pas automatiquement le laboratoire. Les chemins des unités systemd et les accès de lab doivent être adaptés à l'environnement d'installation.
+The repository contains source, tests, manifests, scripts and public documentation. Credentials, local accounts, runtime state, snapshots, IaC state and installed dependencies are excluded. A clone does not recreate existing lab VMs, system images or SSH access. Adapt systemd paths and target access to your installation.
 
+## Access and roles
 
-Portail d'infrastructure auto-hébergé, construit à partir du cadrage situé dans le dossier parent `Prototype/`. Le contrôle tourne sur le poste local ; les déploiements tournent réellement dans les VMs du laboratoire GNS3 sur `192.168.10.55`. Le nom ne signifie pas que Kubernetes est installé.
+Open `http://127.0.0.1:8088` for the documented local installation. The server binds to workstation loopback; it is not a public multi-tenant SaaS deployment.
 
-## Accès
+Local `admin`, `operator` and `viewer` accounts have separate random passwords in the private `data/bootstrap-credentials.txt` file (0600). Never publish that file. No demonstration password is embedded in the frontend. Passwords are stored as Argon2id hashes; rotating an account through the users API removes its plaintext line, and the file disappears once every seeded account has been rotated. See [users, roles and password policy](docs/USERS.md).
 
-Ouvrir `http://127.0.0.1:8088`.
+- **Administrator:** policies, providers, explicit extension activation, approvals and eligible rollback operations.
+- **Operator:** compose, save and submit requests, without approval authority.
+- **Viewer:** read-only access.
 
-Les comptes locaux `admin`, `operator` et `viewer` ont des mots de passe aléatoires distincts dans :
+## External agents
 
-`/home/ubu/Desktop/infra-platform-lab/Prototype/kuberweaver/data/bootstrap-credentials.txt`
+A human administrator issues a token with a maximum role, explicit scopes and an expiry in **Agent access**. The token is displayed once; store it in a private 0600 file. Tokens are not kept in browser storage. Revocation blocks new requests immediately, rotation replaces the secret in place without changing identity, scopes or expiry, and every authenticated call leaves an audit row.
 
-Ce fichier est privé, mode 0600. Ne pas le publier. Il n'y a pas de mot de passe de démonstration codé dans le frontend.
-
-- Administrateur : politiques, fournisseurs, activation explicite d'extensions, approbation et rollback.
-- Opérateur : conception, sauvegarde et demande de déploiement, sans droit d'approbation.
-- Lecteur : consultation, sans mutation.
-
-Le serveur écoute uniquement sur le loopback du poste. Ce n'est pas un déploiement public ou un service SaaS multi-tenant.
-
-## Pilotage par un agent externe
-
-Aucun modèle IA embarqué n'est nécessaire. Un administrateur humain ouvre **Accès agents**, choisit un rôle maximal, des scopes explicites et une expiration, puis conserve le jeton affiché une seule fois dans un fichier privé 0600. La révocation est immédiate pour les nouvelles requêtes. Les tokens ne sont pas conservés dans le stockage du navigateur.
-
-Pour une lecture strictement financière, sélectionner `read:finops` sans ajouter le scope global `read`. Pour un agent proposant des déploiements, attribuer les lectures nécessaires, `plan` et `submit`, sans `approve`. Le rôle et les scopes sont deux limites cumulatives ; le MCP ne remplace pas les contrôles de l'API.
+For financial inspection alone, use `read:finops`, not broad `read` or `read:overview`. For deployment proposals, grant the required reads, `plan` and `submit`, without `approve`. Role and scopes are cumulative limits; MCP never replaces API enforcement.
 
 ```sh
-.venv/bin/python scripts/mcp_server.py --base-url http://127.0.0.1:8088 --token-file /chemin/prive/agent.token
+.venv/bin/python scripts/mcp_server.py --base-url http://127.0.0.1:8088 --token-file /path/to/private/agent.token
 ```
 
-Le serveur stdio expose 35 outils métier typés, pas de commande système libre, d'URL arbitraire ou d'accès direct aux secrets. Aucun jeton n'est émis automatiquement et aucun MCP n'est ajouté automatiquement à Hermes. Voir `docs/MCP.md` pour installer son SDK et configurer un client.
+MCP exposes typed domain tools, not arbitrary shell commands, URLs or direct secret access. No token or Hermes client configuration is created automatically. See [MCP](docs/MCP.md) for SDK installation and client setup.
 
-## Parcours de démonstration
+## Web-service workflow
 
-1. Se connecter et ouvrir Canvas, initialement vide pour un nouvel utilisateur.
-2. Ajouter NGINX ou Apache depuis le catalogue. Les formulaires viennent des schémas des plugins.
-3. Choisir les cibles `app` et `branch-client`, ainsi qu'un port libre entre 18090 et 18109. Chaque ressource possède son port sur chaque cible.
-4. Valider la gouvernance et l'estimation, enregistrer le blueprint et soumettre une demande.
-5. Un administrateur inspecte le plan, puis approuve. Le noyau versionne le plan approuvé dans Git et exécute sauvegarde, canary, vérification, rolling et vérification finale.
-6. Consulter les événements, le commit et les preuves HTTP dans Déploiements.
-7. Pour observer un retour arrière, modifier la version du même blueprint et sélectionner un échec rolling intentionnel, réservé à l'administrateur et au lab. Après l'échec, les deux cibles doivent servir la version précédente.
+1. Sign in and open Canvas, initially empty for a new user.
+2. Add NGINX or Apache from the catalogue; forms come from plugin schemas.
+3. Select `app` and `branch-client` and an unused port from 18090 through 18109. Each resource owns its port on each target.
+4. Validate governance and estimated cost, save the blueprint and submit a request.
+5. An administrator reviews the exact plan and approves. The kernel commits the approved plan locally, then runs backup, canary, verification, rolling deployment and final verification.
+6. Inspect events, commit and HTTP evidence in Deployments.
+7. In an isolated lab, an administrator may inject an intentional rolling failure into an update of the same blueprint to exercise restoration. Verify both targets serve the previous version afterward.
 
-Ne pas créer un autre blueprint sur un port déjà réservé. Le port par défaut 18090 est laissé libre après les acceptations ; 18091 reste réservé au déploiement de démonstration du portail. Les identités graph/environment/node définissent la propriété des ressources. Les liens du canvas représentent des dépendances d'ordre de déploiement, pas une création de câblage réseau ou de règles de pare-feu.
+Do not reuse a reserved port for a different blueprint. Historical acceptance left 18090 free and a portal example on 18091; inspect actual ownership before running again. Graph/environment/node identities determine resource ownership. Canvas edges order deployment; they do not create network links, firewall rules or application wiring.
 
-Les endpoints fournis par les jobs appartiennent au réseau de management `192.168.122.0/24`, inaccessible directement depuis le navigateur du poste sans tunnel. Une réponse verte du portail est appuyée par les probes dans les invités, pas par une publication automatique sur le LAN.
+Job endpoints on the management subnet `192.168.122.0/24` may require a tunnel from the workstation browser. Successful guest probes do not imply automatic LAN publication. The documented GNS3 deployment uses the lab server at `192.168.10.55`; these are installation-specific settings.
 
-## Architecture modulaire
+## Modular architecture
 
-Le noyau gère identité, admission, approbations, état durable, audit et orchestration sérialisée. Les fonctionnalités métier passent par des contrats de fournisseurs. Les manifestes et schémas des blueprints sont distincts du code du portail.
+The kernel owns identity, admission, approvals, durable state, audit and serialized orchestration. Business capabilities use provider contracts; declarative manifests and blueprint schemas are separate from portal code.
 
-```
+```text
 backend/kuberweaver/
   app.py, api.py                HTTP, sessions, RBAC, CSRF
-  agent_auth.py, mcp_server.py  jetons révocables, scopes, outils MCP
-  models.py, policy.py         enveloppes et admission
-  storage.py, jobs.py          état durable, queue, audit, GitOps
-  catalog.py                   découverte des blueprints déclaratifs
-  extensions.py, runtime.py    SDK, activation et configuration
-  providers.py                 fournisseurs intégrés
-  execution.py                 exécuteur Ansible du lab
-  secrets.py                   sources de secrets remplaçables
+  agent_auth.py, mcp_server.py  revocable tokens, scopes, MCP tools
+  models.py, policy.py         envelopes and admission
+  storage.py, jobs.py          durable state, queue, audit, GitOps
+  catalog.py                   declarative blueprint discovery
+  extensions.py, runtime.py    SDK, activation and configuration
+  providers.py                 built-in providers
+  execution.py                 lab Ansible executor
+  secrets.py                   replaceable secret sources
 frontend/                      React, TypeScript, React Flow
-plugins/                       manifestes, schémas et assets Ansible
-examples/extensions/           exemple Python installable séparément
-scripts/                       commandes de cycle de vie et acceptation
-ops/                           unités systemd utilisateur
+plugins/                       manifests, schemas and Ansible assets
+examples/extensions/           independently installable Python examples
+scripts/                       lifecycle and acceptance commands
+ops/                           user systemd units
 ```
 
-Pour ajouter un service compatible, livrer son manifeste, son JSON Schema et ses assets d'exécution, sans ajouter de `if plugin_id` au noyau. Pour ajouter une nouvelle famille de fonctionnalité, écrire une extension qui enregistre un fournisseur ou un hook par le SDK.
+A compatible service adds a manifest, JSON Schema and execution assets, not `if plugin_id` branches in the kernel. A new capability family supplies an extension registering a provider or hook through the SDK.
 
-Installation locale de l'exemple, désactivé par défaut :
+Example installation, disabled until explicitly trusted:
 
 ```sh
 .venv/bin/python scripts/plugins.py install examples/extensions/lab-notes
@@ -93,49 +88,48 @@ Installation locale de l'exemple, désactivé par défaut :
 .venv/bin/python scripts/plugins.py disable lab-notes
 ```
 
-Ne pas réinstaller un ID déjà présent. La CLI indique quand un redémarrage est requis. Les commandes `doctor` sont statiques par défaut ; exécuter du Python exige une confiance explicite. Les extensions Python sont du code de confiance avec les privilèges du processus, pas une sandbox. Les vérifications locales des blueprints ne sont pas une certification de sécurité d'un marketplace public.
+Do not reinstall an existing ID. The CLI reports when restart is required. `doctor` is static by default; executing Python requires explicit trust. Extensions run with server-process privileges, not in a sandbox. Local blueprint checks are not a public marketplace security certification.
 
-Voir `docs/EXTENSIONS.md`, `docs/EXECUTION.md` et `docs/SECRETS.md` pour les contrats et limites précis.
+Integrations selects providers by capability. `GET /api/providers` reports active bindings and available implementations; administrators change them with `PATCH /api/providers`. Extensions must first be installed and explicitly enabled. Disabling a selected provider makes that function unavailable without silent fallback. Selection persists, is refused during execution, and execution-provider provenance is pinned to approval.
 
-Dans Intégrations, la sélection des fournisseurs consomme le registre par capacité. `GET /api/providers` expose les liaisons actives et les implémentations disponibles ; l'administrateur les modifie avec `PATCH /api/providers`. Une extension doit d'abord être installée et activée explicitement. Désactiver le fournisseur sélectionné rend uniquement sa fonction indisponible, sans bascule silencieuse vers un autre. La sélection est persistante et refusée pendant une exécution. Les fournisseurs d'exécution sont épinglés dans l'approbation avec leur provenance.
+Canonical hooks are `before_plan`, `after_approval`, `job_started` and `job_finished`. They observe copies of events and cannot replace validation or approval. The separately installed `lab-notes` example has historical live evidence for event delivery and provenance; it is not required by the kernel.
 
-Les hooks canoniques sont `before_plan`, `after_approval`, `job_started` et `job_finished`. Ils observent des copies des événements et ne remplacent jamais les validations ou l'approbation. L'exemple `lab-notes` a été sélectionné depuis le portail, a reçu la fin d'un vrai déploiement et a rendu la provenance par l'API de diagnostic ; puis sa désactivation a été vérifiée sans modification du noyau. Il est laissé désactivé après la démonstration.
+## Capability boundaries
 
-## Ce qui fonctionne et ce qui reste ouvert
-
-| Fonction | État du prototype |
+| Capability | Supported scope and limits |
 | --- | --- |
-| Canvas, catalogue, formulaires déclaratifs, sauvegarde de blueprints | Fonctionnel |
-| Sessions, RBAC, CSRF, quotas par plan, approbation | Fonctionnel, comptes locaux |
-| NGINX et Apache sur deux invités GNS3 | Déploiements réels par Ansible |
-| Canary, rolling, rollback automatique et manuel | Exercés avec readbacks HTTP indépendants |
-| GitOps | Commits locaux ; publication distante optionnelle avec relecture du SHA, testée sur dépôts de test, pas de pipeline client hébergé validé |
-| Infrastructure | Inventaire GNS3 réel en lecture seule |
-| FinOps | Estimations selon une grille interne, pas de facturation cloud ni de mesures de consommation |
-| Diagnostic | Règles déterministes et fournisseurs optionnels, pas d'inférence LLM configurée |
-| Notifications et ChatOps | Outbox, webhook durable et callback signé testés par vrais échanges locaux ; aucun connecteur SaaS externe configuré ni certification Slack/Teams |
-| OpenBao | Service persistant initialisé dans le lab, provider KV v2 testé ; bootstrap et tunnel privés |
-| Identifiants d'exécution | Injection éphémère depuis le fournisseur de secrets sélectionné, isolation et nettoyage testés ; aucun secret de déploiement réel reconfiguré |
-| OpenTofu, cloud, nouvelles VMs | Adaptateur plan/application/suppression gardé désactivé ; SSH actuel refusé par les contrôles de confiance ; aucune création/suppression de VM validée |
-| Redis persistant | Cycle spécifique et restauration testés, manifeste planned et extension désactivée ; aucune validation distante |
-| API et MCP pour agents externes | Jetons par rôle et scopes, expiration/révocation, 35 outils ; protocole stdio et API réelle isolée exercés |
-| Supervision applicative | Métriques et snapshot read-only raccordés ; règles Prometheus et dashboard Grafana validés, stack non déployée |
-| Stack front/back, Cisco IOS, pfSense | Entrées prévues, désactivées faute d'adaptateurs/cibles validés |
-| Marketplace communautaire, paiements, signatures, isolation de code tiers | Hors périmètre de cette version |
+| Canvas, catalogue, schema forms and blueprint storage | Available through the local portal and API. |
+| Sessions, RBAC, CSRF, quotas and approval | Local accounts; no SSO or per-object authorization. |
+| NGINX and Apache | Real Ansible deployment on two allowlisted GNS3 guests, with HTTP verification. |
+| Canary, rolling and rollback | Exercised for managed web workloads; not a universal recovery guarantee. |
+| VMware Ubuntu OVF import | Create-only workflow documented separately; no update, deletion, rollback or automatic cleanup after an ambiguous failure. Target OS/SSH acceptance requires an authorized real import. |
+| ESXi discovery | Separate read-only provider; observed VMs are not proof of a running guest OS. |
+| OpenTofu/libvirt and blank-disk vSphere blueprint | Planned/disabled with documented transport and powered-off-create blockers; not promoted by the separate OVF workflow. |
+| Redis persistence | Service-specific lifecycle and restore tests; shipped manifest remains planned and runtime disabled pending real target acceptance. |
+| Frontend/backend stack, Cisco IOS, pfSense and cloud entries | Planned and disabled; no validated adapter/target path. |
+| GitOps | Local approved-plan commits; optional remote publication verifies the exact SHA. Test-repository evidence is not a hosted customer delivery pipeline. |
+| FinOps | Internal tariff estimates, not cloud billing or measured consumption. |
+| Diagnostics | Deterministic rules; optional LLM provider requires explicit configuration. |
+| Notifications and ChatOps | Durable outbox, webhook delivery and signed callback exercised locally; no certified Slack/Teams integration or configured external SaaS recipient. |
+| Secrets | Replaceable OpenBao and local Fernet providers; local custody and transport limits apply. |
+| Execution credentials | Operation-scoped injection, isolation and cleanup; does not imply existing lab keys were replaced. |
+| External API/MCP clients | Explicit role/scopes, expiry and revocation; no automatic approval. |
+| Observability | Local metrics and authenticated snapshot; validated rules/dashboard files do not mean a deployed Prometheus/Grafana stack. |
+| Public marketplace, payments and untrusted-code isolation | Not provided. |
 
-`disk_gb` est actuellement une déclaration budgétaire, pas un quota disque appliqué. `public_cidr` est un garde-fou de demande, pas une règle de pare-feu installée. L'exécution est limitée aux cibles et ports du lab ; l'ajout d'un vrai fournisseur cloud ou réseau doit apporter son propre contrat et ses tests.
+For the web executor, `disk_gb` is a budgeting declaration, not an enforced disk quota. `public_cidr` is an admission guard, not an installed firewall rule. New cloud or network providers need their own contracts and acceptance evidence.
 
-## Données et secrets
+## Data, secrets and recovery
 
-`data/` est privé et exclu du dépôt. Il contient la configuration PostgreSQL, la source SQLite conservée, snapshots, journaux, plans GitOps, activations et données durables des extensions, dont la clé du coffre local et les fichiers de bootstrap. Les données applicatives courantes sont dans le volume PostgreSQL dédié `kw-postgresql-v2-data` : sauvegarder uniquement `data/` ne suffit plus. Conserver une sauvegarde PostgreSQL et sauvegarder ensemble la clé et les fichiers du coffre, en privé. Ne jamais publier le dossier du projet en bloc sans revue des secrets.
+`data/` is private and ignored by Git. It holds configuration, retained SQLite sources, snapshots, logs, GitOps plans, activations and extension state, including local vault keys and bootstrap files. Current application data uses the dedicated PostgreSQL volume `kw-postgresql-v2-data`: **backing up `data/` alone is insufficient**. Keep PostgreSQL backups and privately back up the vault key, authenticated marker and ciphertext together. Exercise restoration; a readable dump catalogue is not a restore test. Never publish the project directory wholesale without secret review.
 
-OpenBao tourne dans le conteneur `kw-openbao` sur `infra-operations`, avec stockage Raft chiffré persistant. Son HTTP est lié à `127.0.0.1:18200` dans l'invité et atteint par tunnel SSH local. Cela ne constitue pas du TLS de bout en bout. Le redémarrage du conteneur nécessite un unseal, et le token applicatif a une durée de vie limitée. Les parts de récupération et le root token restent dans un fichier opérateur privé pour le lab, pas sous séparation de responsabilités de production.
+The historical remote `kw-openbao` service on `infra-operations` uses persistent encrypted Raft and a local SSH tunnel to guest HTTP `127.0.0.1:18200`. This is not end-to-end TLS. Restart requires unseal; the application token expires. Lab recovery shares and root credentials under one operator account are not production separation of duties. The separate local OpenBao attempt remains blocked with initialized state preserved; see [connections](docs/V2_HYPERVISORS.md). Do not reset or delete that state to bypass recovery.
 
-Les données d'un plugin restent séparées de son code remplaçable. La désactivation ne supprime pas son état. Les travaux interrompus au redémarrage passent en revue manuelle et ne sont pas rejoués automatiquement.
+Plugin data is separate from replaceable code. Disabling a plugin does not delete its state. Interrupted jobs require manual review and are not automatically replayed. Local vault encryption does not protect against compromise of the OS account or root.
 
-## Lancer et arrêter
+## Start and stop
 
-Les unités utilisateur sont livrées dans `ops/` et liées au gestionnaire systemd du poste. Elles ne sont pas activées automatiquement au démarrage.
+The documented installation uses user units from `ops/`; they are not enabled automatically at boot.
 
 ```sh
 systemctl --user start kuberweaver.service
@@ -144,33 +138,37 @@ journalctl --user -u kuberweaver.service -n 80
 systemctl --user stop kuberweaver.service kuberweaver-bao-tunnel.service
 ```
 
-Arrêt gracieux : le noyau attend l'opération en cours avant de libérer son verrou. Ne pas utiliser plusieurs workers Uvicorn sur le même état.
+Graceful shutdown waits for the active operation before releasing its lock. Do not run multiple Uvicorn workers against the same state. The PostgreSQL service configuration selects its private URL file explicitly; the historical vault tunnel is a separate operational concern.
 
-Alternative premier plan depuis ce dossier :
+Foreground alternative from this directory, with the appropriate private database configuration:
 
 ```sh
 PYTHONPATH=backend .venv/bin/uvicorn kuberweaver.app:app --host 127.0.0.1 --port 8088
 ```
 
-Le lab doit être démarré pour les déploiements et l'accès OpenBao. Le portail peut toujours exposer des fonctions locales et des indisponibilités explicites si le lab n'est pas joignable. Aucun démarrage automatique de tous les nœuds GNS3 n'est ajouté.
+Lab targets must be running for deployments and remote OpenBao access. The portal still exposes local capabilities and explicit unavailable states when targets cannot be reached. It does not start all GNS3 nodes automatically.
 
-## Développement et vérification
+## Installation and verification
 
 ```sh
 uv venv .venv
-uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt -r requirements-infrastructure.txt -r requirements-postgresql.txt -r requirements-local-vault.txt
 npm --prefix frontend ci
 npm --prefix frontend test
 npm --prefix frontend run build
-.venv/bin/python -m pytest tests -q
 ```
 
-Le build frontend est servi par FastAPI sur la même origine. `/healthz`, `/metrics` et `/docs` sont disponibles sur le serveur local. Les métriques décrivent le processus et les jobs ; aucune connexion Grafana/Prometheus distante n'est prétendue.
+Run backend tests against disposable state, not the live database:
 
-Les scripts `scripts/browser_acceptance.py` et `scripts/api_acceptance.py` sont des acceptations avec effets réels sur les ressources de démonstration, pas de simples tests unitaires. Leur état et leurs ports doivent être préparés avant de les relancer. Le navigateur de test utilise Playwright, installé séparément de l'environnement applicatif.
+```sh
+state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
+env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests -q
+```
 
-Preuves non secrètes dans `data/evidence/` : résultats de tests, acceptation navigateur, jobs API et readbacks indépendants, déploiements directs et OpenBao. `docs/ACCEPTANCE.md` énumère les gates. Les documents de cadrage originaux sont conservés sans modification.
+FastAPI serves the frontend build on the same origin. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory, as described in [health and readiness](docs/HEALTH.md). Metrics describe the process and jobs, not a proven remote monitoring deployment.
 
-## Limites de sécurité
+`scripts/browser_acceptance.py` and `scripts/api_acceptance.py` have real effects on example resources. Prepare target state and ports before running them; they are not unit tests. Playwright is an optional, separately installed acceptance dependency. Historical evidence is indexed by [verification](docs/VERIFICATION.md); old test counts are not fresh results and passing tests do not establish production maturity.
 
-Ce prototype local n'est pas prêt à être exposé sur Internet : pas de SSO, de multi-tenant, de permissions par objet, de haute disponibilité ou de marketplace sandboxée. Le serveur GNS3 existant conserve son API LAN sans authentification ; le portail ne la sécurise pas pour les autres clients. Les comptes root des invités et les administrateurs du poste sont dans le périmètre de confiance. Aucune modification des routes du serveur, d'un autre projet GNS3 ou de la production n'est nécessaire.
+## Security limits
+
+Do not expose this installation directly to the Internet. It has no SSO, multi-tenancy, per-object permissions, HA or sandboxed marketplace. Protect remote access with an appropriate authenticated HTTPS boundary and a reviewed threat model. The existing unauthenticated GNS3 LAN API is not secured for other clients by this portal. Guest root and workstation administrators remain trusted. Deployment must stay within authorized targets and owned resources; do not change host routes, other GNS3 projects or production resources for acceptance tests.

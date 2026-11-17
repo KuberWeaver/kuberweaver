@@ -29,6 +29,8 @@ def resolve_provider(app, kind, name=None):
             provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
         if hasattr(provider, 'connections'):
             provider.connections = getattr(app.state, 'connections', None)
+        if hasattr(provider, 'ssh_keys'):
+            provider.ssh_keys = getattr(app.state, 'ssh_keys', None)
     return provider
 
 

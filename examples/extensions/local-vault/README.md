@@ -1,63 +1,32 @@
-# Coffre local Fernet (optionnel)
+# Optional local Fernet vault
 
-Aucun Docker, service réseau, base de données ou nouvel orchestrateur. Le connecteur
-OpenBao reste indépendant et disponible ; ne pas supprimer son conteneur ni son Raft.
+No Docker, network service, database or new orchestrator is required. The OpenBao connector remains independent and available; do not delete its container or Raft state.
 
-Depuis la racine du dépôt :
+From the repository root:
 
 ```sh
 .venv/bin/python -m pip install -r requirements-local-vault.txt
 .venv/bin/python scripts/setup_local_vault.py --data-dir "$PWD/data"
-# Facultatif : accepte le Python de confiance de CETTE extension seulement.
+# Optional: explicitly trust only THIS extension's Python code.
 .venv/bin/python scripts/setup_local_vault.py --data-dir "$PWD/data" --install
 ```
 
-Sans `--install`, aucune installation/activation ni liaison globale n'est modifiée.
-L'hôte utilise `data/plugin-data/local-vault` (via `ctx.plugin_data_dir()`), et non
-`data/plugins`. La clé `key`, le marqueur authentifié `check` et les fichiers
-`sha256(reference).fernet` sont séparés des sources `data/extensions/local-vault`.
-Le parent de `--data-dir` doit déjà exister. Les répertoires privés sont 0700 et
-les fichiers 0600. Une installation existante différente est refusée, jamais écrasée.
-L'activation respecte `data/config/extensions.json` s'il est l'unique autorité.
-Redémarrer l'application après installation ; un CLI n'atteste pas le runtime actif.
+Without `--install`, installation, activation and global bindings do not change. The host uses `data/plugin-data/local-vault` through `ctx.plugin_data_dir()`, not `data/plugins`. The `key`, authenticated `check` marker and `sha256(reference).fernet` files are separate from package sources in `data/extensions/local-vault`. The parent of `--data-dir` must already exist. Private directories are 0700 and files 0600. A different existing installation is rejected, never overwritten. Activation respects `data/config/extensions.json` when it is the sole authority. Restart the application after installation; CLI success does not attest to the active runtime.
 
-Sélectionner explicitement la source de secrets `local-vault` pour les nouvelles
-connexions. Les contrôles humains/agents restent ceux de l'API de connexions de
-l'hôte ; l'extension n'ajoute pas une route d'écriture parallèle. Aucun binding
-secrets global n'est modifié. Le fournisseur Python est **lecture seule par défaut** ;
-`allow_write=True` doit être un booléen explicite. L'extension activée autorise le
-stockage des nouvelles connexions à travers les contrôles de l'hôte.
+Explicitly select `local-vault` for new connections. Human/agent controls remain those of the host Connections API; the extension adds no parallel write route. No global secrets binding is changed. The Python provider is **read-only by default**; `allow_write=True` must be an explicit boolean. The enabled extension permits storage for new connections through host controls. Managed SSH-key private material uses encrypted vault storage; see the [SSH key guide](../../../docs/SSH_KEYS.md) for its separate administration/export workflow.
 
-Les références suivent le contrat logique de l'hôte (128 caractères maximum).
-Les valeurs binaires non vides sont limitées à 128 KiB avant toute écriture.
-Fernet authentifie aussi la référence dans le texte chiffré : substituer deux
-fichiers de références différentes échoue. Lectures et métadonnées ne créent rien.
-L'hôte peut créer le répertoire de plugin lors de l'enregistrement, mais jamais la clé.
-Les IO utilisent des descripteurs relatifs NOFOLLOW, y compris les ancêtres ; les
-liens et propriétaires autres que root ou l'utilisateur courant sont refusés.
-Les ancêtres appartenant à root ou à cet utilisateur peuvent être 0775 : cela
-ne signifie pas que leur groupe est de confiance. Avant une barrière 0700 de
-l'utilisateur courant, les ancêtres accessibles en écriture à tous sont refusés.
-Le coffre final exige toujours exactement 0700 et l'utilisateur courant ; clé et
-fichiers exigent 0600, le même utilisateur et un seul lien physique. Un membre du
-groupe pouvant renommer un ancêtre ne peut ni traverser le coffre privé existant,
-ni rediriger les IO déjà épinglées sur ses descripteurs, ni fournir un coffre lui
-appartenant. Il peut cependant déplacer/supprimer un chemin, provoquer un déni de
-service ou présenter un ancien coffre valide du même propriétaire : disponibilité
-et anti-rollback ne sont pas garantis. Aucun mode des ancêtres n'est modifié.
-Un ancêtre propriétaire 0700 constitue une barrière pour les descendants. Verrous `flock`
-Linux, fichiers temporaires exclusifs et remplacement atomique sérialisent les
-écritures ; le résultat est relu et vérifié, avec restauration sur échec de vérification.
-Une interruption avant publication préserve l'ancienne valeur ; une perte de
-courant après publication mais avant confirmation nécessite inspection manuelle.
-Clé manquante avec données, mauvaise clé ou ciphertext altéré : refus, pas de reset.
+## Storage and integrity
 
-## Limites et sauvegardes
+References follow the host's logical contract, up to 128 characters. Nonempty binary values are limited to 128 KiB before writes. Fernet authenticates the reference inside ciphertext: substituting files from different references fails. Reads and metadata create nothing. The host may create the plugin directory during registration, but never the encryption key.
 
-La clé locale à côté des données **ne protège pas contre un compte OS ou root
-compromis**. Sauvegarder **ensemble et privément** clé, marqueur et données ; ne
-jamais les committer ou afficher. La rotation de clé, l'anti-rejeu d'une ancienne
-valeur de la même référence, les ACL multiutilisateurs, l'effacement garanti de la
-mémoire Python et un protocole Vault ne sont pas implémentés. Les noms hachés et
-le chiffrement ne cachent pas complètement les métadonnées (taille, date Fernet).
-Pour des garanties centralisées, sélectionner le fournisseur OpenBao existant.
+I/O uses relative NOFOLLOW descriptors, including ancestors; symlinks and owners other than root/current user are rejected. Ancestors owned by root/current user may be 0775: that does not make their group trusted. World-writable ancestors before a current-user 0700 barrier are rejected. The final vault requires exactly 0700 and current-user ownership; keys/data require 0600, the same user and one hard link.
+
+A group member able to rename an ancestor cannot traverse the existing private vault, redirect descriptor-pinned I/O or supply a vault owned by that member. They may still move/delete a path, deny service or present an older valid vault with the same owner: availability and anti-rollback are not guaranteed. Ancestor permissions are not changed. An owner-only 0700 ancestor forms a barrier for descendants.
+
+Linux `flock`, exclusive temporary files and atomic replacement serialize writes. Results are read back and checked, with restoration on verification failure. Interruption before publication preserves the old value; power loss after publication but before confirmation needs manual inspection. Missing key with existing data, wrong key or altered ciphertext fails closed; there is no automatic reset.
+
+## Threat model and backups
+
+A local key beside ciphertext **does not protect against compromise of the OS account or root**. Privately back up **key, authenticated marker and ciphertext together**; never commit or display them. Database-only backups do not recover vault material. Test restoration in isolated state.
+
+Encryption-key rotation, replay prevention for an old value of the same reference, multi-user ACLs, guaranteed Python-memory erasure and a Vault protocol are not implemented. Hashed names and encryption do not fully hide metadata such as size or Fernet timestamp. Select the existing OpenBao provider when centralized guarantees are required; its own custody and transport limits still apply.

@@ -1,6 +1,6 @@
 # Operation-scoped Ansible SSH credentials
 
-This is a local, administrator-controlled facility. It does not expose a graph/API field for SSH hosts, usernames, paths, or key material. It does not modify the lab's SSH configuration or existing key files.
+This local, administrator-controlled Ansible injection facility does not add graph fields for arbitrary SSH hosts, usernames, paths or private keys. It does not modify the lab's SSH configuration or existing key files. The separate [managed SSH-key workflow](SSH_KEYS.md) supports creation, selection, disabling and password-confirmed administrator export; it does not guarantee guest revocation or remote rotation.
 
 ## Administrator configuration
 
@@ -20,7 +20,7 @@ References must already be approved by the **selected** secrets provider (`confi
 
 An absent file, or a valid `{"enabled": false, "targets": {}}`, preserves existing SSH behavior. `null` is invalid, not equivalent to an absent file. Protect this administrator configuration from application users; do not commit real credentials. No real configuration or lab resources are changed by the tests.
 
-## Integration hook (application/RuntimeExecutor owner)
+## Host integration hook
 
 The executor supports either:
 
@@ -37,7 +37,7 @@ def resolve_selected_secret(reference):
     return resolve_provider(app, 'secrets').resolve(reference)
 ```
 
-An unavailable/disabled selected provider must raise, never select another provider. The resolver is called immediately before each snapshot/apply/verify/restore command, and its context closes afterward. This implementation intentionally does not edit the provider/API/job layers; those owners must wire the hook and authenticated consumer tests.
+An unavailable/disabled selected provider must raise, never select another provider. The resolver is called immediately before each snapshot/apply/verify/restore command, and its context closes afterward. Host integration must wire this hook through provider selection and verify it with authenticated consumer tests; the helper alone does not establish that wiring.
 
 ### Required approval binding
 
@@ -71,4 +71,4 @@ Persist this reference-only fingerprint at approval and compare it in worker pre
 .venv/bin/python -m pytest tests/test_execution_credentials.py tests/test_execution.py -q
 ```
 
-Tests generate an isolated disposable Ed25519 key, resolve it through the real restricted-file provider, and launch a real child process that successfully uses the transient key with `ssh-keygen -y` (public output discarded). They exercise cleanup, redacted failures/output/result handling, invalid configuration, safe environment, accepted Ansible configuration, and `ssh -G` effective identities/routing without contacting any host. No live private key is read or printed, and no lab mutation is performed. API/provider selection and approval-drift integration tests belong to the application wiring owner.
+Tests generate an isolated disposable Ed25519 key, resolve it through the real restricted-file provider, and launch a real child process that successfully uses the transient key with `ssh-keygen -y` (public output discarded). They exercise cleanup, redacted failures/output/result handling, invalid configuration, safe environment, accepted Ansible configuration, and `ssh -G` effective identities/routing without contacting any host. No live private key is read or printed, and no lab mutation is performed. Separate integration checks are required for API/provider selection and approval drift.

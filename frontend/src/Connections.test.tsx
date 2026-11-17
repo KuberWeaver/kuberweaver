@@ -9,8 +9,8 @@ const admin = { id: "human-admin", username: "admin", role: "admin" };
 const id = "0123456789abcdef0123456789abcdef";
 const registry = {
   drivers: [
-    { id: "registered-driver", label: "Pilote enregistré", available: true },
-    { id: "offline-driver", label: "Pilote indisponible", available: false },
+    { id: "registered-driver", label: "Driver enregistré", available: true },
+    { id: "offline-driver", label: "Driver unavailable", available: false },
   ],
   secret_sources: [
     { id: "vault", available: true, can_store: true, references: ["lab-admin"] },
@@ -50,12 +50,12 @@ const newSpec = {
   secret_ref: "new-ref", secrets_provider: "vault", tls_sha256: null, enabled: true,
 };
 async function fillCreation() {
-  fireEvent.click(await screen.findByRole("button", { name: "Nouvelle connexion" }));
-  fireEvent.change(screen.getByLabelText("Libellé"), { target: { value: newSpec.label } });
-  fireEvent.change(screen.getByLabelText("Pilote de connexion"), { target: { value: newSpec.driver } });
-  fireEvent.change(screen.getByLabelText("Endpoint HTTPS (adresse IP)"), { target: { value: newSpec.endpoint } });
-  fireEvent.change(screen.getByLabelText("Source de secrets"), { target: { value: newSpec.secrets_provider } });
-  fireEvent.change(screen.getByLabelText("Référence logique du secret"), { target: { value: newSpec.secret_ref } });
+  fireEvent.click(await screen.findByRole("button", { name: "New connection" }));
+  fireEvent.change(screen.getByLabelText("Label"), { target: { value: newSpec.label } });
+  fireEvent.change(screen.getByLabelText("Connection driver"), { target: { value: newSpec.driver } });
+  fireEvent.change(screen.getByLabelText("HTTPS endpoint (IP address)"), { target: { value: newSpec.endpoint } });
+  fireEvent.change(screen.getByLabelText("Secret source"), { target: { value: newSpec.secrets_provider } });
+  fireEvent.change(screen.getByLabelText("Logical secret reference"), { target: { value: newSpec.secret_ref } });
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); setCsrf(""); localStorage.clear(); sessionStorage.clear(); window.history.replaceState(null, "", window.location.pathname); });
 
@@ -65,13 +65,13 @@ it("charge les références sans sonde implicite et ne présume pas un accès r�
   expect(await screen.findByRole("heading", { name: "Hyperviseur labo" })).toBeTruthy();
   expect(screen.getByText("https://192.0.2.10")).toBeTruthy();
   expect(screen.getByText("lab-admin")).toBeTruthy();
-  expect(screen.getByText("Aucune observation enregistrée. Accès non vérifié.")).toBeTruthy();
+  expect(screen.getByText("No observations recorded. Access has not been verified.")).toBeTruthy();
   expect(fetcher.mock.calls.map(([path]) => path).sort()).toEqual(["/api/connection-drivers", "/api/connections"]);
   expect(fetcher.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Actualiser les connexions" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh connections" }));
   await screen.findByRole("heading", { name: "Hyperviseur labo" });
   expect(fetcher.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
-  expect(within(screen.getByRole("region", { name: "Détails de la connexion" })).queryByText("Accessible")).toBeNull();
+  expect(within(screen.getByRole("region", { name: "Connection details" })).queryByText("Accessible")).toBeNull();
 });
 
 it.each([
@@ -90,8 +90,8 @@ it.each([
 ] .map((value) => ({ value })))("rejette une collection de connexions ou un inventaire malformé : %j", async ({ value }) => {
   serve((path) => response(path === "/api/connection-drivers" ? registry : value));
   render(<Connections user={admin} />);
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Réponse serveur non prise en charge/);
-  expect(screen.queryByRole("region", { name: "Détails de la connexion" })).toBeNull();
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Unsupported server response/);
+  expect(screen.queryByRole("region", { name: "Connection details" })).toBeNull();
 });
 
 it.each([
@@ -104,12 +104,12 @@ it.each([
 ])("refuse au chargement une observation sémantiquement incohérente ($cause)", async ({ value }) => {
   const fetcher = serve((path) => response(path === "/api/connection-drivers" ? registry : [{ ...connection, observation: value }]));
   render(<Connections user={admin} />);
-  await waitFor(() => expect(screen.queryByText("Chargement…")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
   expect(screen.queryByText("Accessible")).toBeNull();
-  expect(screen.queryByText("Indisponible")).toBeNull();
-  expect(screen.queryByText("Observation enregistrée et vérifiée par relecture.")).toBeNull();
-  expect(screen.getByRole("alert").textContent).toMatch(/Réponse serveur non prise en charge/);
-  expect(screen.queryByRole("region", { name: "Détails de la connexion" })).toBeNull();
+  expect(screen.queryByText("Unavailable")).toBeNull();
+  expect(screen.queryByText("Observation saved and verified by readback.")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toMatch(/Unsupported server response/);
+  expect(screen.queryByRole("region", { name: "Connection details" })).toBeNull();
   expect(fetcher.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
 });
 
@@ -120,36 +120,36 @@ it.each([
 ])("rejette un registre de pilotes ou de coffres malformé : %j", async (value) => {
   serve((path) => response(path === "/api/connection-drivers" ? value : [connection]));
   render(<Connections user={admin} />);
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Réponse serveur non prise en charge/);
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Unsupported server response/);
 });
 
 it("affiche la date, les révisions et les quatre inventaires observés sans prétendre installer un OS", async () => {
   serve((path) => response(path === "/api/connection-drivers" ? registry : [{ ...connection, revision: 2, observation }]));
   render(<Connections user={{ ...admin, role: "viewer" }} />);
   expect(await screen.findByText("Accessible")).toBeTruthy();
-  expect(screen.getByText("Observation périmée : configuration modifiée depuis cette observation.")).toBeTruthy();
+  expect(screen.getByText("Stale observation: configuration has changed since this observation.")).toBeTruthy();
   expect(document.querySelector("time")?.getAttribute("datetime")).toBe(observation.observed_at);
-  expect(screen.getByText(/Révision observée : 1 · Révision de configuration : 2/)).toBeTruthy();
+  expect(screen.getByText(/Observed revision: 1 · Configuration revision: 2/)).toBeTruthy();
   expect(screen.getByText("serveur-observé")).toBeTruthy();
-  expect(screen.getByText("Écriture API : capacité inconnue")).toBeTruthy();
+  expect(screen.getByText("API writes: unknown capability")).toBeTruthy();
   expect(within(screen.getByRole("table", { name: "Datastores" })).getByText("Stockage laboratoire")).toBeTruthy();
-  expect(within(screen.getByRole("table", { name: "Réseaux" })).getByText("Réseau laboratoire")).toBeTruthy();
-  expect(within(screen.getByRole("table", { name: "Pools de ressources" })).getByText("Pool laboratoire")).toBeTruthy();
-  const vms = screen.getByRole("table", { name: "Machines virtuelles" });
+  expect(within(screen.getByRole("table", { name: "Networks" })).getByText("Réseau laboratoire")).toBeTruthy();
+  expect(within(screen.getByRole("table", { name: "Resource pools" })).getByText("Pool laboratoire")).toBeTruthy();
+  const vms = screen.getByRole("table", { name: "Virtual machines" });
   expect(within(vms).getByText("VM observée")).toBeTruthy();
   expect(within(vms).getByText("poweredOff")).toBeTruthy();
   expect(within(vms).getByText("2048")).toBeTruthy();
   expect(within(vms).queryByRole("columnheader", { name: /OS|système installé/i })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Tester la connexion" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Test connection" })).toBeNull();
 });
 
 it("affiche un résultat unavailable et son erreur sans fabriquer d’inventaire", async () => {
   serve((path) => response(path === "/api/connection-drivers" ? registry : [{ ...connection, observation: { ...observation, status: "unavailable", inventory: null, error: "Coffre non configuré" } }]));
   render(<Connections user={admin} />);
-  expect(await screen.findByText("Indisponible")).toBeTruthy();
+  expect(await screen.findByText("Unavailable")).toBeTruthy();
   expect((await screen.findByRole("alert")).textContent).toContain("Coffre non configuré");
   expect(screen.queryByRole("table")).toBeNull();
-  expect(screen.getByText("Aucun inventaire retourné par le serveur.")).toBeTruthy();
+  expect(screen.getByText("No inventory returned by the server.")).toBeTruthy();
 });
 
 it("crée une référence seule avec CSRF et attend la relecture exacte avant de confirmer la configuration", async () => {
@@ -165,13 +165,13 @@ it("crée une référence seule avec CSRF et attend la relecture exacte avant de
   setCsrf("native-connection-csrf");
   render(<Connections user={admin} />);
   await fillCreation();
-  expect(screen.queryByLabelText("Mot de passe hyperviseur")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Ajouter la connexion" }));
+  expect(screen.queryByLabelText("Hypervisor password")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
   await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === `/api/connections/${created.id}`)).toBe(true));
-  expect(screen.queryByText("Configuration enregistrée et vérifiée par relecture.")).toBeNull();
-  expect((screen.getByRole("button", { name: "Ajouter la connexion" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByText("Configuration saved and verified by readback.")).toBeNull();
+  expect((screen.getByRole("button", { name: "Add connection" }) as HTMLButtonElement).disabled).toBe(true);
   release(response(created));
-  expect(await screen.findByText("Configuration enregistrée et vérifiée par relecture.")).toBeTruthy();
+  expect(await screen.findByText("Configuration saved and verified by readback.")).toBeTruthy();
   expect(await screen.findByRole("heading", { name: newSpec.label })).toBeTruthy();
   const writes = fetcher.mock.calls.filter(([, options]) => options?.method === "POST");
   expect(writes).toHaveLength(1);
@@ -179,22 +179,22 @@ it("crée une référence seule avec CSRF et attend la relecture exacte avant de
   expect(writes[0][1]!.headers).toMatchObject({ "X-CSRF-Token": "native-connection-csrf" });
   expect(writes[0][1]!.credentials).toBe("include");
   expect(fetcher.mock.calls.some(([path]) => /test|discover|credentials/.test(path))).toBe(false);
-  expect(screen.getByText("Aucune observation enregistrée. Accès non vérifié.")).toBeTruthy();
+  expect(screen.getByText("No observations recorded. Access has not been verified.")).toBeTruthy();
 });
 
 it("propose uniquement les pilotes et les sources de l’API, et désactive les entrées indisponibles", async () => {
   const fetcher = serve();
   render(<Connections user={admin} />);
   await fillCreation();
-  const drivers = screen.getByLabelText("Pilote de connexion");
+  const drivers = screen.getByLabelText("Connection driver");
   expect(within(drivers).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual(["", "registered-driver", "offline-driver"]);
-  expect((within(drivers).getByRole("option", { name: /Pilote indisponible/ }) as HTMLOptionElement).disabled).toBe(true);
-  const sources = screen.getByLabelText("Source de secrets");
+  expect((within(drivers).getByRole("option", { name: /Driver unavailable/ }) as HTMLOptionElement).disabled).toBe(true);
+  const sources = screen.getByLabelText("Secret source");
   expect((within(sources).getByRole("option", { name: /offline-vault/ }) as HTMLOptionElement).disabled).toBe(true);
-  expect(screen.getByText(/Références déclarées : lab-admin/)).toBeTruthy();
+  expect(screen.getByText(/Declared references: lab-admin/)).toBeTruthy();
   fireEvent.change(drivers, { target: { value: "offline-driver" } });
-  expect((screen.getByRole("button", { name: "Ajouter la connexion" }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.submit(screen.getByRole("form", { name: "Configuration de connexion" }));
+  expect((screen.getByRole("button", { name: "Add connection" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.submit(screen.getByRole("form", { name: "Connection configuration" }));
   expect(fetcher.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 
@@ -206,12 +206,12 @@ it("modifie seulement les champs changés avec la révision puis relit la connex
     return response([connection]);
   });
   render(<Connections user={admin} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Modifier la connexion" }));
-  expect((screen.getByLabelText("Libellé") as HTMLInputElement).value).toBe(connection.label);
-  fireEvent.change(screen.getByLabelText("Libellé"), { target: { value: updated.label } });
-  fireEvent.change(screen.getByLabelText("Empreinte TLS SHA-256 (facultative)"), { target: { value: updated.tls_sha256 } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer la connexion" }));
-  await screen.findByText("Configuration enregistrée et vérifiée par relecture.");
+  fireEvent.click(await screen.findByRole("button", { name: "Edit connection" }));
+  expect((screen.getByLabelText("Label") as HTMLInputElement).value).toBe(connection.label);
+  fireEvent.change(screen.getByLabelText("Label"), { target: { value: updated.label } });
+  fireEvent.change(screen.getByLabelText("TLS SHA-256 fingerprint (optional)"), { target: { value: updated.tls_sha256 } });
+  fireEvent.click(screen.getByRole("button", { name: "Save connection" }));
+  await screen.findByText("Configuration saved and verified by readback.");
   expect(screen.getByRole("heading", { name: updated.label })).toBeTruthy();
   const targetCalls = fetcher.mock.calls.filter(([path]) => path === `/api/connections/${id}`);
   expect(targetCalls.map(([, options]) => options?.method || "GET")).toEqual(["PATCH", "GET"]);
@@ -223,28 +223,28 @@ it("désactive avec une révision et une relecture, même si le pilote enregistr
   const disabled = { ...connection, enabled: false, revision: 2 };
   const fetcher = serve((path) => response(path === "/api/connection-drivers" ? unavailableRegistry : path === `/api/connections/${id}` ? disabled : [connection]));
   render(<Connections user={admin} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Désactiver la connexion" }));
-  await screen.findByText("Configuration enregistrée et vérifiée par relecture.");
+  fireEvent.click(await screen.findByRole("button", { name: "Disable connection" }));
+  await screen.findByText("Configuration saved and verified by readback.");
   const targetCalls = fetcher.mock.calls.filter(([path]) => path === `/api/connections/${id}`);
   expect(targetCalls.map(([, options]) => options?.method || "GET")).toEqual(["PATCH", "GET"]);
   expect(JSON.parse(targetCalls[0][1]!.body as string)).toEqual({ enabled: false, revision: 1 });
-  expect(screen.getByText("Désactivée")).toBeTruthy();
-  expect((screen.getByRole("button", { name: "Désactiver la connexion" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText("Disabled")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Disable connection" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 it.each(["viewer", "operator", "unknown"])("interdit toute configuration et tout dépôt d’identifiants au rôle %s", async (role) => {
   const fetcher = serve();
   render(<Connections user={{ ...admin, role }} />);
   await screen.findByRole("heading", { name: connection.label });
-  for (const name of ["Nouvelle connexion", "Modifier la connexion", "Désactiver la connexion", "Déposer des identifiants"]) expect(screen.queryByRole("button", { name })).toBeNull();
+  for (const name of ["New connection", "Edit connection", "Disable connection", "Store credentials"]) expect(screen.queryByRole("button", { name })).toBeNull();
   expect(screen.queryByRole("form")).toBeNull();
   expect(fetcher.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 
 it.each([
-  ["admin", "test", "Tester la connexion"],
-  ["operator", "test", "Tester la connexion"],
-  ["operator", "discover", "Découvrir l’inventaire"],
+  ["admin", "test", "Test connection"],
+  ["operator", "test", "Test connection"],
+  ["operator", "discover", "Discover inventory"],
 ])("réserve %s/%s à une action explicite et vérifie le résultat via GET", async (role, action, button) => {
   const result = { ...observation };
   let release!: (value: Response) => void;
@@ -264,7 +264,7 @@ it.each([
   expect(screen.queryByText("Accessible")).toBeNull();
   expect((control as HTMLButtonElement).disabled).toBe(true);
   release(response({ ...connection, observation: result }));
-  expect(await screen.findByText("Observation enregistrée et vérifiée par relecture.")).toBeTruthy();
+  expect(await screen.findByText("Observation saved and verified by readback.")).toBeTruthy();
   expect(screen.getByText("Accessible")).toBeTruthy();
   const targetCalls = fetcher.mock.calls.filter(([path]) => path.startsWith(`/api/connections/${id}`));
   expect(targetCalls.map(([path, options]) => [path, options?.method || "GET"])).toEqual([[`/api/connections/${id}/${action}`, "POST"], [`/api/connections/${id}`, "GET"]]);
@@ -274,10 +274,10 @@ it.each([
 });
 
 it.each([
-  { action: "test", button: "Tester la connexion", result: { ...observation, inventory: null } },
-  { action: "discover", button: "Découvrir l’inventaire", result: { ...observation, error: "Connection discovery unavailable" } },
-  { action: "test", button: "Tester la connexion", result: { ...observation, status: "unavailable", error: "Connection discovery unavailable" } },
-  { action: "discover", button: "Découvrir l’inventaire", result: { ...observation, status: "unavailable", inventory: null, error: null } },
+  { action: "test", button: "Test connection", result: { ...observation, inventory: null } },
+  { action: "discover", button: "Discover inventory", result: { ...observation, error: "Connection discovery unavailable" } },
+  { action: "test", button: "Test connection", result: { ...observation, status: "unavailable", error: "Connection discovery unavailable" } },
+  { action: "discover", button: "Discover inventory", result: { ...observation, status: "unavailable", inventory: null, error: null } },
 ])("refuse un POST $action sémantiquement incohérent même si le GET renvoie la même observation", async ({ action, button, result }) => {
   const fetcher = serve((path, options) => {
     if (path === "/api/connection-drivers") return response(registry);
@@ -290,11 +290,11 @@ it.each([
   fireEvent.click(control);
   await waitFor(() => expect((control as HTMLButtonElement).disabled).toBe(false));
   expect(screen.queryByText("Accessible")).toBeNull();
-  expect(screen.queryByText("Indisponible")).toBeNull();
-  expect(screen.queryByText("Observation enregistrée et vérifiée par relecture.")).toBeNull();
-  expect(screen.getByRole("alert").textContent).toMatch(/Observation : réponse serveur non prise en charge ou résultat incohérent/);
-  expect(screen.getByText("Résultat de l’action non confirmé. Données affichées : dernière lecture validée.")).toBeTruthy();
-  expect(screen.getByText("Aucune observation enregistrée. Accès non vérifié.")).toBeTruthy();
+  expect(screen.queryByText("Unavailable")).toBeNull();
+  expect(screen.queryByText("Observation saved and verified by readback.")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toMatch(/Observation: unsupported server response or inconsistent result/);
+  expect(screen.getByText("Action result not confirmed. Showing the last validated read.")).toBeTruthy();
+  expect(screen.getByText("No observations recorded. Access has not been verified.")).toBeTruthy();
   expect(fetcher.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
 });
 
@@ -302,8 +302,8 @@ it("relit et affiche réellement unavailable après un test, sans le convertir e
   const result = { ...observation, status: "unavailable", inventory: null, error: "Identifiants non disponibles" };
   serve((path, options) => response(path === "/api/connection-drivers" ? registry : options?.method === "POST" ? result : path === `/api/connections/${id}` ? { ...connection, observation: result } : [connection]));
   render(<Connections user={{ ...admin, role: "operator" }} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Tester la connexion" }));
-  expect(await screen.findByText("Indisponible")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: "Test connection" }));
+  expect(await screen.findByText("Unavailable")).toBeTruthy();
   expect((await screen.findByRole("alert")).textContent).toContain("Identifiants non disponibles");
   expect(screen.queryByText("Accessible")).toBeNull();
 });
@@ -328,9 +328,9 @@ it.each([
     return response([connection]);
   });
   render(<Connections user={{ ...admin, role: "operator" }} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Tester la connexion" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/non prise en charge|non confirmée|incohérent/);
-  expect(screen.queryByText("Observation enregistrée et vérifiée par relecture.")).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "Test connection" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/unsupported|not confirmed|inconsistent/);
+  expect(screen.queryByText("Observation saved and verified by readback.")).toBeNull();
   expect(screen.queryByText("Accessible")).toBeNull();
   expect(fetcher.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
 });
@@ -338,8 +338,8 @@ it.each([
 it.each(["viewer", "unknown"])("n’expose aucune sonde au rôle %s", async (role) => {
   serve(); render(<Connections user={{ ...admin, role }} />);
   await screen.findByRole("heading", { name: connection.label });
-  expect(screen.queryByRole("button", { name: "Tester la connexion" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Découvrir l’inventaire" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Test connection" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Discover inventory" })).toBeNull();
 });
 
 it.each([true, false])("dépose uniquement par PUT en session admin et efface le mot de passe, succès=%s", async (success) => {
@@ -355,14 +355,14 @@ it.each([true, false])("dépose uniquement par PUT en session admin et efface le
   });
   setCsrf("credentials-native-csrf");
   render(<Connections user={admin} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Déposer des identifiants" }));
-  const input = screen.getByLabelText("Mot de passe hyperviseur") as HTMLInputElement;
+  fireEvent.click(await screen.findByRole("button", { name: "Store credentials" }));
+  const input = screen.getByLabelText("Hypervisor password") as HTMLInputElement;
   expect(input.type).toBe("password");
-  fireEvent.change(screen.getByLabelText("Identifiant hyperviseur"), { target: { value: "lab-user" } });
+  fireEvent.change(screen.getByLabelText("Hypervisor username"), { target: { value: "lab-user" } });
   fireEvent.change(input, { target: { value: password } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer les identifiants" }));
-  if (success) await screen.findByText("Dépôt déclaré par le coffre ; connexion relue, accès hyperviseur non testé.");
-  else expect((await screen.findByRole("alert")).textContent).toMatch(/Dépôt non confirmé/);
+  fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+  if (success) await screen.findByText("Vault reports credentials stored; connection read back, hypervisor access not tested.");
+  else expect((await screen.findByRole("alert")).textContent).toMatch(/Storage not confirmed/);
   expect(input.value).toBe("");
   expect(document.body.textContent).not.toContain(password);
   expect(document.body.innerHTML).not.toContain(password);
@@ -392,25 +392,25 @@ it.each([
     return response([connection]);
   });
   render(<Connections user={admin} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Déposer des identifiants" }));
-  const password = screen.getByLabelText("Mot de passe hyperviseur") as HTMLInputElement;
-  fireEvent.change(screen.getByLabelText("Identifiant hyperviseur"), { target: { value: "lab-user" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Store credentials" }));
+  const password = screen.getByLabelText("Hypervisor password") as HTMLInputElement;
+  fireEvent.change(screen.getByLabelText("Hypervisor username"), { target: { value: "lab-user" } });
   fireEvent.change(password, { target: { value: "fixture-disposable-password" } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer les identifiants" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Dépôt non confirmé/);
+  fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Storage not confirmed/);
   expect(password.value).toBe("");
-  expect(screen.queryByText("Dépôt déclaré par le coffre ; connexion relue, accès hyperviseur non testé.")).toBeNull();
+  expect(screen.queryByText("Vault reports credentials stored; connection read back, hypervisor access not tested.")).toBeNull();
 });
 
 it.each(["readonly-vault", "offline-vault", "unregistered-vault"])("ne propose pas de dépôt sur une source qui ne peut pas stocker : %s", async (source) => {
   serve((path) => response(path === "/api/connection-drivers" ? registry : [{ ...connection, secrets_provider: source }]));
   render(<Connections user={admin} />);
   await screen.findByRole("heading", { name: connection.label });
-  expect(screen.queryByRole("button", { name: "Déposer des identifiants" })).toBeNull();
-  expect(screen.queryByLabelText("Mot de passe hyperviseur")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Store credentials" })).toBeNull();
+  expect(screen.queryByLabelText("Hypervisor password")).toBeNull();
 });
 
-it.each([false, true])("branche la navigation Connexions et son icône Server sans modifier le design, lien direct=%s", async (direct) => {
+it.each([false, true])("branche la navigation Connections et son icône Server sans modifier le design, lien direct=%s", async (direct) => {
   window.history.replaceState(null, "", direct ? "#connections" : "#agents");
   const fetcher = serve((path) => {
     if (path === "/api/auth/me") return response({ user: { ...admin, role: "viewer" }, csrf_token: "human-session-csrf" });
@@ -420,12 +420,16 @@ it.each([false, true])("branche la navigation Connexions et son icône Server sa
     return response({ detail: "Unexpected request" }, 404);
   });
   render(<App />);
-  const nav = await screen.findByRole("navigation", { name: "Navigation principale" });
-  const button = within(nav).getByRole("button", { name: "Connexions" });
+  const nav = await screen.findByRole("navigation", { name: "Main navigation" });
+  const button = within(nav).getByRole("button", { name: "Connections" });
   expect(button.querySelector("svg.lucide-server")).toBeTruthy();
-  expect(within(nav).getByRole("button", { name: "Gouvernance" }).classList.contains("nav-separated")).toBe(true);
+  const operate = within(nav).getByText("Operate").closest(".nav-group");
+  expect(operate && within(operate as HTMLElement).getByRole("button", { name: "Connections" })).toBeTruthy();
+  expect(within(nav).getByText("Govern")).toBeTruthy();
+  expect(within(nav).queryByRole("button", { name: "Agent access" })).toBeNull();
+  expect(within(nav).queryByRole("button", { name: "Operations" })).toBeNull();
   if (!direct) fireEvent.click(button);
-  expect(await screen.findByRole("heading", { name: "Connexions hyperviseur" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Hypervisor connections" })).toBeTruthy();
   await screen.findByRole("heading", { name: connection.label });
   expect(window.location.hash).toBe("#connections");
   expect(button.getAttribute("aria-current")).toBe("page");
@@ -436,30 +440,30 @@ it("accepte les valeurs VM scalaires inconnues renvoyées par le backend sans le
   const vm = { ...inventory.virtual_machines[0], uuid: null, cpu: null, memory_mb: null };
   serve((path) => response(path === "/api/connection-drivers" ? registry : [{ ...connection, observation: { ...observation, inventory: { ...inventory, virtual_machines: [vm] } } }]));
   render(<Connections user={admin} />);
-  const table = await screen.findByRole("table", { name: "Machines virtuelles" });
+  const table = await screen.findByRole("table", { name: "Virtual machines" });
   expect(within(table).getByText(vm.name)).toBeTruthy();
-  expect(within(table).getAllByText("Non renseigné")).toHaveLength(3);
+  expect(within(table).getAllByText("Not specified")).toHaveLength(3);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it.each([
-  ["Endpoint HTTPS (adresse IP)", "http://192.0.2.10"],
-  ["Endpoint HTTPS (adresse IP)", "https://192.0.2.10/"],
-  ["Endpoint HTTPS (adresse IP)", "https://hypervisor.example"],
-  ["Endpoint HTTPS (adresse IP)", "https://user:pass@192.0.2.10"],
-  ["Endpoint HTTPS (adresse IP)", "https://192.0.2.10/sdk"],
-  ["Endpoint HTTPS (adresse IP)", "https://192.0.2.10?"],
-  ["Endpoint HTTPS (adresse IP)", "HTTPS://192.0.2.10"],
-  ["Empreinte TLS SHA-256 (facultative)", "AB".repeat(32)],
-  ["Empreinte TLS SHA-256 (facultative)", "ab:cd"],
-  ["Référence logique du secret", "secret value with spaces"],
-])("explique et refuse une saisie invalide sans la normaliser : %s", async (label, value) => {
+  ["HTTPS endpoint (IP address)", "http://192.0.2.10"],
+  ["HTTPS endpoint (IP address)", "https://192.0.2.10/"],
+  ["HTTPS endpoint (IP address)", "https://hypervisor.example"],
+  ["HTTPS endpoint (IP address)", "https://user:pass@192.0.2.10"],
+  ["HTTPS endpoint (IP address)", "https://192.0.2.10/sdk"],
+  ["HTTPS endpoint (IP address)", "https://192.0.2.10?"],
+  ["HTTPS endpoint (IP address)", "HTTPS://192.0.2.10"],
+  ["TLS SHA-256 fingerprint (optional)", "AB".repeat(32)],
+  ["TLS SHA-256 fingerprint (optional)", "ab:cd"],
+  ["Logical secret reference", "secret value with spaces"],
+])("explique et refuse une saisie invalid sans la normaliser : %s", async (label, value) => {
   const fetcher = serve(); render(<Connections user={admin} />);
   await fillCreation();
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
-  expect((await screen.findByRole("alert")).textContent).toMatch(/invalide/);
-  expect((screen.getByRole("button", { name: "Ajouter la connexion" }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.submit(screen.getByRole("form", { name: "Configuration de connexion" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Invalid/);
+  expect((screen.getByRole("button", { name: "Add connection" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.submit(screen.getByRole("form", { name: "Connection configuration" }));
   expect(fetcher.mock.calls.every(([, options]) => !options?.method)).toBe(true);
   expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(value);
 });
@@ -484,9 +488,9 @@ it.each([
     return response([connection]);
   });
   render(<Connections user={admin} />); await fillCreation();
-  fireEvent.click(screen.getByRole("button", { name: "Ajouter la connexion" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Écriture non confirmée/);
-  expect(screen.queryByText("Configuration enregistrée et vérifiée par relecture.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Write not confirmed/);
+  expect(screen.queryByText("Configuration saved and verified by readback.")).toBeNull();
   expect(screen.queryByRole("heading", { name: newSpec.label })).toBeNull();
 });
 
@@ -494,21 +498,21 @@ it("refuse qu’une création réutilise l’identifiant d’une connexion déj�
   const duplicate = { ...connection, ...newSpec };
   const fetcher = serve((path, options) => response(path === "/api/connection-drivers" ? registry : options?.method === "POST" || path === `/api/connections/${id}` ? duplicate : [connection], options?.method === "POST" ? 201 : 200));
   render(<Connections user={admin} />); await fillCreation();
-  fireEvent.click(screen.getByRole("button", { name: "Ajouter la connexion" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/Écriture non confirmée/);
-  expect(screen.queryByText("Configuration enregistrée et vérifiée par relecture.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/Write not confirmed/);
+  expect(screen.queryByText("Configuration saved and verified by readback.")).toBeNull();
   expect(fetcher.mock.calls.some(([path]) => path === `/api/connections/${id}`)).toBe(false);
 });
 
 it("affiche le refus de révision sans affirmer une modification et sans répéter le PATCH", async () => {
   const fetcher = serve((path, options) => path === "/api/connection-drivers" ? response(registry) : options?.method === "PATCH" ? response({ detail: "Connection revision changed" }, 409) : response([connection]));
   render(<Connections user={admin} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Modifier la connexion" }));
-  fireEvent.change(screen.getByLabelText("Libellé"), { target: { value: "Modification refusée" } });
-  fireEvent.click(screen.getByRole("button", { name: "Enregistrer la connexion" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit connection" }));
+  fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Modification refusée" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save connection" }));
   expect((await screen.findByRole("alert")).textContent).toContain("HTTP 409");
-  expect(screen.queryByText("Configuration enregistrée et vérifiée par relecture.")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Actualiser les connexions" }));
+  expect(screen.queryByText("Configuration saved and verified by readback.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh connections" }));
   await screen.findByRole("heading", { name: connection.label });
   expect(fetcher.mock.calls.filter(([, options]) => options?.method === "PATCH")).toHaveLength(1);
   expect(fetcher.mock.calls.some(([path]) => path.endsWith("/test") || path.endsWith("/discover"))).toBe(false);
@@ -522,10 +526,10 @@ it.each(["HTTP", "network"])("gère un échec de chargement %s et le réessaie u
     return failed ? response({ detail: "Temporarily unavailable" }, 503) : response([connection]);
   });
   render(<Connections user={admin} />);
-  expect((await screen.findByRole("alert")).textContent).toMatch(/HTTP 503|Serveur inaccessible/);
-  expect(screen.queryByRole("region", { name: "Détails de la connexion" })).toBeNull();
+  expect((await screen.findByRole("alert")).textContent).toMatch(/HTTP 503|Server unreachable/);
+  expect(screen.queryByRole("region", { name: "Connection details" })).toBeNull();
   failed = false;
-  fireEvent.click(screen.getByRole("button", { name: "Actualiser les connexions" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh connections" }));
   await screen.findByRole("heading", { name: connection.label });
   expect(screen.queryByRole("alert")).toBeNull();
   expect(fetcher.mock.calls.every(([, options]) => !options?.method)).toBe(true);
@@ -534,10 +538,10 @@ it.each(["HTTP", "network"])("gère un échec de chargement %s et le réessaie u
 it("n’invente aucune connexion ni aucun inventaire quand le registre est vide", async () => {
   const fetcher = serve((path) => response(path === "/api/connection-drivers" ? { drivers: [], secret_sources: [] } : []));
   render(<Connections user={admin} />);
-  expect(await screen.findByText("Aucune connexion enregistrée")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Nouvelle connexion" }));
-  expect(within(screen.getByLabelText("Pilote de connexion")).getAllByRole("option")).toHaveLength(1);
-  expect((screen.getByRole("button", { name: "Ajouter la connexion" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(await screen.findByText("No saved connections")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "New connection" }));
+  expect(within(screen.getByLabelText("Connection driver")).getAllByRole("option")).toHaveLength(1);
+  expect((screen.getByRole("button", { name: "Add connection" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole("table")).toBeNull();
   expect(fetcher.mock.calls).toHaveLength(2);
 });

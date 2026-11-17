@@ -34,13 +34,14 @@ def pg_file(tmp_path, monkeypatch):
 
 def test_postgresql_store_durable_contract(tmp_path, pg_file):
     from kuberweaver.agent_auth import AgentTokens
+    from kuberweaver.sessions import Sessions
     store = Store(tmp_path / 'state')
     assert store.backend == 'postgresql'
     assert not (store.path / 'platform.sqlite3').exists()
     user = store.one("SELECT * FROM users WHERE role='admin'")
-    token, csrf = store.create_session(user)
-    assert store.session(token)['role'] == 'admin'
-    assert store.session(token)['csrf'] == csrf
+    token, csrf = Sessions(store).create(user)
+    assert Sessions(store).resolve(token)['role'] == 'admin'
+    assert Sessions(store).resolve(token)['csrf'] == csrf
     AgentTokens(store)
     import hashlib
     import secrets
@@ -61,7 +62,7 @@ def test_postgresql_store_durable_contract(tmp_path, pg_file):
     store.audit('actor', 'test')
     store.conn.close()
     reopened = Store(store.path)
-    assert reopened.session(token)['id'] == user['id']
+    assert Sessions(reopened).resolve(token)['id'] == user['id']
     assert reopened.get('jobs', 'old') == {'exact': 'replaced'}
     assert reopened.one('SELECT count(*) AS n FROM audit')['n'] == 1
     reopened.conn.close()
@@ -181,6 +182,10 @@ def test_sql_translation_preserves_literals():
     assert 'ON CONFLICT (id) DO UPDATE' in sql
     assert '_kw_rowid' in sql
     assert translate_sql('insert into users values(?,?,?,?)').startswith('insert into users (id,username,role,password_hash) VALUES')
+    prune = translate_sql('DELETE FROM audit WHERE action=? AND id NOT IN '
+                          '(SELECT id FROM audit WHERE action=? ORDER BY id DESC LIMIT ?)',
+                          ('agent.request', 'agent.request', 50_000))
+    assert prune.count('%s') == 3 and '?' not in prune and prune.endswith('LIMIT %s)')
 
 
 def test_private_config_file_required(tmp_path, monkeypatch):

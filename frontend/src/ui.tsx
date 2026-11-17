@@ -52,8 +52,26 @@ export function useResource<T = any>(path: string, interval = 0) {
 export function Spinner() {
   return (
     <span className="loading">
-      <LoaderCircle className="spin" size={17} /> Chargement…
+      <LoaderCircle className="spin" size={17} /> Loading…
     </span>
+  );
+}
+export function LoadingState({ label = "Loading content" }: { label?: string }) {
+  return (
+    <div
+      className="loading-state panel"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={label}
+    >
+      <Spinner />
+      <div className="skeleton-rows" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
   );
 }
 export function ErrorNotice({
@@ -70,7 +88,7 @@ export function ErrorNotice({
       {retry && (
         <button className="text-button" onClick={retry}>
           <RefreshCw size={14} />
-          Réessayer
+          Retry
         </button>
       )}
     </div>
@@ -88,16 +106,21 @@ export function Empty({
   title,
   children,
   icon = <Package size={27} />,
+  action,
 }: {
   title: string;
   children?: ReactNode;
   icon?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="empty">
       <div className="empty-icon">{icon}</div>
       <h3>{title}</h3>
-      <div>{children}</div>
+      <div>
+        {children}
+        {action && <div className="empty-actions">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -151,7 +174,7 @@ export function PageTitle({
   return (
     <div className="page-heading">
       <div>
-        <div className="eyebrow">{eyebrow || "ESPACE DE TRAVAIL"}</div>
+        <div className="eyebrow">{eyebrow || "WORKSPACE"}</div>
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
@@ -161,7 +184,7 @@ export function PageTitle({
 }
 export function Details({
   data,
-  title = "Détails techniques",
+  title = "Technical details",
 }: {
   data: unknown;
   title?: string;
@@ -181,13 +204,15 @@ export function ResourceBoundary({
   error,
   retry,
   children,
+  label,
 }: {
   loading: boolean;
   error: string;
   retry: () => void;
   children: ReactNode;
+  label?: string;
 }) {
-  if (loading) return <Spinner />;
+  if (loading) return <LoadingState label={label} />;
   if (error) return <ErrorNotice message={error} retry={retry} />;
   return <>{children}</>;
 }

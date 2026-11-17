@@ -37,9 +37,11 @@ import {
   mayEdit,
   money,
   sortPlugins,
+  reconcileDraft,
 } from "./model";
 import { api } from "./api";
 import { DiscoverySchemaFields } from "./DiscoverySchemaFields";
+import { pageHeading } from "./navigation";
 import {
   Badge,
   ErrorNotice,
@@ -73,7 +75,7 @@ function ResourceCard({ data, selected }: NodeProps<ResourceNode>) {
       <strong>{data.label}</strong>
       <div className="node-meta">
         <span>{data.engine}</span>
-        <span>{money(data.cost)} / mois</span>
+        <span>{money(data.cost)} / month</span>
       </div>
       <Handle type="source" position={Position.Right} />
     </div>
@@ -92,7 +94,7 @@ export function loadDraft(key: string): Graph {
     )
       return serializeGraph(raw);
   } catch {
-    /* un brouillon obsolète ne bloque pas le canvas */
+    /* an obsolete draft must not block the canvas */
   }
   return emptyGraph();
 }
@@ -125,12 +127,18 @@ export function Canvas({
   const flow = useReactFlow();
   const edit = mayEdit(user.role);
   const blueprints = useResource<any[]>("/blueprints");
+  const [reconciled, setReconciled] = useState(false);
+  useEffect(() => {
+    if (reconciled || !plugins.length) return;
+    setGraph((previous) => reconcileDraft(previous, plugins));
+    setReconciled(true);
+  }, [plugins, reconciled]);
   useEffect(() => {
     if (edit)
       try {
         localStorage.setItem(draftKey, JSON.stringify(serializeGraph(graph)));
       } catch {
-        /* stockage indisponible */
+        /* storage unavailable */
       }
   }, [graph, draftKey, edit]);
   useEffect(() => {
@@ -183,7 +191,7 @@ export function Canvas({
           data: {
             label: n.label,
             plugin: p?.name || n.plugin_id,
-            engine: p?.engine || "Extension absente",
+            engine: p?.engine || "Extension missing",
             cost: p?.price_monthly || 0,
             readonly: !edit,
           },
@@ -270,7 +278,7 @@ export function Canvas({
         });
         await api(`/blueprints/${encodeURIComponent(created.id)}`);
         blueprints.refresh();
-        setMessage("Blueprint enregistré sur le serveur.");
+        setMessage("Blueprint saved on the server.");
       } else if (action === "job") {
         const job = await api("/jobs", {
           method: "POST",
@@ -295,7 +303,7 @@ export function Canvas({
       setValidation(null);
       setSelected(null);
       setBlueprintsOpen(false);
-      setMessage("Blueprint chargé.");
+      setMessage("Blueprint loaded.");
       setTimeout(() => flow.fitView({ padding: 0.2 }), 80);
     } catch (e) {
       setError(errorMessage(e));
@@ -318,18 +326,16 @@ export function Canvas({
   return (
     <>
       <PageTitle
-        eyebrow="CONCEPTION D’INFRASTRUCTURE"
-        title="Votre infrastructure commence ici."
-        description="Composez un blueprint. Validez vos règles. Déployez en confiance."
+        {...pageHeading("canvas")}
         actions={
           <>
             <button onClick={() => setBlueprintsOpen((v) => !v)}>
               <FolderOpen size={16} />
-              Mes blueprints
+              My blueprints
             </button>
             <button disabled={!edit || !!busy} onClick={() => run("save")}>
               <Save size={16} />
-              {busy === "save" ? "Enregistrement…" : "Enregistrer"}
+              {busy === "save" ? "Saving…" : "Save"}
             </button>
           </>
         }
@@ -337,8 +343,7 @@ export function Canvas({
       {!edit && (
         <div className="notice">
           <ShieldCheck size={17} />
-          Mode lecture seule : la composition et les déploiements sont
-          désactivés pour votre rôle.
+          Read-only mode: composition and deployments are disabled for your role.
         </div>
       )}
       {error && <ErrorNotice message={error} />}{" "}
@@ -351,11 +356,11 @@ export function Canvas({
       {blueprintsOpen && (
         <section className="panel blueprint-browser">
           <div className="panel-title">
-            <h3>Blueprints enregistrés</h3>
+            <h3>Saved blueprints</h3>
             <button
               className="icon-button"
               onClick={() => setBlueprintsOpen(false)}
-              aria-label="Fermer les blueprints"
+              aria-label="Close blueprints"
             >
               <X size={17} />
             </button>
@@ -368,7 +373,7 @@ export function Canvas({
               retry={blueprints.refresh}
             />
           ) : !blueprints.data?.length ? (
-            <p className="muted">Aucun blueprint enregistré sur le serveur.</p>
+            <p className="muted">No blueprints saved on the server.</p>
           ) : (
             <div className="blueprint-list">
               {blueprints.data.map((b) => (
@@ -386,18 +391,18 @@ export function Canvas({
         <div className="blueprint-name">
           <GitBranch size={17} />
           <input
-            aria-label="Nom du blueprint"
+            aria-label="Blueprint name"
             value={graph.name}
             disabled={!edit}
             onChange={(e) => mutate((g) => ({ ...g, name: e.target.value }))}
           />
-          <span className="draft-tag">Brouillon local</span>
+          <span className="draft-tag">Local draft</span>
         </div>
         <div className="canvas-options">
           <label>
-            Environnement
+            Environment
             <select
-              aria-label="Environnement"
+              aria-label="Environment"
               disabled={!edit}
               value={graph.environment}
               onChange={(e) =>
@@ -407,20 +412,20 @@ export function Canvas({
                 }))
               }
             >
-              <option value="dev">Développement</option>
+              <option value="dev">Development</option>
               <option value="staging">Staging</option>
               <option value="production">Production</option>
             </select>
           </label>
           <button
             className="icon-button"
-            title="Réinitialiser le canvas"
-            aria-label="Réinitialiser le canvas"
+            title="Reset canvas"
+            aria-label="Reset canvas"
             disabled={!edit || !graph.nodes.length}
             onClick={() => {
               if (
                 window.confirm(
-                  "Effacer ce brouillon et repartir d’un canvas vide ?",
+                  "Clear this draft and start with an empty canvas?",
                 )
               ) {
                 mutate(() => emptyGraph());
@@ -435,24 +440,24 @@ export function Canvas({
       <div className={`canvas-workspace ${chosen ? "has-inspector" : ""}`}>
         <aside className={`palette ${paletteOpen ? "mobile-open" : ""}`}>
           <div className="palette-heading">
-            <h2>Composants</h2>
+            <h2>Components</h2>
             <Badge>
               {plugins.filter((p) => p.capability === "live").length}
             </Badge>
             <button
               className="icon-button mobile-close"
-              aria-label="Fermer les composants"
+              aria-label="Close components"
               onClick={() => setPaletteOpen(false)}
             >
               <X size={17} />
             </button>
           </div>
-          <p>Les extensions de votre plateforme.</p>
+          <p>Your platform extensions.</p>
           <div className="search-input">
             <Search size={15} />
             <input
-              aria-label="Rechercher un composant"
-              placeholder="Rechercher…"
+              aria-label="Search components"
+              placeholder="Search…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -468,8 +473,8 @@ export function Canvas({
                   {i === 0 || p.capability !== filtered[i - 1].capability ? (
                     <div className="palette-section">
                       {p.capability === "live"
-                        ? "DISPONIBLES DANS LE LAB"
-                        : "CIBLES NON DISPONIBLES"}
+                        ? "AVAILABLE"
+                        : "UNAVAILABLE TARGETS"}
                     </div>
                   ) : null}
                   <div
@@ -491,16 +496,16 @@ export function Canvas({
                       <small>
                         {p.capability === "live"
                           ? p.engine
-                          : "Cible absente du lab"}
+                          : "Target unavailable"}
                       </small>
                     </div>
                     <button
                       className="icon-button"
-                      aria-label={`Ajouter ${p.name}`}
+                      aria-label={`Add ${p.name}`}
                       title={
                         p.capability === "live"
-                          ? "Ajouter au canvas"
-                          : "Planifié — cible absente"
+                          ? "Add to canvas"
+                          : "Planned — target unavailable"
                       }
                       disabled={!edit || p.capability !== "live"}
                       onClick={() => add(p)}
@@ -511,13 +516,13 @@ export function Canvas({
                 </div>
               ))}
               {!filtered.length && (
-                <p className="muted">Aucun composant trouvé.</p>
+                <p className="muted">No components found.</p>
               )}
             </div>
           )}
           <div className="palette-foot">
             <Info size={14} />
-            <span>Glissez un composant ou utilisez + pour l’ajouter.</span>
+            <span>Drag a component or use + to add it.</span>
           </div>
         </aside>
         <div
@@ -540,9 +545,9 @@ export function Canvas({
         >
           <div className="canvas-breadcrumb">
             <span className="canvas-live-dot" />
-            ÉTAT DÉSIRÉ<span className="canvas-divider">/</span>
+            DESIRED STATE<span className="canvas-divider">/</span>
             <span>
-              {graph.nodes.length} ressource
+              {graph.nodes.length} resource
               {graph.nodes.length !== 1 ? "s" : ""}
             </span>
           </div>
@@ -552,7 +557,7 @@ export function Canvas({
             onClick={() => setPaletteOpen(true)}
           >
             <Plus size={15} />
-            Composants
+            Components
           </button>
           <ReactFlow
             nodes={nodes}
@@ -595,13 +600,13 @@ export function Canvas({
                 </span>
               </div>
               <span className="eyebrow">
-                UNE PAGE BLANCHE, TOUTES LES POSSIBILITÉS
+                START WITH A BLANK CANVAS
               </span>
-              <h2>Donnez forme à votre infrastructure.</h2>
+              <h2>Shape your infrastructure.</h2>
               <p>
-                Ajoutez votre premier composant depuis le catalogue.
+                Add your first component from the catalogue.
                 <br />
-                Reliez vos ressources, puis configurez-les à votre rythme.
+                Connect your resources, then configure them.
               </p>
               <button
                 className="empty-add"
@@ -617,28 +622,28 @@ export function Canvas({
                 }}
               >
                 <Plus size={16} />
-                Ajouter un composant
+                Add a component
                 <ArrowRight size={15} />
               </button>
               <div className="empty-shortcuts">
                 <span>
                   <MousePointer2 size={13} />
-                  Glisser-déposer
+                  Drag and drop
                 </span>
                 <span>
                   <GitBranch size={13} />
-                  Relier
+                  Connect
                 </span>
                 <span>
                   <ShieldCheck size={13} />
-                  Valider
+                  Validate
                 </span>
               </div>
             </div>
           )}
           <div className="canvas-bottom-note">
             <ShieldCheck size={13} />
-            Aucune action sur l’infrastructure avant approbation.
+            No infrastructure changes before approval.
           </div>
         </div>
         {chosen && (
@@ -650,7 +655,7 @@ export function Canvas({
               </div>
               <button
                 className="icon-button"
-                aria-label="Fermer l’inspecteur"
+                aria-label="Close inspector"
                 onClick={() => setSelected(null)}
               >
                 <X size={17} />
@@ -658,10 +663,10 @@ export function Canvas({
             </div>
             <p className="muted inspector-description">
               {chosenPlugin?.description ||
-                "Cette extension n’est plus présente dans le registre."}
+                "This extension is no longer in the registry."}
             </p>
             <div className="field">
-              <label htmlFor="node-label">Nom de la ressource</label>
+              <label htmlFor="node-label">Resource name</label>
               <input
                 id="node-label"
                 value={chosen.label}
@@ -671,6 +676,8 @@ export function Canvas({
             </div>
             {chosenPlugin && (
               <DiscoverySchemaFields
+                key={chosen.id}
+                canManageKeys={user.role === "admin"}
                 schema={chosenPlugin.schema}
                 value={chosen.config}
                 onChange={(config) => updateNode({ config })}
@@ -679,7 +686,7 @@ export function Canvas({
               />
             )}
             <div className="inspector-cost">
-              <span>Estimation mensuelle</span>
+              <span>Monthly estimate</span>
               <strong>{money(chosenPlugin?.price_monthly)}</strong>
             </div>
             <button
@@ -688,7 +695,7 @@ export function Canvas({
               onClick={remove}
             >
               <Trash2 size={15} />
-              Supprimer la ressource
+              Remove resource
             </button>
           </aside>
         )}
@@ -697,15 +704,15 @@ export function Canvas({
         <div className="strategy-copy">
           <span className="step-number">01</span>
           <div>
-            <strong>Déploiement progressif</strong>
-            <small>Canary → lots successifs → vérification</small>
+            <strong>Progressive deployment</strong>
+            <small>Canary → successive batches → verification</small>
           </div>
         </div>
         <div className="strategy-controls">
           <label>
             Canary
             <input
-              aria-label="Nombre de canaris"
+              aria-label="Canary count"
               type="number"
               min="1"
               value={graph.strategy.canary}
@@ -719,9 +726,9 @@ export function Canvas({
             />
           </label>
           <label>
-            Taille des lots
+            Batch size
             <input
-              aria-label="Taille des lots"
+              aria-label="Batch size"
               type="number"
               min="1"
               value={graph.strategy.batch_size}
@@ -739,9 +746,9 @@ export function Canvas({
           </label>
           {user.role === "admin" && (
             <label className="failure-control">
-              Test d’échec · lab
+              Failure injection
               <select
-                aria-label="Simulation d’échec du laboratoire"
+                aria-label="Intentional failure simulation"
                 value={graph.failure_mode}
                 onChange={(e) =>
                   mutate((g) => ({
@@ -750,9 +757,9 @@ export function Canvas({
                   }))
                 }
               >
-                <option value="none">Désactivé</option>
-                <option value="canary">Échec canary intentionnel</option>
-                <option value="rolling">Échec rolling intentionnel</option>
+                <option value="none">Disabled</option>
+                <option value="canary">Intentional canary failure</option>
+                <option value="rolling">Intentional rolling failure</option>
               </select>
             </label>
           )}
@@ -763,28 +770,27 @@ export function Canvas({
           <div className="panel-title">
             <h3>
               <ShieldCheck size={17} />
-              Validation & gouvernance
+              Validation & governance
             </h3>
             {validation ? (
               <Badge tone={validation.allowed ? "success" : "danger"}>
-                {validation.allowed ? "Conforme" : "Bloqué"}
+                {validation.allowed ? "Allowed" : "Blocked"}
               </Badge>
             ) : (
-              <Badge>Non validé</Badge>
+              <Badge>Not validated</Badge>
             )}
           </div>
           {!validation ? (
             <div className="validation-placeholder">
               <span>
-                Vérifiez les politiques, les dépendances et le budget avant de
-                soumettre.
+                Check policies, dependencies and budget before submitting.
               </span>
               <button
                 disabled={!graph.nodes.length || !!busy}
                 onClick={() => run("validate")}
               >
                 <ShieldCheck size={15} />
-                {busy === "validate" ? "Validation…" : "Valider le blueprint"}
+                {busy === "validate" ? "Validation…" : "Validate blueprint"}
               </button>
             </div>
           ) : (
@@ -797,7 +803,7 @@ export function Canvas({
                       <strong>{v.code}</strong> {v.message}
                       {v.node_id && (
                         <small>
-                          Ressource :{" "}
+                          Resource:{" "}
                           {graph.nodes.find((n) => n.id === v.node_id)?.label ||
                             v.node_id}
                         </small>
@@ -814,7 +820,7 @@ export function Canvas({
                 {validation.allowed && (
                   <li className="validation-ok">
                     <CheckCircle2 size={16} />
-                    Les politiques autorisent ce blueprint.
+                    Policies allow this blueprint.
                   </li>
                 )}
               </ul>
@@ -837,23 +843,23 @@ export function Canvas({
                 disabled={!!busy}
                 onClick={() => run("validate")}
               >
-                Relancer la validation
+                Run validation again
               </button>
             </>
           )}
         </section>
         <section className="cost-panel panel">
           <div>
-            <span className="eyebrow">ESTIMATION MENSUELLE</span>
+            <span className="eyebrow">MONTHLY ESTIMATE</span>
             <div className="monthly-cost">
               {money(estimate)}
-              <small>/ mois</small>
+              <small>/ month</small>
             </div>
             <p>
               {validation
-                ? "Estimation validée par le serveur."
-                : "Indicatif · tarifs du catalogue."}{" "}
-              Hors coûts externes.
+                ? "Estimate validated by the server."
+                : "Indicative · catalogue rates."}{" "}
+              Excludes external costs.
             </p>
           </div>
           <button
@@ -863,20 +869,19 @@ export function Canvas({
             }
             onClick={() => run("job")}
           >
-            {busy === "job" ? "Création…" : "Soumettre à approbation"}
+            {busy === "job" ? "Creating…" : "Submit for approval"}
             <ArrowRight size={16} />
           </button>
           <small className="approval-note">
             <ShieldCheck size={12} />
-            Approbation administrateur requise
+            Administrator approval required
           </small>
         </section>
       </div>
       <div className="canvas-help">
         <Info size={14} />
         <span>
-          Le canvas décrit l’état désiré. L’état réel du laboratoire est
-          disponible dans Infrastructure.
+          The canvas describes desired state. Observed infrastructure state is available in Infrastructure.
         </span>
         <ChevronDown size={13} />
       </div>

@@ -13,6 +13,12 @@ __pycache__/
 tools/
 *.tsbuildinfo
 
+# Brick roles are installed from their pinned requirements, never committed
+plugins/*/roles/
+
+# Private notes and prompts, never published
+docs/prompt/
+
 # Local credentials and infrastructure state, never publish
 *.pem
 *.key

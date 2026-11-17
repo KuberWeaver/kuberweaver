@@ -205,17 +205,11 @@ callbacks, and reopen SQLite after simulated publication/revalidation process
 loss to prove durable inflight claims cannot be retried. Callback known-failure
 retry tests preserve the pending action while permanently consuming its nonce.
 
-Observed RED → GREEN steps during implementation:
+Regression coverage includes missing remote approval evidence, invalid
+configuration, preserved optional-failure warnings, duplicate administrator
+fields and stale failure evidence after local-only retry.
 
-- Missing publisher module: 1 failed → 1 passed.
-- Approval lacked remote verification evidence: 1 failed → 2 passed.
-- Invalid configuration was accepted: 16 failed → 20 passed.
-- Optional-failure warning was overwritten: 1 failed → 26 passed.
-- Duplicate administrator fields were accepted: 1 failed → 28 passed.
-- Local-only retry retained stale failure evidence: 1 failed → passing retry tests.
-
-The baseline tracked backend suite was also exercised: **159 passed** after
-integration. Final combined-workspace verification returned **372 passed,
-1 skipped**; `git diff --check` passed. Earlier combined-suite failures occurred
-while another agent's LLM diagnostics implementation was incomplete; the final
-combined run passed. These results do not claim live SSH acceptance.
+Historical integration reported 159 baseline backend passes and a later combined
+record of 372 passes, one skip, with `git diff --check` clean. These counts are
+not current-tree results. They do not establish live SSH acceptance or production
+maturity; external Git service access still requires its own authorized test.

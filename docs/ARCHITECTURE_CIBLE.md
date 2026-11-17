@@ -1,97 +1,74 @@
-# Architecture cible et gestion des plugins
+# Architecture direction and plugin lifecycle
 
-Proposition issue des échanges de cadrage, à valider par l’équipe. Ce document précise la trajectoire du produit ; il ne décrit pas une migration ou une isolation déjà réalisée. Le périmètre exécuté reste décrit dans le README et COMPLETION_STATUS.md.
+This document separates **delivered architecture** from **proposed lifecycle and isolation work**. See the README and `COMPLETION_STATUS.md` for capability boundaries, and `POSTGRESQL.md` for the completed local storage migration. Design proposals do not establish distributed execution or third-party code isolation.
 
-## 1. Les choix proposés
+## Platform choices
 
-- Conserver React/TypeScript pour le portail et Python/FastAPI pour l’API. PHP/Laravel et Node.js sont des alternatives possibles, pas des changements décidés.
-- Retenir PostgreSQL comme base cible de la plateforme partagée. SQLite reste le stockage actuel du prototype et une option possible pour une installation autonome.
-- Garder un cœur modulaire et séparer les exécuteurs des requêtes du portail. Ne pas imposer des microservices, Kubernetes ou Redis sans besoin démontré.
-- Commencer par un catalogue interne de paquets de confiance, pas une place de marché publique de code exécutable.
+- React/TypeScript portal and Python/FastAPI API. PHP/Laravel and Node.js are alternatives, not selected migrations.
+- PostgreSQL is supported and selected by the documented local service; SQLite remains a retained source and standalone option, not an automatic fallback.
+- Keep a modular kernel and separate execution concerns from portal requests. Microservices, Kubernetes and Redis are not mandatory dependencies.
+- Use an internal catalogue of reviewed, trusted packages rather than a public executable-code marketplace.
 
-## 2. Fournir et maintenir un service
+## Service lifecycle: proposed model
 
-Distinguer trois objets : la demande décrit ce qui est souhaité ; l’exécution représente une tentative de changement ; le service représente ce qui a été fourni et reste géré après le déploiement.
+Distinguish a **request** (desired change), an **execution** (one attempt) and a **service** (the delivered resource that remains managed). A complete lifecycle needs authorized create/read/update/delete, service-specific backup/restore and periodic desired/observed comparison. The current create-only VMware path does not imply that full lifecycle is delivered.
 
-Le cycle de vie doit couvrir création, consultation de l’état, modification et suppression autorisée, avec sauvegarde et restauration lorsque le service les permet. Un contrôle périodique compare configuration souhaitée et état réel.
-
-Structure de données proposée :
-
-| Ensemble | Contenu |
+| Domain | Proposed contents |
 | --- | --- |
-| Accès | Utilisateurs, équipes, projets, rôles et autorisations des agents. Organisations distinctes seulement si plusieurs clients sont prévus. |
-| Catalogue | Modèles versionnés, schémas de paramètres, capacités et extensions autorisées. |
-| Demandes | Configuration, plan exact, estimation et décisions d’approbation. |
-| Services | Propriété, version du modèle, configuration souhaitée, état observé et identifiants des ressources réellement créées. |
-| Exécution | Tâches, étapes, tentatives, réservations, vérifications et restauration. |
-| Exploitation | Audit, notifications à transmettre, références de sauvegardes et données de coût. |
+| Access | Users, teams, projects, roles and agent grants; separate organizations only if required. |
+| Catalogue | Versioned templates, parameter schemas, capabilities and approved extensions. |
+| Requests | Configuration, exact plan, estimate and approval decisions. |
+| Services | Ownership, template version, desired/observed state and actual resource IDs. |
+| Execution | Jobs, steps, attempts, reservations, checks and recovery. |
+| Operations | Audit, notification outbox, backup references and cost data. |
 
-Les clés et mots de passe restent dans un coffre ; la base conserve leurs références. Les sauvegardes et journaux volumineux peuvent être conservés dans un stockage de fichiers ou d’objets, avec accès contrôlé.
+Private keys and passwords belong in a vault; the database stores references. Large backups and logs may use controlled file/object storage.
 
-## 3. Concurrence et reprise
+## Concurrency and recovery
 
-SQLite autorise une seule transaction d’écriture à la fois par fichier. Le verrou Python actuel coordonne les threads d’un même processus, pas plusieurs serveurs. PostgreSQL est proposé pour faciliter les écritures concurrentes et la coordination des exécuteurs, sans garantir à lui seul une architecture distribuée fiable.
+SQLite permits one write transaction per file. An in-process Python lock does not coordinate multiple servers. PostgreSQL supports stronger coordination primitives, but a database migration alone does not make the application a reliable distributed system. The current controller remains serialized.
 
-À mettre en œuvre et tester :
+Further work requires explicit tests for atomic job reservation, incompatible-service locks, fencing of interrupted workers, idempotency, infrastructure readback before retry and manual review for ambiguous states. A PostgreSQL queue is a possible starting point, subject to concurrency tests. Test restoration of every required state store, not just backup creation.
 
-- Réserver une tâche atomiquement et empêcher deux changements incompatibles sur le même service.
-- Détecter un exécuteur interrompu et empêcher une ancienne tentative de poursuivre après réattribution.
-- Rendre les opérations répétables sans créer de ressources en double, principe appelé idempotence.
-- Après interruption, relire l’infrastructure avant de réessayer ; placer les cas ambigus en revue manuelle.
-- Conserver les tâches dans la base ; une file PostgreSQL suffit comme première option, sous réserve de tests de concurrence.
-- Tester la restauration de la base et des autres états nécessaires, pas seulement leur sauvegarde.
+A SQL transaction cannot undo a provider resource. Each integration must define recovery and compensation; deletion is not a universal rollback.
 
-Une transaction SQL ne peut pas annuler directement une ressource créée chez un fournisseur. Chaque intégration doit définir sa reprise et ses compensations.
+## Three extension surfaces
 
-## 4. Trois surfaces d’extension
-
-| Type | Usage | Limite |
+| Type | Use | Boundary |
 | --- | --- | --- |
-| Modèle déclaratif de service | Paramètres et procédures utilisant un moteur déjà disponible. | Pas de code spécifique dans le cœur ou React pour un modèle compatible. |
-| Plugin exécutable | Nouveau fournisseur d’inventaire, d’exécution, de secrets, de notifications ou de diagnostic. | Contrat explicite par famille, dépendances et privilèges maîtrisés. |
-| Interface spécialisée | Console ou éditeur qui dépasse un formulaire standard. | Développement et contrat d’interface distincts ; pas de chargement automatique de JavaScript tiers. |
+| Declarative service template | Parameters and procedures using an existing engine. | Compatible templates need no kernel or React business logic. |
+| Executable plugin | New inventory, execution, secrets, notification or diagnostic provider. | Explicit family contract, dependencies and privileges. |
+| Specialized interface | Console/editor beyond a standard schema form. | Separate UI contract and implementation; no automatic third-party JavaScript loading. |
 
-Plugin signifie « extension » en anglais. Le SDK, kit de développement, expose les interfaces officielles : entrées, résultats, erreurs et opérations disponibles. Le plugin ne doit pas dépendre des classes internes du cœur ni écrire directement dans ses tables. Les autorisations et approbations restent imposées par la plateforme.
+The SDK exposes versioned contracts, inputs, results, errors and operations. Plugins should not depend on kernel internals or write its tables directly. Platform authorization and approval remain mandatory. Generic registry membership does not prove a provider satisfies its consumer's interface. Current Python extensions are trusted in-process code, not isolated code.
 
-Le SDK actuel possède un protocole versionné et des registres par capacité. Les signatures des fournisseurs sont définies par leurs consommateurs ; un registre générique ne garantit pas leur compatibilité. Les extensions Python actuelles sont du code de confiance chargé dans le serveur, pas du code isolé.
+## Packages and publication
 
-## 5. Paquets et publication
+Packages should declare ID, version, compatibility, maintainer, dependencies and actual capabilities, plus parameters, procedures, tests, prerequisites and limitations. Unsupported operations remain unavailable. Declarative templates and Python extensions retain distinct formats documented in `EXECUTION.md` and `EXTENSIONS.md`.
 
-Chaque paquet doit annoncer identifiant, version, compatibilité, responsable, dépendances et capacités réelles. Il fournit paramètres, procédures, tests, prérequis et limites. Une opération non prise en charge reste indisponible. Les modèles déclaratifs et extensions Python gardent leurs formats actuels distincts, documentés dans EXECUTION.md et EXTENSIONS.md.
+Proposed distribution: Git sources → automated checks and review → immutable package → catalogue publication → authorized installation. A repository with one directory per package is sufficient initially. OCI is an optional later distribution format. Current installation accepts local directories; registry downloads and upgrades are not delivered.
 
-Sources dans Git → contrôles automatiques et revue → paquet immuable → publication au catalogue → installation autorisée.
+Service records should retain package version/digest and engine provenance. Publication must not silently upgrade existing services. Upgrades need compatibility checks and approval; an older package does not guarantee data restoration. Keep replaceable code separate from persistent plugin data. Disabling a package for new use does not delete existing services; continued management, migration or retirement requires a defined path.
 
-Un dépôt de catalogue avec un dossier par paquet suffit au départ. Un registre OCI, format également utilisé pour distribuer les images de conteneurs, est une option ultérieure. L’installation actuelle accepte uniquement des dossiers locaux ; le téléchargement et la mise à jour depuis un registre restent à développer.
+## Maintenance and safety
 
-Chaque service conserve la version et l’empreinte du paquet ainsi que la provenance du moteur utilisé. Une nouvelle publication ne modifie jamais silencieusement les services existants. Une mise à jour nécessite une vérification de compatibilité et une opération approuvée. Revenir à un ancien paquet ne garantit pas la restauration des données.
+Use common tests for configuration, contracts, errors, activation and recovery, plus real target-specific acceptance. Two web servers do not prove a persistent database lifecycle. Check manifests, secrets, dependencies and tests before publication; report the exact validation scope rather than an unjustified security badge.
 
-Le code remplaçable et les données persistantes du plugin restent séparés. Désactiver ou retirer un paquet des nouvelles installations ne supprime pas les services existants ; prévoir comment continuer à les gérer, migrer ou arrêter.
+External executable packages would require effective file/network/secret/resource limits. A separate process alone is not a security sandbox. Avoid placing every plugin dependency in the API environment. Define owners, supported versions, maintenance and retirement procedures; vulnerabilities must be able to block new installations and identify affected services.
 
-## 6. Maintenance et sécurité
+## Remaining architecture work
 
-Fournir un kit commun de tests : configuration, compatibilité des contrats, gestion des erreurs, activation/désactivation et reprise. Ajouter les essais métier nécessaires sur les cibles réelles : deux serveurs web ne prouvent pas la prise en charge d’une base de données persistante.
+1. Validate the request/execution/service model and provider contracts.
+2. Extend concurrency and recovery evidence beyond the completed local PostgreSQL migration.
+3. Qualify separate workers, reservations, interruption and duplicate prevention.
+4. Exercise another service category through the shared test kit.
+5. Build distribution and effective isolation before public untrusted-code use.
 
-Avant publication, contrôler les manifestes, rechercher les secrets, analyser les dépendances et exécuter les tests. Afficher un périmètre de validation précis plutôt qu’un badge « sécurisé » sans justification.
+Dates, capacity, registry choice and public availability are not commitments. These proposals do not replace approved requirements.
 
-Pour les plugins exécutables externes, prévoir un processus ou conteneur distinct et des limites effectives sur fichiers, réseau, secrets et ressources. Un processus séparé n’est pas une isolation de sécurité à lui seul. Éviter d’installer toutes les dépendances des plugins dans l’environnement Python du serveur.
+## References
 
-Chaque paquet a un responsable, des versions prises en charge, une politique de maintenance et une procédure de retrait. Une vulnérabilité doit pouvoir bloquer les nouvelles installations et identifier les services concernés.
-
-## 7. Ordre de réalisation proposé
-
-1. Valider les objets demande/exécution/service et les contrats des fournisseurs.
-2. Migrer vers PostgreSQL avec reprise des données et essais de concurrence.
-3. Séparer les exécuteurs et éprouver réservation, interruption et reprise sans doublon.
-4. Fournir le kit de tests et un service d’une autre catégorie, sans modification métier du cœur.
-5. Développer la distribution des paquets puis l’isolation nécessaire avant toute ouverture publique.
-
-Les dates, charges, choix de registre et niveau d’ouverture restent à décider. Ces propositions ne remplacent pas les engagements validés du cahier des charges.
-
-## Références
-
-- README.md et docs/COMPLETION_STATUS.md : état et limites du prototype.
-- docs/EXTENSIONS.md et docs/EXECUTION.md : contrats existants.
-- https://www.sqlite.org/whentouse.html : limites et usages de SQLite.
-- https://www.postgresql.org/docs/current/explicit-locking.html : coordination par verrous dans PostgreSQL.
-
-Rédaction assistée par IA, validation humaine attendue.
+- `README.md`, `docs/COMPLETION_STATUS.md`: delivered scope and limitations.
+- `docs/EXTENSIONS.md`, `docs/EXECUTION.md`: existing contracts.
+- https://www.sqlite.org/whentouse.html : SQLite usage boundaries.
+- https://www.postgresql.org/docs/current/explicit-locking.html : PostgreSQL locking primitives.

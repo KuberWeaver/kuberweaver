@@ -16,8 +16,13 @@ import re
 import subprocess
 from xml.etree import ElementTree as ET
 
+try:
+    from .configuration import require_ssh_config, ssh_config
+except ImportError:  # Standalone loading used by provisioning tests.
+    from backend.kuberweaver.configuration import require_ssh_config, ssh_config
+
 ROOT = Path(__file__).resolve().parents[2]
-SSH_CONFIG = Path('/home/ubu/Desktop/infra-platform-lab/ssh_config')
+SSH_CONFIG = ssh_config()
 ALIAS = 'infra-hypervisor'
 PROVIDER_VERSION = '0.9.9'
 ADDRESSES = {'libvirt_domain.vm', 'libvirt_volume.disk'}
@@ -171,11 +176,12 @@ class TofuExecutor:
 
     def _host_trust(self):
         # ssh -G must itself be non-executing: Include/Match exec cannot be audited here.
-        for line in SSH_CONFIG.read_text().splitlines():
+        config = require_ssh_config(SSH_CONFIG)
+        for line in config.read_text().splitlines():
             key = re.split(r'[\s=]+', line.strip(), maxsplit=1)[0].lower() if line.strip() else ''
             if key in {'include', 'match'}:
                 raise ValueError('Dynamic SSH configuration is unsupported')
-        result = self.runner(['ssh', '-G', '-F', str(SSH_CONFIG), '-o', 'BatchMode=yes', ALIAS],
+        result = self.runner(['ssh', '-G', '-F', str(config), '-o', 'BatchMode=yes', ALIAS],
                              capture_output=True, text=True, timeout=15)
         if result.returncode:
             raise ValueError('Cannot inspect effective SSH host trust')

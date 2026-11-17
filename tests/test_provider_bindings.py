@@ -8,6 +8,26 @@ from test_core_graph import api, graph
 from test_core_jobs import login, wait_job, RecordingExecutor, install_executor
 
 
+def wait_idle(app, timeout=15.0):
+    """Wait until the worker releases the queue.
+
+    A job reaches its terminal status inside the engine, a moment before the
+    worker clears its active identity. Provider and extension changes are
+    refused while the queue is busy, so a test that changes either right after
+    a job waits for the worker, not for the job status.
+    """
+    import time as _time
+
+    from kuberweaver.runtime import queue_busy
+
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        if not queue_busy(app):
+            return True
+        _time.sleep(0.02)
+    return False
+
+
 def install_extension(app, identity, code, capabilities):
     directory = app.state.extensions_dir / identity
     directory.mkdir()
@@ -39,6 +59,7 @@ def test_selected_execution_is_approved_pinned_and_uses_real_worker(api):
     assert result['approved_execution_provider']['name'] == 'engine'
     assert result['approved_execution_provider']['provenance']
     # Binding may change when idle; rollback must use the approved provider, not its replacement.
+    assert wait_idle(app)
     assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 200
     assert client.post(f"/api/jobs/{job['id']}/rollback").status_code == 200
     assert wait_job(client, job['id'])['result']['engine'] == 'alternate'
@@ -123,6 +144,7 @@ def test_selected_notification_consumer_sends_and_missing_provider_warns_without
         time.sleep(.01)
     assert [row['event'] for row in records] == ['before_plan', 'after_approval', 'job_started', 'job_finished']
     assert records[-1]['job_id'] == job['id'] and records[-1]['status'] == 'succeeded'
+    assert wait_idle(app)
     assert client.post('/api/extensions/delivery/disable').status_code == 200
     second = client.post('/api/jobs', json={'graph': graph()}).json()
     assert client.post(f"/api/jobs/{second['id']}/approve").status_code == 200
@@ -206,6 +228,7 @@ def test_disabled_selected_execution_blocks_approval_and_rollback_but_not_job_vi
     first = client.post('/api/jobs', json={'graph': graph()}).json()
     assert client.post(f"/api/jobs/{first['id']}/approve").status_code == 200
     assert wait_job(client, first['id'])['status'] == 'succeeded'
+    assert wait_idle(app)
     assert client.post('/api/extensions/removable/disable').status_code == 200
     assert client.get('/api/jobs').status_code == 200
     assert client.get(f"/api/jobs/{first['id']}").json()['can_rollback'] is False

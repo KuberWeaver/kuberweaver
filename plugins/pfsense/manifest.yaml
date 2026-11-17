@@ -1,7 +1,7 @@
 id: pfsense
 name: pfSense
 version: 1.0.0
-description: Planned blueprint; deployment is disabled.
+description: Planned pfSense configuration; deployment is disabled pending a validated adapter and authorized target.
 category: security
 icon: shield
 price_monthly: 15

@@ -24,6 +24,7 @@ import type { User, Plugin, Job } from "./model";
 import { money, date, statuses, mayEdit, canRollback } from "./model";
 import { api } from "./api";
 import { capabilityState } from "./capabilities";
+import { pageHeading } from "./navigation";
 import { DeploymentCost } from "./DeploymentCost";
 import { ProviderConfiguration } from "./ProviderConfiguration";
 import {
@@ -66,33 +67,28 @@ export function Catalogue({
   );
   return (
     <>
-      <PageTitle
-        eyebrow="EXTENSIONS & COMPOSANTS"
-        title="Un catalogue, pas une limite."
-        description="Des capacités déclarées par les plugins. Un formulaire généré depuis chaque schéma."
-      />
+      <PageTitle {...pageHeading("catalogue")} />
       <Notice>
-        Seules les extensions exécutables sur une cible présente dans le
-        laboratoire peuvent être ajoutées au canvas.
+        Only extensions executable on an available target can be added to the canvas.
       </Notice>
       <div className="list-toolbar">
         <div className="search-input">
           <Search size={16} />
           <input
-            aria-label="Rechercher dans le catalogue"
-            placeholder="Rechercher une extension…"
+            aria-label="Search catalogue"
+            placeholder="Search extensions…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
         <label className="inline-label">
-          Catégorie
+          Category
           <select
-            aria-label="Filtrer par catégorie"
+            aria-label="Filter by category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <option value="all">Toutes les catégories</option>
+            <option value="all">All categories</option>
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}
@@ -100,13 +96,18 @@ export function Catalogue({
         </label>
         <button
           className="icon-button"
-          aria-label="Actualiser le catalogue"
+          aria-label="Refresh catalogue"
           onClick={refresh}
         >
           <RefreshCw size={17} />
         </button>
       </div>
-      <ResourceBoundary loading={loading} error={error} retry={refresh}>
+      <ResourceBoundary
+        loading={loading}
+        error={error}
+        retry={refresh}
+        label="Loading catalogue"
+      >
         <div className="catalogue-grid">
           {filtered.map((p) => (
             <article
@@ -119,8 +120,8 @@ export function Catalogue({
                 </span>
                 <Badge tone={p.capability === "live" ? "success" : "neutral"}>
                   {p.capability === "live"
-                    ? "Disponible dans le lab"
-                    : "Planifié"}
+                    ? "Available"
+                    : "Planned"}
                 </Badge>
               </div>
               <span className="eyebrow">{p.category}</span>
@@ -130,21 +131,21 @@ export function Catalogue({
               </h2>
               <p>{p.description}</p>
               <div className="catalogue-meta">
-                <span>{p.engine || "Provider non configuré"}</span>
+                <span>{p.engine || "Provider not configured"}</span>
                 <strong>
                   {money(p.price_monthly)}
-                  <small> / mois</small>
+                  <small> / month</small>
                 </strong>
               </div>
               {p.capability === "planned" && (
                 <div className="planned-note">
                   <LockKeyhole size={13} />
-                  Cible absente du laboratoire · non exécutable
+                  Target unavailable · not executable
                 </div>
               )}
               <div className="catalogue-actions">
                 <button onClick={() => setSelected(p)}>
-                  Manifeste
+                  Manifest
                   <ChevronRight size={14} />
                 </button>
                 <button
@@ -156,15 +157,15 @@ export function Catalogue({
                   }}
                 >
                   <Plus size={15} />
-                  Ajouter
+                  Add
                 </button>
               </div>
             </article>
           ))}
         </div>
         {!filtered.length && (
-          <Empty title="Aucune extension correspondante">
-            Modifiez votre recherche ou actualisez le registre.
+          <Empty title="No matching extensions">
+            Change your search or refresh the registry.
           </Empty>
         )}
       </ResourceBoundary>
@@ -174,22 +175,22 @@ export function Catalogue({
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`Manifeste ${selected.name}`}
+            aria-label={`Manifest ${selected.name}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="panel-title">
               <h2>{selected.name}</h2>
               <button
                 onClick={() => setSelected(null)}
-                aria-label="Fermer le manifeste"
+                aria-label="Close manifest"
               >
-                Fermer
+                Close
               </button>
             </div>
             <p>{selected.description}</p>
-            <Details title="Schéma du formulaire" data={selected.schema} />
+            <Details title="Form schema" data={selected.schema} />
             <Details
-              title="Ressources, sécurité et exécuteur"
+              title="Resources, security and executor"
               data={{
                 resources: selected.resources,
                 security: selected.security,
@@ -243,24 +244,30 @@ function PlanFields({ value, lists = false }: { value: unknown; lists?: boolean 
     .map(([key, item]) => [key, planText(item, lists)] as const).filter(([, item]) => item !== null) : [];
   return fields.length ? <dl className="definition-grid">
     {fields.map(([key, item]) => <div key={key}><dt>{key}</dt><dd>{item}</dd></div>)}
-  </dl> : <p className="muted">Aucun détail lisible disponible.</p>;
+  </dl> : <p className="muted">No readable details available.</p>;
 }
 function PreparedPlanSummary({ plan }: { plan: NonNullable<Job["prepared_plan"]> }) {
-  return <section className="deployment-cost" aria-label="Plan sauvegardé">
-    <h3>Plan sauvegardé</h3>
-    <p className="muted">Préparation uniquement : ce plan n’atteste ni l’exécution ni l’installation d’un système d’exploitation.</p>
-    <p>Empreinte du plan : <code className="mono">{plan.plan_digest}</code></p>
-    <h4>Actions prévues</h4>
+  return <section className="deployment-cost" aria-label="Saved plan">
+    <h3>Saved plan</h3>
+    <p className="muted">Preparation only: this plan does not establish execution or operating system installation.</p>
+    <p>Plan fingerprint: <code className="mono">{plan.plan_digest}</code></p>
+    <h4>Planned actions</h4>
     <ul>{Object.entries(plan.actions).map(([key, action]) => <li key={key}>
       {!Array.isArray(plan.actions) && <strong>{key} : </strong>}
       {planText(action, true) ?? <PlanFields value={action} lists />}
     </li>)}</ul>
-    <h4>Résumé</h4>
+    <h4>Summary</h4>
     <PlanFields value={plan.summary} />
   </section>;
 }
 
-export function Jobs({ user }: { user: User }) {
+export function Jobs({
+  user,
+  onCreate,
+}: {
+  user: User;
+  onCreate?: () => void;
+}) {
   const jobs = useResource<Job[]>("/jobs", 2000);
   const [selected, setSelected] = useState<string | null>(() =>
     sessionStorage.getItem("kuberweaver.job"),
@@ -268,13 +275,11 @@ export function Jobs({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="ORCHESTRATION & GITOPS"
-        title="Déploiements"
-        description="De l’approbation au rollback : chaque étape laisse une trace."
+        {...pageHeading("jobs")}
         actions={
           <button onClick={jobs.refresh}>
             <RefreshCw size={15} />
-            Actualiser
+            Refresh
           </button>
         }
       />
@@ -282,19 +287,25 @@ export function Jobs({ user }: { user: User }) {
         loading={jobs.loading}
         error={jobs.error}
         retry={jobs.refresh}
+        label="Loading deployments"
       >
         {!jobs.data?.length ? (
           <Empty
-            title="Aucun déploiement pour le moment"
+            title="No deployments yet"
             icon={<GitBranch size={28} />}
+            action={
+              onCreate && (
+                <button onClick={onCreate}>Open canvas</button>
+              )
+            }
           >
-            Validez un blueprint sur le canvas puis soumettez-le à approbation.
+            Validate a blueprint on the canvas, then submit it for approval.
           </Empty>
         ) : (
           <div className="jobs-layout">
             <section className="panel jobs-list">
               <div className="panel-title">
-                <h3>Historique des demandes</h3>
+                <h3>Request history</h3>
                 <Badge>{jobs.data.length}</Badge>
               </div>
               {jobs.data.map((j) => (
@@ -324,8 +335,8 @@ export function Jobs({ user }: { user: User }) {
               <JobDetail key={selected} id={selected} user={user} onChange={jobs.refresh} />
             ) : (
               <section className="panel">
-                <Empty title="Sélectionnez une demande">
-                  Consultez ses phases, ses événements et son état GitOps.
+                <Empty title="Select a request">
+                  View its phases, events and GitOps state.
                 </Empty>
               </section>
             )}
@@ -335,7 +346,7 @@ export function Jobs({ user }: { user: User }) {
     </>
   );
 }
-const jobIdentityError = "Réponse incohérente : l’identifiant ne correspond pas à la demande sélectionnée. Actions bloquées.";
+const jobIdentityError = "Inconsistent response: the identifier does not match the selected request. Actions blocked.";
 
 function JobDetail({
   id,
@@ -367,7 +378,7 @@ function JobDetail({
     if (!active.current || !canMutate || r.data?.id !== id || (name === "approve" && approvalBlocked)) return;
     if (
       name === "rollback" &&
-      !window.confirm("Restaurer la version précédente de ce déploiement ?")
+      !window.confirm("Restore the previous version of this deployment?")
     )
       return;
     setBusy(name);
@@ -384,10 +395,10 @@ function JobDetail({
       onChange();
       setMessage(
         name === "approve"
-          ? "Demande approuvée. Suivi du déploiement en cours."
+          ? "Request approved. Tracking deployment progress."
           : name === "reject"
-            ? "Demande refusée."
-            : "Restauration demandée. Suivi en cours.",
+            ? "Request rejected."
+            : "Rollback requested. Tracking progress.",
       );
     } catch (e) {
       if (active.current) setError(errorMessage(e));
@@ -402,38 +413,39 @@ function JobDetail({
         loading={r.loading && !j}
         error={identityError || r.error}
         retry={() => { setError(""); r.setData(null); r.refresh(); }}
+        label="Loading request"
       >
         {j && (
           <>
             <div className="panel-title">
               <div>
-                <div className="eyebrow">DEMANDE {j.id.slice(0, 8)}</div>
-                <h2>{j.name || j.graph?.name || "Déploiement"}</h2>
+                <div className="eyebrow">REQUEST {j.id.slice(0, 8)}</div>
+                <h2>{j.name || j.graph?.name || "Deployment"}</h2>
               </div>
               <JobStatus status={j.status} />
             </div>
             <dl className="definition-grid">
               <div>
-                <dt>Environnement</dt>
+                <dt>Environment</dt>
                 <dd>{j.environment}</dd>
               </div>
               <div>
-                <dt>Demandé par</dt>
+                <dt>Requested by</dt>
                 <dd>{j.created_by}</dd>
               </div>
               <div>
-                <dt>Approbation</dt>
-                <dd>{j.approved_by || "Non approuvé"}</dd>
+                <dt>Approval</dt>
+                <dd>{j.approved_by || "Not approved"}</dd>
               </div>
               <div>
-                <dt>Commit GitOps</dt>
+                <dt>GitOps commit</dt>
                 <dd className="mono">
                   {j.git_commit ? (
                     <span title={j.git_commit}>
                       {j.git_commit.slice(0, 12)}
                     </span>
                   ) : (
-                    "Pas de commit publié"
+                    "No published commit"
                   )}
                 </dd>
               </div>
@@ -456,19 +468,19 @@ function JobDetail({
             )}
             <DeploymentCost cost={j.cost} />
             {preparedPlan && <PreparedPlanSummary plan={preparedPlan} />}
-            {invalidPreparedPlan && <ErrorNotice message="Plan sauvegardé invalide : approbation bloquée." />}
+            {invalidPreparedPlan && <ErrorNotice message="Invalid saved plan: approval blocked." />}
             {j.status === "pending_approval" && approvalBlocked && !invalidPreparedPlan && <ErrorNotice message={j.requires_manual_review
-              ? "Revue manuelle requise : approbation bloquée."
-              : "Plan sauvegardé indisponible : approbation bloquée."} />}
+              ? "Manual review required: approval blocked."
+              : "Saved plan unavailable: approval blocked."} />}
             {j.status === "pending_approval" && (
               <div className="approval-box">
                 <ShieldCheck size={22} />
                 <div>
-                  <strong>Une approbation est requise</strong>
+                  <strong>Approval is required</strong>
                   <p>
                     {user.role === "admin"
-                      ? "Vérifiez le blueprint et les règles avant de poursuivre."
-                      : "Un administrateur doit approuver cette demande."}
+                      ? "Review the blueprint and policies before proceeding."
+                      : "An administrator must approve this request."}
                   </p>
                 </div>
                 {user.role === "admin" && (
@@ -479,7 +491,7 @@ function JobDetail({
                       onClick={() => action("reject")}
                     >
                       <XCircle size={15} />
-                      Refuser
+                      Reject
                     </button>
                     {!approvalBlocked && <button
                       className="primary"
@@ -487,7 +499,7 @@ function JobDetail({
                       onClick={() => action("approve")}
                     >
                       <CheckCircle2 size={15} />
-                      {busy === "approve" ? "Approbation…" : "Approuver"}
+                      {busy === "approve" ? "Approval…" : "Approve"}
                     </button>}
                   </div>
                 )}
@@ -495,11 +507,11 @@ function JobDetail({
             )}
             <h3 className="section-heading">
               <Activity size={16} />
-              Phases observées
+              Observed phases
             </h3>
             {!groups.length ? (
               <p className="muted">
-                Aucune phase exécutée. Les événements apparaîtront ici.
+                No phases executed. Events will appear here.
               </p>
             ) : (
               <div className="execution-phases">
@@ -515,7 +527,7 @@ function JobDetail({
                       </span>
                       <strong>{phase}</strong>
                       <small>
-                        {events.length} événement{events.length > 1 ? "s" : ""}
+                        {events.length} event{events.length > 1 ? "s" : ""}
                       </small>
                     </div>
                   );
@@ -525,21 +537,21 @@ function JobDetail({
             <div className="logs-heading">
               <h3>
                 <Terminal size={16} />
-                Journal d’exécution
+                Execution log
               </h3>
               <span>
                 <Clock size={12} />
-                Actualisation toutes les 2 s
+                Refreshing every 2 s
               </span>
             </div>
             <div
               className="log-console"
               role="log"
-              aria-label="Journal d’exécution"
+              aria-label="Execution log"
             >
               {!j.events?.length ? (
                 <span className="log-empty">
-                  En attente du premier événement…
+                  Waiting for the first event…
                 </span>
               ) : (
                 j.events.map((e, i) => (
@@ -551,18 +563,17 @@ function JobDetail({
                 ))
               )}
             </div>
-            <Details title="Blueprint demandé" data={j.graph} />
+            <Details title="Requested blueprint" data={j.graph} />
             {j.result && (
-              <Details title="Résultat de l’exécution" data={j.result} />
+              <Details title="Execution result" data={j.result} />
             )}{" "}
             {user.role === "admin" &&
               canRollback(j) && (
                 <div className="rollback-box">
                   <div>
-                    <strong>Restaurer l’état précédent</strong>
+                    <strong>Restore previous state</strong>
                     <p>
-                      Le rollback est journalisé et appliqué au périmètre de
-                      cette demande.
+                      Rollback is journaled and scoped to this request.
                     </p>
                   </div>
                   <button
@@ -571,7 +582,7 @@ function JobDetail({
                     onClick={() => action("rollback")}
                   >
                     <RotateCcw size={15} />
-                    {busy === "rollback" ? "Demande…" : "Rollback manuel"}
+                    {busy === "rollback" ? "Requesting…" : "Manual rollback"}
                   </button>
                 </div>
               )}
@@ -621,21 +632,23 @@ export function Infrastructure() {
   return (
     <>
       <PageTitle
-        eyebrow="OBSERVABILITÉ DU LABORATOIRE"
-        title="Infrastructure réelle"
-        description="La topologie GNS3 observée, distincte de l’état désiré de vos blueprints."
+        {...pageHeading("infrastructure")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
-            Actualiser la topologie
+            Refresh topology
           </button>
         }
       />
       <Notice>
-        Lecture seule : cette vue ne crée, ne démarre et ne modifie aucun
-        équipement GNS3.
+        Read only: this view does not create, start or modify GNS3 devices.
       </Notice>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading infrastructure"
+      >
         {data && (
           <>
             <div className="infra-meta panel">
@@ -644,17 +657,17 @@ export function Infrastructure() {
                 <strong>{data.source || "GNS3"}</strong>
               </div>
               <div>
-                <span className="eyebrow">PROJET</span>
+                <span className="eyebrow">PROJECT</span>
                 <strong className="mono">
-                  {data.project_id || "Non configuré"}
+                  {data.project_id || "Not configured"}
                 </strong>
               </div>
               <div>
-                <span className="eyebrow">SERVEUR</span>
-                <strong>{data.server_url || "Non configuré"}</strong>
+                <span className="eyebrow">SERVER</span>
+                <strong>{data.server_url || "Not configured"}</strong>
               </div>
               <Badge>
-                {nodes.length} nœud{nodes.length !== 1 ? "s" : ""}
+                {nodes.length} node{nodes.length !== 1 ? "s" : ""}
               </Badge>
             </div>
             {data.errors?.map((e: any, i: number) => (
@@ -667,17 +680,16 @@ export function Infrastructure() {
             ))}
             {!nodes.length ? (
               <Empty
-                title="Aucun équipement observable"
+                title="No observable devices"
                 icon={<Network size={28} />}
               >
-                Vérifiez la configuration du provider GNS3 et l’accès au projet
-                du laboratoire.
+                Check the GNS3 provider configuration and project access.
               </Empty>
             ) : (
               <>
                 <section
                   className="infra-flow panel"
-                  aria-label="Topologie GNS3"
+                  aria-label="GNS3 topology"
                 >
                   <ReactFlow
                     nodes={nodes}
@@ -696,10 +708,10 @@ export function Infrastructure() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Équipement</th>
+                        <th>Device</th>
                         <th>Type</th>
-                        <th>État observé</th>
-                        <th>Identifiant</th>
+                        <th>Observed state</th>
+                        <th>ID</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -755,12 +767,12 @@ function SettingFields({
               <label htmlFor={id}>{label}</label>
               <small>
                 {Array.isArray(v)
-                  ? "Liste autorisée · une valeur par ligne"
+                  ? "Allowlist · one value per line"
                   : typeof v === "number"
-                    ? "Valeur numérique appliquée côté serveur"
+                    ? "Numeric value enforced by the server"
                     : typeof v === "boolean"
-                      ? "Règle appliquée à la validation des plans"
-                      : "Configuration de la plateforme"}
+                      ? "Rule enforced during plan validation"
+                      : "Platform configuration"}
               </small>
             </div>
             <div>
@@ -785,7 +797,7 @@ function SettingFields({
                       onChange({ ...value, [key]: e.target.checked })
                     }
                   />
-                  {v ? "Activé" : "Désactivé"}
+                  {v ? "Enabled" : "Disabled"}
                 </label>
               ) : typeof v === "object" && v !== null ? (
                 <SettingFields
@@ -862,9 +874,7 @@ export function Governance({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="POLITIQUES DE PLATEFORME"
-        title="Des garde-fous, par défaut."
-        description="Budget, images, exposition réseau et cibles : des règles explicites, contrôlées côté serveur."
+        {...pageHeading("governance")}
         actions={
           user.role === "admin" ? (
             <button
@@ -873,33 +883,38 @@ export function Governance({ user }: { user: User }) {
               onClick={save}
             >
               <Save size={16} />
-              {busy ? "Enregistrement…" : "Enregistrer les règles"}
+              {busy ? "Saving…" : "Save policies"}
             </button>
           ) : undefined
         }
       />
       <Notice>
         {user.role === "admin"
-          ? "Les changements s’appliquent aux prochaines validations. Les listes autorisées sont saisies une valeur par ligne."
-          : "Consultation des règles uniquement. Leur modification est réservée aux administrateurs."}
+          ? "Changes apply to future validations. Enter allowlists with one value per line."
+          : "Policies are read-only. Only administrators can change them."}
       </Notice>
       {error && <ErrorNotice message={error} />}{" "}
       {saved && (
         <div className="notice success" role="status">
           <CheckCircle2 size={17} />
-          Paramètres enregistrés et relus depuis le serveur.
+          Settings saved and read back from the server.
         </div>
       )}
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading policies"
+      >
         {draft && (
           <>
             <section className="panel settings-panel">
               <div className="panel-title">
                 <h2>
                   <ShieldCheck size={19} />
-                  Politiques d’approbation
+                  Approval policies
                 </h2>
-                <Badge>Contrôles serveur</Badge>
+                <Badge>Server controls</Badge>
               </div>
               <SettingFields
                 value={draft.policies || {}}
@@ -914,9 +929,9 @@ export function Governance({ user }: { user: User }) {
               <div className="panel-title">
                 <h2>
                   <ChartNoAxesCombined size={19} />
-                  Tarification du laboratoire
+                  Infrastructure pricing
                 </h2>
-                <Badge>EUR / mois</Badge>
+                <Badge>EUR / month</Badge>
               </div>
               <SettingFields
                 value={draft.pricing || {}}
@@ -940,60 +955,61 @@ export function FinOps() {
   return (
     <>
       <PageTitle
-        eyebrow="COÛTS & OPTIMISATION"
-        title="La visibilité avant la dépense."
-        description="Estimations du laboratoire basées sur les ressources déclarées et les tarifs configurés."
+        {...pageHeading("finops")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
-            Actualiser
+            Refresh
           </button>
         }
       />
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading costs"
+      >
         {d && (
           <>
             <div className="finops-summary">
               <section className="panel">
-                <span className="eyebrow">TOTAL MENSUEL ESTIMÉ</span>
+                <span className="eyebrow">ESTIMATED MONTHLY TOTAL</span>
                 <div className="finops-total">
                   {money(d.monthly_total)}
-                  <small>/ mois</small>
+                  <small>/ month</small>
                 </div>
                 <p className="muted">
-                  Estimation en {d.currency || "EUR"}. Pas une facture
-                  fournisseur.
+                  Estimate in {d.currency || "EUR"}. Not a provider invoice.
                 </p>
               </section>
               <section className="panel">
-                <h3>Un coût compréhensible</h3>
+                <h3>Understandable costs</h3>
                 <p>
-                  Les tarifs sont administrables dans Gouvernance. Les coûts
-                  externes non collectés ne sont pas inclus.
+                  Rates can be managed in Governance. External costs that are not collected are excluded.
                 </p>
                 <div className="notice">
                   <Info size={16} />
-                  Aucune donnée de facturation cloud n’est simulée.
+                  No cloud billing data is simulated.
                 </div>
               </section>
             </div>
             <section className="panel">
               <div className="panel-title">
-                <h2>Répartition des coûts</h2>
+                <h2>Cost breakdown</h2>
                 <Badge>{d.currency || "EUR"}</Badge>
               </div>
               {!d.breakdown?.length ? (
-                <Empty title="Aucun coût à répartir">
-                  Les ressources déployées apparaîtront ici.
+                <Empty title="No costs to allocate">
+                  Deployed resources will appear here.
                 </Empty>
               ) : (
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
-                        <th>Ressource</th>
-                        <th>Quantité</th>
-                        <th>Estimation mensuelle</th>
+                        <th>Resource</th>
+                        <th>Quantity</th>
+                        <th>Monthly estimate</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1005,7 +1021,7 @@ export function FinOps() {
                               row.plugin_id ||
                               row.resource ||
                               row.category ||
-                              `Ressource ${i + 1}`}
+                              `Resource ${i + 1}`}
                           </td>
                           <td>{row.quantity ?? row.count ?? "—"}</td>
                           <td>
@@ -1026,10 +1042,10 @@ export function FinOps() {
               )}
             </section>
             <section className="panel recommendations">
-              <h2>Recommandations</h2>
+              <h2>Recommendations</h2>
               {!d.recommendations?.length ? (
                 <p className="muted">
-                  Aucune recommandation issue des règles à ce stade.
+                  No rule-based recommendations at this time.
                 </p>
               ) : (
                 d.recommendations.map((rec: any, i: number) => (
@@ -1044,15 +1060,14 @@ export function FinOps() {
                       {rec.description && <p>{rec.description}</p>}
                       {rec.savings_monthly != null && (
                         <small>
-                          Économie potentielle : {money(rec.savings_monthly)} /
-                          mois
+                          Potential savings: {money(rec.savings_monthly)} / month
                         </small>
                       )}
                     </div>
                   </div>
                 ))
               )}
-              <Details data={d.pricing} title="Barème de calcul" />
+              <Details data={d.pricing} title="Rate schedule" />
             </section>
           </>
         )}
@@ -1076,12 +1091,10 @@ export function Diagnostics({ user }: { user?: User } = {}) {
   return (
     <>
       <PageTitle
-        eyebrow="ANALYSE EN LECTURE SEULE"
-        title="Diagnostic du laboratoire"
-        description="Des constats expliqués. Aucune remédiation automatique, aucune modification de l’infrastructure."
+        {...pageHeading("diagnostics")}
         actions={
-          <><button onClick={r.refresh} disabled={running}><RefreshCw size={15} />Actualiser le résultat</button>
-          <button onClick={runAnalysis} disabled={running || user?.role === "viewer"}>{running ? "Analyse en cours…" : "Lancer une analyse explicite"}</button></>
+          <><button onClick={r.refresh} disabled={running}><RefreshCw size={15} />Refresh result</button>
+          <button onClick={runAnalysis} disabled={running || user?.role === "viewer"}>{running ? "Analyzing…" : "Run explicit analysis"}</button></>
         }
       />
       <div className="diagnostics-mode panel">
@@ -1089,38 +1102,43 @@ export function Diagnostics({ user }: { user?: User } = {}) {
           <Activity size={22} />
         </span>
         <div>
-          <h3>{d?.mode === "llm" ? "Diagnostic IA" : "Moteur de règles"}</h3>
-          <p>{d?.mode === "llm" ? `Fournisseur : ${d.provider || "llm"} · Modèle : ${d.model || "non communiqué"} · Exécution explicite uniquement.` : "Diagnostic déterministe · Pas de remédiation automatique."}</p>
-          {d?.mode === "llm" && d.status === "not_run" && <p>Aucune analyse IA exécutée. Le chargement de cette page ne déclenche aucun appel modèle.</p>}
-          {d?.generated_at && <small>Résultat produit : {date(d.generated_at)}</small>}
+          <h3>{d?.mode === "llm" ? "AI diagnostics" : "Rules engine"}</h3>
+          <p>{d?.mode === "llm" ? `Provider: ${d.provider || "llm"} · Model: ${d.model || "not provided"} · Explicit execution only.` : "Deterministic diagnostics · No automatic remediation."}</p>
+          {d?.mode === "llm" && d.status === "not_run" && <p>No AI analysis executed. Loading this page does not trigger a model call.</p>}
+          {d?.generated_at && <small>Result produced: {date(d.generated_at)}</small>}
         </div>
-        <Badge>Lecture seule</Badge>
+        <Badge>Read only</Badge>
       </div>
       {runError && <ErrorNotice message={runError} />}
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading diagnostics"
+      >
         {d && (
           <>
             {d.summary && (
               <section className="panel diagnostic-summary">
-                <h3>Synthèse</h3>
+                <h3>Summary</h3>
                 {typeof d.summary === "string" ? (
                   <p>{d.summary}</p>
                 ) : (
-                  <Details data={d.summary} title="Synthèse du fournisseur sélectionné" />
+                  <Details data={d.summary} title="Selected provider summary" />
                 )}
               </section>
             )}
             <section className="panel">
               <div className="panel-title">
-                <h2>Constats</h2>
+                <h2>Findings</h2>
                 <Badge>{d.findings?.length || 0}</Badge>
               </div>
               {!d.findings?.length ? (
                 <Empty
-                  title="Aucun constat remonté"
+                  title="No findings reported"
                   icon={<ShieldCheck size={28} />}
                 >
-                  Aucun constat n’est disponible dans ce résultat. Une analyse non exécutée ne prouve pas l’absence de problème ; aucun diagnostic ne constitue une garantie de sécurité exhaustive.
+                  No findings are available in this result. An analysis that has not run does not prove the absence of problems; no diagnostic is a comprehensive security guarantee.
                 </Empty>
               ) : (
                 d.findings.map((f: any, i: number) => (
@@ -1137,11 +1155,11 @@ export function Diagnostics({ user }: { user?: User } = {}) {
                       >
                         {f.severity || "information"}
                       </Badge>
-                      <h3>{f.title || f.code || "Constat"}</h3>
+                      <h3>{f.title || f.code || "Finding"}</h3>
                     </div>
                     <p>{f.message || f.description}</p>
-                    {f.resource && <small>Ressource : {f.resource}</small>}
-                    {Array.isArray(f.citations) && f.citations.length > 0 && <p className="muted">Sources : {f.citations.map((c: any) => `${c.job_id} / événement ${c.event_id}`).join(", ")}</p>}
+                    {f.resource && <small>Resource: {f.resource}</small>}
+                    {Array.isArray(f.citations) && f.citations.length > 0 && <p className="muted">Sources: {f.citations.map((c: any) => `${c.job_id} / event ${c.event_id}`).join(", ")}</p>}
                     {f.recommendation && (
                       <div className="notice">
                         <Info size={15} />
@@ -1168,13 +1186,11 @@ export function Audit() {
   return (
     <>
       <PageTitle
-        eyebrow="TRAÇABILITÉ"
-        title="Journal d’audit"
-        description="Qui a fait quoi, sur quelle ressource et à quel moment."
+        {...pageHeading("audit")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
-            Actualiser
+            Refresh
           </button>
         }
       />
@@ -1182,17 +1198,22 @@ export function Audit() {
         <div className="search-input">
           <Search size={15} />
           <input
-            aria-label="Rechercher dans l’audit"
-            placeholder="Acteur, action, ressource…"
+            aria-label="Search audit log"
+            placeholder="Actor, action, resource…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
       </div>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading audit events"
+      >
         {!entries.length ? (
-          <Empty title="Aucun événement d’audit">
-            Les opérations de la plateforme seront tracées ici.
+          <Empty title="No audit events">
+            Platform operations will be recorded here.
           </Empty>
         ) : (
           <div className="panel table-wrap">
@@ -1200,9 +1221,9 @@ export function Audit() {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Acteur</th>
+                  <th>Actor</th>
                   <th>Action</th>
-                  <th>Ressource & détail</th>
+                  <th>Resource & detail</th>
                 </tr>
               </thead>
               <tbody>
@@ -1219,7 +1240,7 @@ export function Audit() {
                       <span className="mono">{e.resource || "—"}</span>
                       {e.detail && (
                         <details>
-                          <summary>Détail de l’événement</summary>
+                          <summary>Event detail</summary>
                           <pre>
                             {typeof e.detail === "string"
                               ? e.detail
@@ -1248,9 +1269,7 @@ export function Integrations({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="NOYAU & FOURNISSEURS"
-        title="Une plateforme qui s’étend."
-        description="Les providers relient le noyau aux systèmes externes. Leur état est explicite, jamais supposé."
+        {...pageHeading("integrations")}
         actions={
           <button
             onClick={() => {
@@ -1259,15 +1278,19 @@ export function Integrations({ user }: { user: User }) {
             }}
           >
             <RefreshCw size={15} />
-            Actualiser les états
+            Refresh status
           </button>
         }
       />
       <Notice>
-        Une capacité planifiée ou désactivée n’est pas une connexion active. La
-        configuration des secrets et des endpoints se fait côté serveur.
+        A planned or disabled capability is not an active connection. Secrets and endpoints are configured on the server.
       </Notice>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading integrations"
+      >
         <div className="integrations-grid">
           {r.data?.map((integration: any, i: number) => {
             const state = capabilityState(integration);
@@ -1289,7 +1312,7 @@ export function Integrations({ user }: { user: User }) {
                 <p>
                   {integration.description ||
                     integration.reason ||
-                    "Aucune description fournie par le provider."}
+                    "No description provided by the provider."}
                 </p>
                 {integration.message && <p>{integration.message}</p>}
                 {integration.reason && integration.description && (
@@ -1313,8 +1336,8 @@ export function Integrations({ user }: { user: User }) {
                   )}
                   {integration.enabled !== undefined && (
                     <div>
-                      <dt>Capacité</dt>
-                      <dd>{integration.enabled ? "Activée" : "Désactivée"}</dd>
+                      <dt>Capability</dt>
+                      <dd>{integration.enabled ? "Enabled" : "Disabled"}</dd>
                     </div>
                   )}
                 </dl>
@@ -1323,8 +1346,8 @@ export function Integrations({ user }: { user: User }) {
           })}
         </div>
         {!r.data?.length && (
-          <Empty title="Aucun provider déclaré">
-            Le serveur ne retourne aucune intégration configurée.
+          <Empty title="No providers declared">
+            The server reports no configured integrations.
           </Empty>
         )}
       </ResourceBoundary>
@@ -1333,20 +1356,19 @@ export function Integrations({ user }: { user: User }) {
         <div className="panel-title">
           <h2>
             <Package size={19} />
-            Registre des extensions
+            Extension registry
           </h2>
-          <Badge>Noyau extensible</Badge>
+          <Badge>Extensible core</Badge>
         </div>
         <p className="muted">
-          L’activation des extensions définit les capacités disponibles dans ce
-          portail.
+          Extension activation determines the capabilities available in this portal.
         </p>
         {extensions.loading ? (
           <Spinner />
         ) : extensions.error ? (
           <div className="notice">
             <Info size={17} />
-            <span>État du registre non disponible. {extensions.error}</span>
+            <span>Registry status unavailable. {extensions.error}</span>
           </div>
         ) : Array.isArray(registry) && registry.length ? (
           <div className="extension-list">
@@ -1368,10 +1390,10 @@ export function Integrations({ user }: { user: User }) {
             ))}
           </div>
         ) : (
-          <p className="muted">Aucune extension optionnelle installée. Les providers du noyau restent déclarés ci-dessous.</p>
+          <p className="muted">No optional extensions installed. Core providers are still listed below.</p>
         )}
         {extensions.data?.config_errors?.map((err: unknown, i: number) => <ErrorNotice key={i} message={typeof err === 'string' ? err : JSON.stringify(err)}/>)}
-        {extensions.data?.providers?.length > 0 && <Details data={extensions.data.providers} title="Providers enregistrés dans le noyau"/>}
+        {extensions.data?.providers?.length > 0 && <Details data={extensions.data.providers} title="Providers registered in the core"/>}
       </section>
     </>
   );

@@ -1,71 +1,71 @@
-KuberWeaver, note de cadrage
+KuberWeaver project brief
 
-KUBERWEAVER  /  NOTE DE CADRAGE
+KUBERWEAVER  /  PROJECT BRIEF
 
-Déployer sans improviser
+Deploy without guesswork
 
-EFREI Paris · Proposition à valider · Rédaction assistée par IA
+EFREI Paris · Proposal subject to approval · AI-assisted writing
 
-Une plateforme interne pour demander un service informatique,le faire approuver et vérifier son déploiement.
+An internal platform to request an IT service, obtain approval and verify its deployment.
 
-01  Le besoin
+01  The need
 
-Installer un serveur ou modifier un environnement mobilise souvent plusieurs outils et des procédures manuelles. KuberWeaver vise à transformer les procédures validées de l’organisation en services réutilisables, accessibles depuis un même portail.
+Installing a server or changing an environment often involves several tools and manual procedures. KuberWeaver turns reviewed organizational procedures into reusable services available through one portal.
 
-02  Pour qui, et pour quoi ?
+02  Who is it for?
 
-L’opérateur prépare une demande. L’administrateur contrôle les droits, les règles et le coût estimé avant d’autoriser l’exécution. Le lecteur consulte les résultats. Objectif : moins de répétitions, des responsabilités claires et une trace de chaque changement.
+Operators prepare requests. Administrators check permissions, policy and estimated cost before authorizing execution. Viewers inspect results. The aim is less repetition, clear responsibilities and a record of each change.
 
-03  De la demande au résultat
+03  From request to result
 
-Composer
+Compose
 
-Choisir un service dans le catalogue et renseigner ses paramètres.
+Choose a catalogue service and enter its parameters.
 
-Contrôler
+Check
 
-Vérifier les règles et afficher une estimation du coût.
+Validate policy and display an estimated cost.
 
-Approuver
+Approve
 
-Faire examiner le plan par un administrateur avant exécution.
+Have an administrator review the exact plan before execution.
 
-Déployer
+Deploy
 
-Sauvegarder, tester sur une première cible, puis poursuivre.
+Back up, test on a first target, then continue where supported.
 
-Vérifier
+Verify
 
-Contrôler le service obtenu et conserver les preuves du résultat.
+Check the resulting service and retain evidence of the outcome.
 
-Si une vérification échoue : tenter de restaurer l’état précédent. Si le rétablissement reste incertain, demander une intervention humaine.
+If verification fails, attempt service-appropriate recovery only where supported. Uncertain recovery requires human intervention; create-only provisioning is not universal rollback.
 
-KUBERWEAVER  /  NOTE DE CADRAGE
+KUBERWEAVER  /  PROJECT BRIEF
 
-Un périmètre maîtrisé
+A controlled scope
 
-EFREI Paris · Proposition à valider · Rédaction assistée par IA
+EFREI Paris · Proposal subject to approval · AI-assisted writing
 
-04  Le point de départ
+04  The evidence baseline
 
-Un prototype existe. Le compte rendu des essais du 6 novembre 2026 rapporte des déploiements réels de NGINX et Apache, deux serveurs web, dans un laboratoire virtualisé, avec approbation, contrôles et retour à la version précédente. Ce n’est pas encore une plateforme prête pour la production.
+The historical report dated 6 November 2026 records real NGINX and Apache web-server deployments in a virtualized lab, including approval, checks and previous-version restoration. These results are historical evidence, not a new acceptance run or production certification.
 
-05  La suite proposée
+05  Proposed next work
 
-Consolider ce parcours, puis ajouter une catégorie de service différente pour éprouver la modularité. Les extensions, appelées plugins en anglais, servent à ajouter des capacités sans réécrire le cœur de la plateforme.La création de machines virtuelles, les équipements réseau Cisco et pfSense, ainsi que les services d’infrastructure en ligne restent à valider sur des cibles réelles. Ils ne doivent pas être présentés comme acquis.
+Consolidate this workflow and add a different service category to exercise modularity. Plugins add capabilities without rewriting the platform core.  VM provisioning follows separate contracts: OVF import is create-only; blank-disk paths retain their documented blockers. Local tests do not prove guest OS or SSH startup. Cisco, pfSense and cloud integrations still require real-target acceptance.
 
-06  Les limites à garder visibles
+06  Limits that remain visible
 
-Le coût affiché est une estimation interne, pas une facture. Un schéma de dépendances ne configure pas le réseau. Malgré son nom, le prototype ne pilote pas Kubernetes, un outil de gestion de conteneurs.Un agent d’intelligence artificielle externe peut utiliser la plateforme avec des droits limités, accordés par un administrateur. Aucun modèle d’IA intégré n’est nécessaire. L’agent reste soumis aux mêmes contrôles d’accès et d’approbation que le portail.
+Displayed cost is an internal estimate, not an invoice. Dependency edges do not configure networks. Despite its name, KuberWeaver does not orchestrate Kubernetes.  An external AI agent may use the platform with limited rights explicitly delegated by an administrator. No embedded AI model is required. Agents remain subject to the same access and approval controls as portal users.
 
-07  Comment juger la réussite ?
+07  How success is assessed
 
-La démonstration devra montrer : une demande interdite bloquée ; un service approuvé réellement accessible ; un échec suivi d’une restauration vérifiée ; l’ajout d’un nouveau service sans modification du cœur. Les livrables attendus sont le prototype, sa procédure d’installation et les preuves de ces essais.
+Acceptance must show a forbidden request blocked, an approved service actually available, independently verified recovery where supported, and a new service added without core business changes. Deliverables include the platform, installation procedures and evidence of these checks.
 
-08  Les décisions à prendre
+08  Decisions still required
 
-Choisir le prochain service, confirmer la répartition des tâches et des validations, puis fixer le calendrier et les moyens disponibles. Ces engagements restent à confirmer.
+Choose the next service, confirm task and review responsibilities, then agree dates and available resources. These commitments require human approval.
 
-Repère de vocabulaire : « rollback » est le terme anglais pour « retour à l’état précédent ». Cette note privilégie les équivalents français.
+Rollback means returning to a previous state where supported; it is not a guarantee that every provider can undo every change.
 
-Sources : vision initiale, README et docs/COMPLETION_STATUS.md du projet.État rapporté par ces documents, sans nouveaux essais techniques pour cette note.
+Sources: original vision, project README and docs/COMPLETION_STATUS.md. Reported evidence only; no new technical acceptance tests were run for this brief.
