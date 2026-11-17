@@ -1,7 +1,7 @@
 {
   "iteration": 15,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T12:33:47+01:00",
+  "updated_at": "2026-11-17T12:46:28+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -14,7 +14,8 @@
       "check": "tests",
       "recorded_at": "2026-11-17",
       "detail": "ci failing, logs inaccessible: the repository is private and this host has no GitHub token, so the failing job's output cannot be read. The exact commit passes the same commands locally: backend suite 1608 passed, 2 skipped; frontend tsc, 290 tests and build green; secret scan and git diff --check clean.",
-      "hypothesis": "not reproduced: a fresh state dir without PYTHONPATH, the PostgreSQL fixtures on a fresh schema, the frontend suite and the production build all pass on this commit. The remaining candidates are the recorded queue_busy worker race or a runner-specific step such as the frontend install or the Playwright Chromium download, not a locally reproducible defect. No code change is attempted blind."
+      "hypothesis": "not reproduced: a fresh state dir without PYTHONPATH, the PostgreSQL fixtures on a fresh schema, the frontend suite and the production build all pass on this commit. The remaining candidates are the recorded queue_busy worker race or a runner-specific step such as the frontend install or the Playwright Chromium download, not a locally reproducible defect. No code change is attempted blind.",
+      "resolution": "68eae37 carries the same tree plus this STATE note and its 'tests' check is satisfied (the main rejection lists only the pull-request rule), so the failure was not reproducible in CI either and required no code change"
     }
   ],
   "tasks": [
