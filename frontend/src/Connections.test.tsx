@@ -423,7 +423,11 @@ it.each([false, true])("branche la navigation Connections et son icône Server s
   const nav = await screen.findByRole("navigation", { name: "Main navigation" });
   const button = within(nav).getByRole("button", { name: "Connections" });
   expect(button.querySelector("svg.lucide-server")).toBeTruthy();
-  expect(within(nav).getByRole("button", { name: "Governance" }).classList.contains("nav-separated")).toBe(true);
+  const operate = within(nav).getByText("Operate").closest(".nav-group");
+  expect(operate && within(operate as HTMLElement).getByRole("button", { name: "Connections" })).toBeTruthy();
+  expect(within(nav).getByText("Govern")).toBeTruthy();
+  expect(within(nav).queryByRole("button", { name: "Agent access" })).toBeNull();
+  expect(within(nav).queryByRole("button", { name: "Operations" })).toBeNull();
   if (!direct) fireEvent.click(button);
   expect(await screen.findByRole("heading", { name: "Hypervisor connections" })).toBeTruthy();
   await screen.findByRole("heading", { name: connection.label });

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, ErrorNotice, LoadingState, errorMessage, useResource } from "./ui";
 
 type Descriptor = { kind: string; name: string; available?: boolean; status?: string; description?: string };
 type ProviderConfig = { bindings: Record<string, string>; available: Descriptor[]; errors: unknown[] };
@@ -61,7 +61,7 @@ export function ProviderConfiguration({ user }: { user: User }) {
     <p className="muted">Select registered implementations by capability. Changing a binding does not grant trust or activate extensions. Enabling Python code remains a separate, explicit trust decision.</p>
     {error && <ErrorNotice message={error} />}
     {saved && <p className="notice success" role="status">Bindings saved and verified from the server.</p>}
-    {resource.loading ? <Spinner /> : resource.error || !config ? <p className="notice" role="status">Provider configuration unavailable. {resource.error || "Unsupported server response."}</p> : <>
+    {resource.loading ? <LoadingState label="Loading provider configuration" /> : resource.error || !config ? <p className="notice" role="status">Provider configuration unavailable. {resource.error || "Unsupported server response."}</p> : <>
       {config.errors.map((value, index) => <p className="notice error" role="alert" key={index}>{describeError(value)}</p>)}
       {!Object.keys(config.bindings).length && <p className="muted">No capabilities declared by the server.</p>}
       {Object.entries(config.bindings).map(([kind, current]) => {

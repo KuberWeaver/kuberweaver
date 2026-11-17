@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Jobs } from "./pages";
 import { emptyGraph, money } from "./model";
 
@@ -43,4 +43,13 @@ it.each([
   loadJob(overrides);
   await screen.findByRole("region", { name: "Internal deployment estimate" });
   expect(screen.queryByRole("button", { name: "Manual rollback" })).toBeNull();
+});
+
+it("offers a way back to the canvas from an empty deployment list", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })));
+  let opened = 0;
+  render(<Jobs user={admin} onCreate={() => { opened += 1; }} />);
+  expect(await screen.findByText("No deployments yet")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Open canvas" }));
+  expect(opened).toBe(1);
 });

@@ -18,9 +18,10 @@ import {
   X,
   ArrowRight,
   LockKeyhole,
-  ChevronDown,
+  Bot,
   Command,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, setCsrf, ApiError } from "./api";
 import type { User, Plugin } from "./model";
 import { Canvas } from "./Canvas";
@@ -38,23 +39,30 @@ import {
   Audit,
   Integrations,
 } from "./pages";
-import { ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Empty, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
-const nav = [
-  { id: "canvas", label: "Canvas", icon: LayoutDashboard },
-  { id: "catalogue", label: "Catalogue", icon: Package },
-  { id: "jobs", label: "Deployments", icon: Play },
-  { id: "infrastructure", label: "Infrastructure", icon: Network },
-  { id: "keys", label: "Keys", icon: LockKeyhole },
-  { id: "connections", label: "Connections", icon: Server },
-  { id: "governance", label: "Governance", icon: ShieldCheck },
-  { id: "finops", label: "FinOps", icon: ChartNoAxesCombined },
-  { id: "diagnostics", label: "Diagnostic", icon: Stethoscope },
-  { id: "audit", label: "Audit", icon: History },
-  { id: "integrations", label: "Integrations", icon: Blocks },
-  { id: "operations", label: "Operations", icon: Command },
-  { id: "agents", label: "Agent access", icon: LockKeyhole },
-];
+import {
+  defaultPageId,
+  navigationFor,
+  pageFor,
+} from "./navigation";
+import type { PageId } from "./navigation";
+
+const pageIcons: Record<PageId, LucideIcon> = {
+  canvas: LayoutDashboard,
+  catalogue: Package,
+  jobs: Play,
+  infrastructure: Network,
+  connections: Server,
+  keys: LockKeyhole,
+  governance: ShieldCheck,
+  finops: ChartNoAxesCombined,
+  diagnostics: Stethoscope,
+  audit: History,
+  integrations: Blocks,
+  operations: Command,
+  agents: Bot,
+};
 export function App() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -157,7 +165,7 @@ function Login({
       <aside className="login-story">
         <Brand />
         <div className="login-message">
-          <div className="eyebrow">FROM INTENT TO INFRASTRUCTURE</div>
+          <div className="eyebrow">INFRASTRUCTURE WORKSPACE</div>
           <h1>
             Compose.
             <br />
@@ -166,9 +174,9 @@ function Login({
             <span>Deploy.</span>
           </h1>
           <p>
-            A small core. Explicit extensions.
+            Blueprints, policies and deployments
             <br />
-            Your infrastructure, under control.
+            in one auditable workspace.
           </p>
           <div className="login-diagram">
             <div>
@@ -246,18 +254,18 @@ function BoxMark() {
 }
 function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [page, setPage] = useState(
-      () => window.location.hash.slice(1) || "canvas",
+      () => window.location.hash.slice(1) || defaultPageId,
     ),
     [drawer, setDrawer] = useState(false),
     [logoutError, setLogoutError] = useState(""),
     [loggingOut, setLoggingOut] = useState(false);
   const plugins = useResource<Plugin[]>("/plugins");
   useEffect(() => {
-    const sync = () => setPage(window.location.hash.slice(1) || "canvas");
+    const sync = () => setPage(window.location.hash.slice(1) || defaultPageId);
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
-  const navigate = (id: string) => {
+  const navigate = (id: PageId) => {
     setPage(id);
     window.location.hash = id;
     setDrawer(false);
@@ -273,7 +281,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
       setLoggingOut(false);
     }
   }
-  const current = nav.find((n) => n.id === page) || nav[0];
+  const current = pageFor(page);
   return (
     <div className="shell">
       {drawer && (
@@ -294,28 +302,25 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
             <X size={20} />
           </button>
         </div>
-        <div className="workspace-switch">
-          <span className="workspace-avatar">W</span>
-          <div>
-            Workspace<small>Infrastructure workspace</small>
-          </div>
-          <ChevronDown size={14} />
-        </div>
-        <div className="nav-caption">PLATFORM</div>
         <nav aria-label="Main navigation">
-          {nav.map((n) => (
-            <button
-              key={n.id}
-              className={`${page === n.id ? "active" : ""} ${n.id === "governance" ? "nav-separated" : ""}`}
-              onClick={() => navigate(n.id)}
-              aria-current={page === n.id ? "page" : undefined}
-            >
-              <n.icon size={18} />
-              {n.label}
-              {n.id === "integrations" && (
-                <span className="nav-submark">+</span>
-              )}
-            </button>
+          {navigationFor(user.role).map((group) => (
+            <div className="nav-group" key={group.id}>
+              <div className="nav-caption">{group.label}</div>
+              {group.pages.map((item) => {
+                const Icon = pageIcons[item.id];
+                return (
+                  <button
+                    key={item.id}
+                    className={page === item.id ? "active" : ""}
+                    onClick={() => navigate(item.id)}
+                    aria-current={page === item.id ? "page" : undefined}
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -361,7 +366,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
             </button>
             <span className="breadcrumb-home">Platform</span>
             <span className="breadcrumb-slash">/</span>
-            <strong>{current.label}</strong>
+            <strong>{current?.label || "Page not found"}</strong>
           </div>
           <div className="topbar-right">
             <ThemeToggle />
@@ -392,7 +397,9 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
               onCanvas={() => navigate("canvas")}
             />
           )}
-          {page === "jobs" && <Jobs user={user} />}
+          {page === "jobs" && (
+            <Jobs user={user} onCreate={() => navigate("canvas")} />
+          )}
           {page === "infrastructure" && <Infrastructure />}
           {page === "keys" && <Keys user={user} />}
           {page === "connections" && <Connections user={user} />}
@@ -403,12 +410,19 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
           {page === "integrations" && <Integrations user={user} />}
           {page === "operations" && <Operations user={user} />}
           {page === "agents" && <AgentAccess user={user} />}
-          {!nav.some((n) => n.id === page) && (
+          {!current && (
             <div className="panel">
-              Page not found.{" "}
-              <button onClick={() => navigate("canvas")}>
-                Return to canvas
-              </button>
+              <Empty
+                title="Page not found"
+                icon={<Blocks size={27} />}
+                action={
+                  <button onClick={() => navigate(defaultPageId)}>
+                    Return to canvas
+                  </button>
+                }
+              >
+                The address does not match any portal page.
+              </Empty>
             </div>
           )}
         </main>

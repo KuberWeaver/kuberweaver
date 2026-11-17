@@ -41,6 +41,7 @@ import {
 } from "./model";
 import { api } from "./api";
 import { DiscoverySchemaFields } from "./DiscoverySchemaFields";
+import { pageHeading } from "./navigation";
 import {
   Badge,
   ErrorNotice,
@@ -325,9 +326,7 @@ export function Canvas({
   return (
     <>
       <PageTitle
-        eyebrow="INFRASTRUCTURE DESIGN"
-        title="Your infrastructure starts here."
-        description="Compose a blueprint. Validate policies. Review before deployment."
+        {...pageHeading("canvas")}
         actions={
           <>
             <button onClick={() => setBlueprintsOpen((v) => !v)}>

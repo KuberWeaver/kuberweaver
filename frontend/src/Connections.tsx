@@ -3,7 +3,8 @@ import type { FormEvent } from "react";
 import { Server, RefreshCw } from "lucide-react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, Empty, ErrorNotice, PageTitle, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, Empty, ErrorNotice, LoadingState, PageTitle, errorMessage, useResource } from "./ui";
+import { pageHeading } from "./navigation";
 
 type Driver = { id: string; label: string; available: boolean };
 type SecretSource = { id: string; available: boolean; can_store: boolean; references: string[] };
@@ -301,14 +302,14 @@ export function Connections({ user }: { user: User }) {
     } finally { password = null; lock.current = false; setBusy(false); }
   }
   return <>
-    <PageTitle title="Hypervisor connections" description="Connection references and explicit observations of your hypervisors." actions={<>
+    <PageTitle {...pageHeading("connections")} actions={<>
       <button disabled={busy} onClick={() => { setCredentialsFor(""); setEditor(null); setError(""); setNotice(""); resource.refresh(); drivers.refresh(); }}><RefreshCw size={15} /> Refresh connections</button>
       {user.role === "admin" && connections && registry && !resource.loading && !drivers.loading && <button className="primary" disabled={busy} onClick={() => { setCredentialsFor(""); setEditor("new"); setError(""); setNotice(""); }}>New connection</button>}
     </>} />
     <p className="notice">A vault reference does not establish valid credentials. No automatic tests or discovery.</p>
     {error && <ErrorNotice message={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}
-    {resource.loading || drivers.loading ? <Spinner /> : resource.error || drivers.error || !connections || !registry ? <ErrorNotice message={resource.error || drivers.error || "Unsupported server response."} /> : <>
+    {resource.loading || drivers.loading ? <LoadingState label="Loading connections" /> : resource.error || drivers.error || !connections || !registry ? <ErrorNotice message={resource.error || drivers.error || "Unsupported server response."} /> : <>
       {editor && user.role === "admin" && <ConnectionForm key={editor === "new" ? "new" : `${editor.id}:${editor.revision}`} registry={registry} initial={editor === "new" ? undefined : editor} busy={busy} onSave={(spec) => save(spec, editor === "new" ? undefined : editor)} onCancel={() => setEditor(null)} />}
       <section className="panel" aria-label="Saved connections">
         <div className="panel-title"><h2><Server size={18} /> Saved connections</h2></div>

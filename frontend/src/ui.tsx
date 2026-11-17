@@ -56,6 +56,24 @@ export function Spinner() {
     </span>
   );
 }
+export function LoadingState({ label = "Loading content" }: { label?: string }) {
+  return (
+    <div
+      className="loading-state panel"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={label}
+    >
+      <Spinner />
+      <div className="skeleton-rows" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
 export function ErrorNotice({
   message,
   retry,
@@ -88,16 +106,21 @@ export function Empty({
   title,
   children,
   icon = <Package size={27} />,
+  action,
 }: {
   title: string;
   children?: ReactNode;
   icon?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="empty">
       <div className="empty-icon">{icon}</div>
       <h3>{title}</h3>
-      <div>{children}</div>
+      <div>
+        {children}
+        {action && <div className="empty-actions">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -181,13 +204,15 @@ export function ResourceBoundary({
   error,
   retry,
   children,
+  label,
 }: {
   loading: boolean;
   error: string;
   retry: () => void;
   children: ReactNode;
+  label?: string;
 }) {
-  if (loading) return <Spinner />;
+  if (loading) return <LoadingState label={label} />;
   if (error) return <ErrorNotice message={error} retry={retry} />;
   return <>{children}</>;
 }

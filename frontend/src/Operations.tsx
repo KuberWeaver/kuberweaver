@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, Empty, ErrorNotice, LoadingState, PageTitle, errorMessage, useResource } from "./ui";
+import { pageHeading } from "./navigation";
 
 type Capability = { id: string; label: string; kind: string; provider: string; configured: boolean; selected: boolean; status: string; config_file: string };
 type Snapshot = { schema_version: number; capabilities: Capability[] };
@@ -42,11 +43,12 @@ function AdministrativeOperations() {
     finally { setBusy(false); }
   }
   return <>
-    <div className="page-heading"><div><h1>Operations and integrations</h1><p className="muted">Actual capabilities, explicit configuration and controlled recovery.</p></div></div>
+    <PageTitle {...pageHeading("operations")} />
     {error && <ErrorNotice message={error} />}
     {result && <p className="notice" role="status">{result}</p>}
-    {resource.loading ? <Spinner /> : resource.error || !valid ? <ErrorNotice message={resource.error || "Unsupported server response."} /> : <section className="panel settings-panel">
+    {resource.loading ? <LoadingState label="Loading operations" /> : resource.error || !valid ? <ErrorNotice message={resource.error || "Unsupported server response."} /> : <section className="panel settings-panel">
       <div className="panel-title"><h2>Capability status</h2><button disabled={busy} onClick={() => resource.refresh()}>Refresh</button></div>
+      {!data.capabilities.length && <Empty title="No capabilities reported">The server returned an empty capability list.</Empty>}
       {data.capabilities.map((row) => <div className="setting-row" key={row.id}>
         <div><strong>{row.label}</strong><small>{row.kind} / {row.provider}</small></div>
         <div><Badge tone={row.configured ? "success" : "warning"}>{row.configured ? row.selected ? "Configured and selected" : "Configured, not selected" : "Configuration required"}</Badge><small>Administrator configuration: <code>{row.config_file}</code></small></div>

@@ -24,6 +24,7 @@ import type { User, Plugin, Job } from "./model";
 import { money, date, statuses, mayEdit, canRollback } from "./model";
 import { api } from "./api";
 import { capabilityState } from "./capabilities";
+import { pageHeading } from "./navigation";
 import { DeploymentCost } from "./DeploymentCost";
 import { ProviderConfiguration } from "./ProviderConfiguration";
 import {
@@ -66,11 +67,7 @@ export function Catalogue({
   );
   return (
     <>
-      <PageTitle
-        eyebrow="EXTENSIONS & COMPONENTS"
-        title="A catalogue, not a limit."
-        description="Plugin-declared capabilities. A form generated from each schema."
-      />
+      <PageTitle {...pageHeading("catalogue")} />
       <Notice>
         Only extensions executable on an available target can be added to the canvas.
       </Notice>
@@ -105,7 +102,12 @@ export function Catalogue({
           <RefreshCw size={17} />
         </button>
       </div>
-      <ResourceBoundary loading={loading} error={error} retry={refresh}>
+      <ResourceBoundary
+        loading={loading}
+        error={error}
+        retry={refresh}
+        label="Loading catalogue"
+      >
         <div className="catalogue-grid">
           {filtered.map((p) => (
             <article
@@ -259,7 +261,13 @@ function PreparedPlanSummary({ plan }: { plan: NonNullable<Job["prepared_plan"]>
   </section>;
 }
 
-export function Jobs({ user }: { user: User }) {
+export function Jobs({
+  user,
+  onCreate,
+}: {
+  user: User;
+  onCreate?: () => void;
+}) {
   const jobs = useResource<Job[]>("/jobs", 2000);
   const [selected, setSelected] = useState<string | null>(() =>
     sessionStorage.getItem("kuberweaver.job"),
@@ -267,9 +275,7 @@ export function Jobs({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="ORCHESTRATION & GITOPS"
-        title="Deployments"
-        description="From approval to rollback: every step leaves an audit trail."
+        {...pageHeading("jobs")}
         actions={
           <button onClick={jobs.refresh}>
             <RefreshCw size={15} />
@@ -281,11 +287,17 @@ export function Jobs({ user }: { user: User }) {
         loading={jobs.loading}
         error={jobs.error}
         retry={jobs.refresh}
+        label="Loading deployments"
       >
         {!jobs.data?.length ? (
           <Empty
             title="No deployments yet"
             icon={<GitBranch size={28} />}
+            action={
+              onCreate && (
+                <button onClick={onCreate}>Open canvas</button>
+              )
+            }
           >
             Validate a blueprint on the canvas, then submit it for approval.
           </Empty>
@@ -401,6 +413,7 @@ function JobDetail({
         loading={r.loading && !j}
         error={identityError || r.error}
         retry={() => { setError(""); r.setData(null); r.refresh(); }}
+        label="Loading request"
       >
         {j && (
           <>
@@ -619,9 +632,7 @@ export function Infrastructure() {
   return (
     <>
       <PageTitle
-        eyebrow="INFRASTRUCTURE OBSERVABILITY"
-        title="Observed infrastructure"
-        description="Observed GNS3 topology, distinct from the desired state in your blueprints."
+        {...pageHeading("infrastructure")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
@@ -632,7 +643,12 @@ export function Infrastructure() {
       <Notice>
         Read only: this view does not create, start or modify GNS3 devices.
       </Notice>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading infrastructure"
+      >
         {data && (
           <>
             <div className="infra-meta panel">
@@ -858,9 +874,7 @@ export function Governance({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="PLATFORM POLICIES"
-        title="Guardrails by default."
-        description="Budget, images, network exposure and targets: explicit rules enforced by the server."
+        {...pageHeading("governance")}
         actions={
           user.role === "admin" ? (
             <button
@@ -886,7 +900,12 @@ export function Governance({ user }: { user: User }) {
           Settings saved and read back from the server.
         </div>
       )}
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading policies"
+      >
         {draft && (
           <>
             <section className="panel settings-panel">
@@ -936,9 +955,7 @@ export function FinOps() {
   return (
     <>
       <PageTitle
-        eyebrow="COSTS & OPTIMIZATION"
-        title="Visibility before spending."
-        description="Estimates based on declared resources and configured rates."
+        {...pageHeading("finops")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
@@ -946,7 +963,12 @@ export function FinOps() {
           </button>
         }
       />
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading costs"
+      >
         {d && (
           <>
             <div className="finops-summary">
@@ -1069,9 +1091,7 @@ export function Diagnostics({ user }: { user?: User } = {}) {
   return (
     <>
       <PageTitle
-        eyebrow="READ-ONLY ANALYSIS"
-        title="Infrastructure diagnostics"
-        description="Explained findings. No automatic remediation or infrastructure changes."
+        {...pageHeading("diagnostics")}
         actions={
           <><button onClick={r.refresh} disabled={running}><RefreshCw size={15} />Refresh result</button>
           <button onClick={runAnalysis} disabled={running || user?.role === "viewer"}>{running ? "Analyzing…" : "Run explicit analysis"}</button></>
@@ -1090,7 +1110,12 @@ export function Diagnostics({ user }: { user?: User } = {}) {
         <Badge>Read only</Badge>
       </div>
       {runError && <ErrorNotice message={runError} />}
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading diagnostics"
+      >
         {d && (
           <>
             {d.summary && (
@@ -1161,9 +1186,7 @@ export function Audit() {
   return (
     <>
       <PageTitle
-        eyebrow="AUDIT TRAIL"
-        title="Audit log"
-        description="Who did what, on which resource and when."
+        {...pageHeading("audit")}
         actions={
           <button onClick={r.refresh}>
             <RefreshCw size={15} />
@@ -1182,7 +1205,12 @@ export function Audit() {
           />
         </div>
       </div>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading audit events"
+      >
         {!entries.length ? (
           <Empty title="No audit events">
             Platform operations will be recorded here.
@@ -1241,9 +1269,7 @@ export function Integrations({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="CORE & PROVIDERS"
-        title="An extensible platform."
-        description="Providers connect the core to external systems. Their status is explicit, never assumed."
+        {...pageHeading("integrations")}
         actions={
           <button
             onClick={() => {
@@ -1259,7 +1285,12 @@ export function Integrations({ user }: { user: User }) {
       <Notice>
         A planned or disabled capability is not an active connection. Secrets and endpoints are configured on the server.
       </Notice>
-      <ResourceBoundary loading={r.loading} error={r.error} retry={r.refresh}>
+      <ResourceBoundary
+        loading={r.loading}
+        error={r.error}
+        retry={r.refresh}
+        label="Loading integrations"
+      >
         <div className="integrations-grid">
           {r.data?.map((integration: any, i: number) => {
             const state = capabilityState(integration);

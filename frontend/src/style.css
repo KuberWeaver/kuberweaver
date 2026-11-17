@@ -416,47 +416,28 @@
     line-height: 2.2;
     font-weight: 500;
   }
-  .workspace-switch {
-    margin: 0 16px 25px;
-    padding: 11px 10px;
-    border: 1px solid var(--sidebar-border-strong);
-    border-radius: 7px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--on-dark-muted);
-  }
-  .workspace-switch > div {
-    flex: 1;
-  }
-  .workspace-switch small {
-    display: block;
-    color: var(--on-dark-faint);
-    font-size: 9px;
-    font-weight: 400;
-  }
-  .workspace-avatar {
-    width: 29px;
-    height: 30px;
-    border-radius: 5px;
-    background: var(--sidebar-raised);
-    display: grid;
-    place-items: center;
-    color: var(--on-dark-muted);
-  }
   .nav-caption {
     font-size: 8px;
     letter-spacing: 1.6px;
+    text-transform: uppercase;
     color: var(--on-dark-faint);
-    margin: 0 26px 9px;
+    margin: 0 14px 6px;
   }
   .sidebar nav {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 0 12px;
+    padding: 0 12px 6px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .nav-group + .nav-group {
+    margin-top: 14px;
   }
   .sidebar nav button {
     padding: 10px 13px;
@@ -481,24 +462,6 @@
   }
   .sidebar nav button.active svg {
     color: var(--accent-on-dark);
-  }
-  .sidebar nav button.nav-separated {
-    margin-top: 19px;
-    position: relative;
-  }
-  .nav-separated:before {
-    content: "";
-    position: absolute;
-    top: -12px;
-    left: 10px;
-    right: 10px;
-    height: 1px;
-    background: var(--sidebar-border);
-  }
-  .nav-submark {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--on-dark-faint);
   }
   .sidebar-bottom {
     margin-top: auto;
@@ -762,6 +725,32 @@
     border-color: var(--success-border);
     color: var(--success-text);
   }
+  .loading-state {
+    display: grid;
+    gap: 12px;
+    padding: 24px;
+  }
+  .loading-state .loading {
+    justify-content: flex-start;
+    padding: 0;
+  }
+  .skeleton-rows {
+    display: grid;
+    gap: 9px;
+  }
+  .skeleton-rows span {
+    display: block;
+    height: 9px;
+    border-radius: 4px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-subtle);
+  }
+  .skeleton-rows span:nth-child(2) {
+    width: 72%;
+  }
+  .skeleton-rows span:nth-child(3) {
+    width: 46%;
+  }
   .empty {
     padding: 55px 20px;
     text-align: center;
@@ -784,6 +773,12 @@
   .empty > div:last-child {
     max-width: 450px;
     margin: auto;
+  }
+  .empty-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
   }
   .plugin-icon {
     width: 34px;
@@ -2479,10 +2474,6 @@
   }
   .brand {
     font-size: 18px;
-  }
-  .workspace-switch {
-    margin-left: 12px;
-    margin-right: 12px;
   }
   .page {
     padding: 25px 22px 17px;

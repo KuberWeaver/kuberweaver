@@ -5,7 +5,9 @@ import { date } from "./model";
 import type { User } from "./model";
 import { generateKey, readKey, readKeys } from "./sshKeys";
 import type { SshKey } from "./sshKeys";
-import { Badge, ErrorNotice, PageTitle, Spinner, errorMessage } from "./ui";
+import { Badge, Empty, ErrorNotice, LoadingState, PageTitle, errorMessage } from "./ui";
+import { pageHeading } from "./navigation";
+import { KeyRound } from "lucide-react";
 
 export function GenerateKey({ onGenerated, disabled = false }: { onGenerated: (key: SshKey, keys: SshKey[]) => void; disabled?: boolean }) {
   const [name, setName] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -76,7 +78,7 @@ function KeyUsage({ id }: { id: string }) {
     return () => { active = false; };
   }, [id]);
   if (error) return <ErrorNotice message={error} />;
-  if (!key) return <Spinner />;
+  if (!key) return <LoadingState label="Loading key usage" />;
   return <div><h3>Usage: {key.name}</h3>{key.usage === undefined ? <p>Usage information is not available.</p> : <pre>{JSON.stringify(key.usage, null, 2)}</pre>}</div>;
 }
 export function Keys({ user }: { user: User }) {
@@ -103,11 +105,11 @@ export function Keys({ user }: { user: User }) {
     finally { if (active.current) setBusy(""); }
   }
   return <>
-    <PageTitle title="SSH Keys" description="Generate and manage Ed25519 keys for guest access." actions={<button disabled={!!busy || loading} onClick={() => { setExportTarget(null); setUsage(""); setRevision((v) => v + 1); }}>Refresh keys</button>} />
+    <PageTitle {...pageHeading("keys")} actions={<button disabled={!!busy || loading} onClick={() => { setExportTarget(null); setUsage(""); setRevision((v) => v + 1); }}>Refresh keys</button>} />
     <p className="notice">Disabling a key prevents new selection. It does not remove authorized_keys entries on existing guests or revoke copies already exported.</p>
     {user.role === "admin" && <GenerateKey disabled={loading || !!busy} onGenerated={(_key, rows) => { setKeys(rows); setError(""); }} />}
     {error && <ErrorNotice message={error} />}
-    {loading ? <Spinner /> : !error && !keys.length ? <p>No SSH keys yet.</p> : <div className="table-wrap panel"><table>
+    {loading ? <LoadingState label="Loading SSH keys" /> : !error && !keys.length ? <Empty title="No SSH keys yet." icon={<KeyRound size={27} />}>Generate a key to give guests access without sharing a password.</Empty> : <div className="table-wrap panel"><table>
       <thead><tr><th>Name</th><th>Fingerprint / public key</th><th>Status</th><th>Created</th><th>Usage / actions</th></tr></thead>
       <tbody>{keys.map((key) => <tr key={key.id}>
         <td>{key.name}<small>{key.algorithm}</small></td><td><code>{key.fingerprint}</code><pre>{key.public_key}</pre></td>

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { User } from "./model";
 import { api } from "./api";
-import { Badge, ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { Badge, Empty, ErrorNotice, LoadingState, PageTitle, errorMessage, useResource } from "./ui";
+import { pageHeading } from "./navigation";
 
 type Metadata = { id: string; label: string; role: string; scopes: string[]; expires_at: string | number; revoked_at: string | number | null };
 type Registry = { tokens: Metadata[]; available_scopes: string[]; role_scopes: Record<string, string[]> };
@@ -63,11 +64,11 @@ function Administration() {
     finally { setBusy(false); }
   }
   return <>
-    <div className="page-heading"><div><h1>Agent access</h1><p className="muted">Control KuberWeaver from Hermes or any API/MCP-compatible agent without sharing a human account.</p></div></div>
+    <PageTitle {...pageHeading("agents")} />
     {error && <ErrorNotice message={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}
     {token && <section className="panel" aria-label="One-time token display"><h2>Save in a private file</h2><p>This secret grants access to authorized operations. Never paste it into a conversation, blueprint or Git.</p><code style={{ overflowWrap: "anywhere" }}>{token}</code><div><button onClick={() => setToken("")}>Hide token</button></div></section>}
-    {resource.loading ? <Spinner /> : !registry || resource.error ? <ErrorNotice message={resource.error || "Agent registry unavailable."} /> : <>
+    {resource.loading ? <LoadingState label="Loading agent access" /> : !registry || resource.error ? <ErrorNotice message={resource.error || "Agent registry unavailable."} /> : <>
       <section className="panel settings-panel"><h2>Create limited access</h2>
         <div className="setting-row"><label htmlFor="agent-label">Agent name</label><input id="agent-label" value={label} maxLength={80} disabled={busy} onChange={(e) => setLabel(e.target.value)} /></div>
         <div className="setting-row"><label htmlFor="agent-role">Maximum role</label><select id="agent-role" value={role} disabled={busy} onChange={(e) => { setRole(e.target.value); setScopes([]); }}><option value="viewer">Viewer</option><option value="operator">Operator</option><option value="admin">Administrator, explicit delegation</option></select></div>
@@ -77,7 +78,7 @@ function Administration() {
         <button className="primary" disabled={busy || !label.trim() || !scopes.length || !Number.isFinite(Number(hours)) || Number(hours) < 1 || Number(hours) > 720} onClick={create}>Create agent access</button>
       </section>
       <section className="panel"><div className="panel-title"><h2>Existing access</h2><button disabled={busy} onClick={() => resource.refresh()}>Refresh</button></div>
-        {!registry.tokens.length && <p className="muted">No agent access issued.</p>}
+        {!registry.tokens.length && <Empty title="No agent access issued">Tokens you create appear here. The secret is shown once at creation.</Empty>}
         {registry.tokens.map((item) => <div className="setting-row" key={item.id}><div><strong>{item.label}</strong><small>{item.role} · {item.scopes.join(", ")}</small><small>Expires: {formatExpiry(item.expires_at)}</small></div><div><Badge tone={item.revoked_at ? "warning" : "info"}>{item.revoked_at ? "Revoked" : "Not revoked"}</Badge><button disabled={busy || !!item.revoked_at} onClick={() => revoke(item.id)}>Revoke {item.label}</button></div></div>)}
       </section>
     </>}
