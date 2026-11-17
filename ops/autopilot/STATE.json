@@ -1,7 +1,7 @@
 {
-  "iteration": 7,
+  "iteration": 8,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T04:09:41",
+  "updated_at": "2026-11-17T05:01:35",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -97,9 +97,9 @@
       "title": "OIDC-ready authentication",
       "detail": "Add a provider abstraction so an external identity provider (Authentik, Keycloak, Entra) can be configured without touching the login path; disabled by default.",
       "acceptance": "Tests cover disabled provider, discovery failure, and successful claim mapping with a stub.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "oidc.py owns the optional provider: KUBERWEAVER_OIDC_ISSUER enables it, a partial or invalid configuration is reported as configuration_error without breaking password login, and discovery/JWKS are cached for 300s. GET /api/auth/oidc/start stores a single-use attempt (10 min, 1024 entries) with nonce and S256 PKCE, sets a SameSite=Lax kw_oidc state cookie and redirects; the callback requires that cookie to match state (login CSRF), exchanges the code with client_secret_post, verifies JWKS signature with an allowlisted algorithm, iss/aud/exp/iat, nonce and at_hash, then signs in only an existing local account: unknown accounts and accounts already bound to another subject are refused, first sign-in binds (issuer,sub) with a SHA-256 id, and the local role stays authoritative. New idempotent table oidc_identities registered in the PostgreSQL DDL translator; PyJWT pinned in requirements. docs/OIDC.md plus README, CONFIGURATION, IMPLEMENTATION and CHANGELOG updates. 14 tests cover the disabled default with working password login, incomplete configuration, discovery failure and issuer mismatch, full claim mapping with a stub (PKCE params, state cookie flags, binding, subject-wins over a renamed claim), unknown and already-linked accounts, state replay and cross-browser callback refusal, wrong nonce/audience/expiry/unsigned/foreign-key tokens, access-token hash, token endpoint refusal and no audit row for random states; suite 1445 passed, 2 skipped, no queue_busy failure on this run. Frontend login page not touched (API-only iteration)."
     },
     {
       "id": "C1",

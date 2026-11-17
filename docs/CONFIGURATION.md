@@ -22,6 +22,10 @@ Existing database and MCP settings keep their documented behaviour:
 `KUBERWEAVER_MCP_BASE_URL` and `KUBERWEAVER_MCP_TOKEN_FILE`. See
 [PostgreSQL](POSTGRESQL.md) and [MCP](MCP.md).
 
+The optional single sign-on provider is configured by its own
+`KUBERWEAVER_OIDC_*` variables, documented in [single sign-on](OIDC.md). They
+are read only by that provider and are unset in the default installation.
+
 ## Input rules
 
 - An explicit path must be absolute. A relative value is refused with

@@ -18,6 +18,7 @@ from .configuration import frontend_dir as configured_frontend_dir
 from .configuration import plugins_dir as configured_plugins_dir
 from .configuration import state_dir as configured_state_dir
 from .login_throttle import LoginThrottle
+from .oidc import OidcConfigurationError, OidcProvider, install_oidc
 from .sessions import SESSION_COOKIE, Sessions
 from .users import UserStore, install_users
 
@@ -30,19 +31,19 @@ class Login(BaseModel):
 
 def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                plugins_dir: Path | str | None = None, frontend_dir: Path | str | None = None,
-               executor=None):
+               executor=None, oidc_http=None):
     state_dir = Path(state_dir or configured_state_dir())
     store = Store(state_dir, exclusive=not testing)
     try:
         return _create_app(store, state_dir, testing, plugins_dir=plugins_dir,
-                           frontend_dir=frontend_dir, executor=executor)
+                           frontend_dir=frontend_dir, executor=executor, oidc_http=oidc_http)
     except BaseException:
         if store.backend == 'postgresql':
             store.conn.close()
         raise
 
 
-def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executor):
+def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executor, oidc_http=None):
     agent_tokens = AgentTokens(store)
 
     @asynccontextmanager
@@ -94,6 +95,12 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     app.state.state_dir = state_dir
     app.state.testing = testing
     app.state.request_count = 0
+    try:
+        app.state.oidc = OidcProvider.from_environment(store, app.state.users, http=oidc_http)
+    except OidcConfigurationError as error:
+        # A typo in an optional provider must not brick local password sign-in;
+        # the status endpoint reports the refusal and every OIDC route answers 503.
+        app.state.oidc = OidcProvider(None, store, app.state.users, http=oidc_http, detail=str(error))
 
     @app.middleware('http')
     async def security_boundary(request, call_next):
@@ -184,6 +191,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     app.state.role_dependency = role
     install_agent_tokens(app)
     install_users(app)
+    install_oidc(app)
 
     @app.post('/api/auth/login')
     def login(data: Login, request: Request, response: Response):

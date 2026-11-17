@@ -26,6 +26,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Argon2id password storage, a documented strength policy, administrator-managed accounts with fixed roles, and single-use bootstrap credentials that are retired when an account rotates its password; see `docs/USERS.md`.
 - Session hardening with an HttpOnly `SameSite=Strict` `kw_session` cookie, an 8-hour absolute deadline derived from the token issue time, a 30-minute idle deadline refreshed on use, login that replaces a presented session, and a per-session CSRF token; see `docs/SESSIONS.md`.
 - In-place rotation of agent tokens (`POST /api/agent-tokens/{id}/rotate`), which replaces the secret without changing the identity, role, scopes or expiry, and a per-request audit row for every authenticated machine call; see `docs/AGENT_ACCESS.md`.
+- Optional OpenID Connect sign-in behind `KUBERWEAVER_OIDC_ISSUER`, disabled by default: discovery, S256 PKCE, single-use state and nonce, JWKS signature checks, and binding of an external subject to an existing local account whose role stays authoritative; see `docs/OIDC.md`.
 
 ### Security
 
