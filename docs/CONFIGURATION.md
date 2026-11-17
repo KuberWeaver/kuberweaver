@@ -17,6 +17,8 @@ differs from the checkout layout selects its paths with the variables below.
 | `KUBERWEAVER_FRONTEND_DIR` | `<checkout>/frontend/dist` | No | Built portal assets. When absent, the API still runs and asset requests return 404. |
 | `KUBERWEAVER_SSH_CONFIG` | `~/.ssh/config` | For execution and OpenTofu runs | OpenSSH client configuration holding the aliases `infra-app`, `infra-branch-client` and `infra-hypervisor`. |
 | `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS` | empty | No | Comma-separated origins allowed to be embedded by the external dashboard registry. Empty refuses every embed. |
+| `KUBERWEAVER_DASHBOARD_PROBE_SECONDS` | `300` | No | Interval of the read-only dashboard health sweep. `0` disables the loop; otherwise 1 to 86400 seconds. |
+| `KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT` | `5` | No | Per-probe timeout, between 0.5 and 30 seconds. |
 
 Existing database and MCP settings keep their documented behaviour:
 `KUBERWEAVER_DATABASE_URL_FILE`, `KUBERWEAVER_DATABASE_URL`,
@@ -28,9 +30,12 @@ The optional single sign-on provider is configured by its own
 are read only by that provider and are unset in the default installation.
 
 The optional dashboard registry reads `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`,
-documented in [external dashboards](DASHBOARDS.md). It is a comma-separated
-origin allowlist, empty by default, which is why embedding is refused until an
-operator names the origins they trust.
+`KUBERWEAVER_DASHBOARD_PROBE_SECONDS` and
+`KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT`, documented in
+[external dashboards](DASHBOARDS.md). The origin allowlist is empty by default,
+which is why embedding is refused until an operator names the origins they
+trust; the probe interval and timeout decide how often, and how long, the
+registry observes each enabled record.
 
 ## Input rules
 

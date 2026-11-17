@@ -1,7 +1,7 @@
 """Registry of external observability dashboards; KuberWeaver renders none of them.
 
 A record is a bookmark with enough structure for the portal to link to the tool
-and for a later read-only probe to reach a health endpoint on the same origin.
+and for the read-only probe to reach a health endpoint on the same origin.
 Nothing here stores credentials, scrapes a dashboard or proxies its data. The
 embed flag records that the operator asked for embedding; the embed page frames
 the recorded URL only when that origin is on the deployment allowlist, and
@@ -22,6 +22,8 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .configuration import ConfigurationError
+from .dashboard_health import (DISABLED, DRIFT_STATUSES, INTERVAL_VARIABLE, PROBE_STATUSES, UNKNOWN,
+                               DashboardProbeLoop, probe_dashboard, probe_settings)
 from .storage import now
 
 Kind = Literal['grafana', 'uptime-kuma', 'prometheus', 'netdata', 'custom']
@@ -84,6 +86,13 @@ def _embed_refusal(record):
     if not record['enabled']:
         return 'the record is disabled'
     return 'its origin is not on the deployment allowlist'
+
+
+def _health_view(status, *, observed_at=None, http_status=None, latency_ms=None,
+                 detail=None, drift=False):
+    """The status column has one shape whether or not an observation exists."""
+    return {'status': status, 'observed_at': observed_at, 'http_status': http_status,
+            'latency_ms': latency_ms, 'detail': detail, 'drift': bool(drift)}
 
 
 def origin_of(url):
@@ -189,12 +198,16 @@ _BASE_FIELDS = tuple(DashboardSpec.model_fields)
 
 
 class Dashboards:
-    def __init__(self, app, *, embed_origins=(), embed_error=None):
+    def __init__(self, app, *, embed_origins=(), embed_error=None, probe=None, fetch=None):
         self.app = app
         self.store = app.state.store
         self.embed_origins = tuple(embed_origins)
         self.embed_error = embed_error
+        self.probe_policy = probe or probe_settings()
+        self.fetch = fetch
         self.store.execute('CREATE TABLE IF NOT EXISTS dashboards(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
+        self.store.execute('CREATE TABLE IF NOT EXISTS dashboard_health('
+                           'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL)')
 
     def _stored(self, identity):
         if not isinstance(identity, str) or not re.fullmatch(r'[0-9a-f]{32}', identity):
@@ -204,23 +217,68 @@ class Dashboards:
             raise HTTPException(404, 'Unknown dashboard')
         return json.loads(row['body'])
 
-    def present(self, record):
+    def _probe_url(self, record):
+        """A probe never leaves the registered origin; the path is validated on write."""
+        return origin_of(record['url']) + (record['health_path']
+                                           or DEFAULT_HEALTH_PATHS[record['kind']])
+
+    def _health_row(self, identity):
+        row = self.store.one('SELECT body FROM dashboard_health WHERE dashboard_id=?', (identity,))
+        if row is None:
+            return None
+        try:
+            return json.loads(row['body'])
+        except (TypeError, ValueError):
+            return None
+
+    def _health(self, record, stored):
+        if not record['enabled']:
+            return _health_view(DISABLED, detail='the record is disabled and is not probed')
+        if stored is None:
+            return _health_view(UNKNOWN, detail='the record has not been probed yet')
+        if stored.get('probe_url') != self._probe_url(record):
+            # An observation of a previous URL would describe a different tool.
+            return _health_view(UNKNOWN, observed_at=stored.get('observed_at'),
+                                detail='the record changed since the last observation')
+        state = stored.get('status')
+        if state not in PROBE_STATUSES:
+            state = UNKNOWN
+        return _health_view(state, observed_at=stored.get('observed_at'),
+                            http_status=stored.get('http_status'),
+                            latency_ms=stored.get('latency_ms'),
+                            detail=stored.get('detail'), drift=state in DRIFT_STATUSES)
+
+    def present(self, record, health=None):
         url = record['url']
         origin = origin_of(url)
         return {**record, 'origin': origin,
                 'probe_path': record['health_path'] or DEFAULT_HEALTH_PATHS[record['kind']],
-                'embeddable': bool(record['embed']) and origin in self.embed_origins}
+                'embeddable': bool(record['embed']) and origin in self.embed_origins,
+                'health': health if health is not None else self._health(
+                    record, self._health_row(record['id']))}
 
     def get(self, identity):
         return self.present(self._stored(identity))
 
     def list(self):
-        return [self.present(json.loads(row['body']))
-                for row in self.store.all('SELECT body FROM dashboards ORDER BY rowid DESC')]
+        stored = {}
+        for row in self.store.all('SELECT dashboard_id, body FROM dashboard_health'):
+            try:
+                stored[row['dashboard_id']] = json.loads(row['body'])
+            except (TypeError, ValueError):
+                continue
+        records = []
+        for row in self.store.all('SELECT body FROM dashboards ORDER BY rowid DESC'):
+            record = json.loads(row['body'])
+            records.append(self.present(record, self._health(record, stored.get(record['id']))))
+        return records
 
     def collection(self):
         return {'dashboards': self.list(), 'embed_origins': list(self.embed_origins),
-                'embed_error': self.embed_error}
+                'embed_error': self.embed_error,
+                'probe': {'interval_seconds': self.probe_policy.interval,
+                          'timeout_seconds': self.probe_policy.timeout,
+                          'error': self.probe_policy.error}}
 
     def embed(self, identity):
         record = self.present(self._stored(identity))
@@ -234,6 +292,51 @@ class Dashboards:
                          source=record['origin'] if framed else "'none'"),
                      'X-Frame-Options': 'SAMEORIGIN',
                      'Cache-Control': 'no-store'})
+
+    def _observe(self, record):
+        probe_url = self._probe_url(record)
+        outcome = probe_dashboard(probe_url, record['kind'], timeout=self.probe_policy.timeout,
+                                  fetch=self.fetch)
+        return {**outcome, 'observed_at': now(), 'probe_url': probe_url,
+                'revision': record['revision']}
+
+    def _write_health(self, identity, observation, actor=None):
+        """Store one observation only while its record still exists."""
+        with self.store.lock:
+            if self.store.one('SELECT 1 AS present FROM dashboards WHERE id=?',
+                              (identity,)) is None:
+                return False
+            self.store.execute('INSERT OR REPLACE INTO dashboard_health(dashboard_id, body) '
+                               'VALUES(?,?)', (identity, json.dumps(observation)))
+            if actor is not None:
+                self.store.audit(actor['username'], 'dashboard.probed', identity,
+                                 {'status': observation['status'],
+                                  'http_status': observation['http_status']})
+            return True
+
+    def probe(self, identity, actor=None):
+        """Observe one enabled record now; the registry itself is left untouched."""
+        record = self._stored(identity)
+        if not record['enabled']:
+            raise HTTPException(409, 'A disabled dashboard is not probed')
+        observation = self._observe(record)
+        if not self._write_health(record['id'], observation, actor):
+            raise HTTPException(404, 'Unknown dashboard')
+        return self.get(identity)
+
+    def probe_enabled(self):
+        """One sweep over enabled records; a failed record is recorded, never fixed."""
+        probed = 0
+        for row in self.store.all('SELECT body FROM dashboards'):
+            try:
+                record = json.loads(row['body'])
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(record, dict) or record.get('enabled') is not True:
+                continue
+            observation = self._observe(record)
+            probed += int(self._write_health(record['id'], observation))
+        return probed
 
     def _checked(self, spec):
         value = DashboardSpec.model_validate(spec).model_dump()
@@ -282,6 +385,7 @@ class Dashboards:
             current = self._stored(identity)
             if revision != current['revision']:
                 raise HTTPException(409, 'Dashboard revision changed')
+            self.store.execute('DELETE FROM dashboard_health WHERE dashboard_id=?', (identity,))
             self.store.execute('DELETE FROM dashboards WHERE id=?', (identity,))
             if self.store.one('SELECT 1 AS present FROM dashboards WHERE id=?', (identity,)) is not None:
                 raise HTTPException(503, 'Dashboard deletion could not be confirmed')
@@ -299,8 +403,16 @@ def install_dashboards_api(app):
         embed_origins, embed_error = configured_embed_origins(), None
     except ConfigurationError as error:
         embed_origins, embed_error = (), str(error)
+    probe_policy = probe_settings()
     service = app.state.dashboards = Dashboards(app, embed_origins=embed_origins,
-                                                embed_error=embed_error)
+                                                embed_error=embed_error, probe=probe_policy)
+    loop = app.state.dashboard_probe_loop = DashboardProbeLoop(service.probe_enabled,
+                                                               interval=probe_policy.interval)
+    # The default test suite must not open sockets. A test that exercises the
+    # periodic loop opts in by naming an interval explicitly.
+    if probe_policy.interval and (not getattr(app.state, 'testing', False)
+                                  or os.environ.get(INTERVAL_VARIABLE)):
+        app.state.background_services.append(loop)
     original_count = len(app.router.routes)
 
     @app.get('/api/dashboards')
@@ -314,6 +426,10 @@ def install_dashboards_api(app):
     @app.get('/api/dashboards/{identity}/embed', response_class=HTMLResponse)
     def embed(identity: str, current=Depends(app.state.user_dependency)):
         return service.embed(identity)
+
+    @app.post('/api/dashboards/{identity}/probe')
+    def probe(identity: str, current=Depends(app.state.role_dependency('admin'))):
+        return service.probe(identity, current)
 
     @app.post('/api/dashboards', status_code=201)
     def create(data: DashboardSpec, current=Depends(app.state.role_dependency('admin'))):

@@ -1,7 +1,7 @@
 {
-  "iteration": 12,
+  "iteration": 13,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T08:44:16+01:00",
+  "updated_at": "2026-11-17T09:38:49+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -123,9 +123,9 @@
       "title": "Integration health and drift",
       "detail": "Periodic read-only probe of each integration, stored result, surfaced as a status column, never auto-remediated.",
       "acceptance": "Tests cover healthy, unreachable and malformed responses.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboard_health.py probes each enabled dashboard with one GET on origin+probe_path: no cookie, bearer token, client certificate or redirect, TLS verified, 64 KiB body cap, 5 s default timeout, 300 s default interval. Observations live in dashboard_health(dashboard_id, body), one row per record and no history, tied to the measured probe URL: label/embed edits keep the column, URL/kind/health_path edits turn it back to unknown, deletion removes it. Reads expose health {status, observed_at, http_status, latency_ms, detail, drift}; statuses are healthy, unhealthy, unreachable, malformed, unknown and disabled, drift is true only for the three failure states, and detail is a fixed explanation rather than response content. POST /api/dashboards/{id}/probe is administrator-only (agent scope configure), refuses a disabled record with 409 and is the only probe path that audits dashboard.probed; the loop writes no audit row and never edits the registry. KUBERWEAVER_DASHBOARD_PROBE_SECONDS (0 disables, 1..86400, default 300) and KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT (0.5..30, default 5) are reported in collection.probe with a non-fatal error; a testing app starts the loop only when the interval is named explicitly. PostgreSQL registers dashboard_health. docs/DASHBOARDS.md has the health section; 30 tests cover healthy, unhealthy, unreachable, timeout, malformed per kind, redirect, disabled, stale probe URL, restart persistence, deletion, audit split, roles and agent scope, settings, loop repetition and failure isolation, and the transport request shape."
     },
     {
       "id": "E1",

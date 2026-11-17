@@ -15,9 +15,17 @@ def spec(**changes):
             'health_path': None, 'embed': False, 'enabled': True, **changes}
 
 
+UNKNOWN_HEALTH = {'status': 'unknown', 'observed_at': None, 'http_status': None,
+                  'latency_ms': None, 'detail': 'the record has not been probed yet',
+                  'drift': False}
+PROBE = {'interval_seconds': 300.0, 'timeout_seconds': 5.0, 'error': None}
+
+
 def make_app(path, monkeypatch, origins=None, name='state'):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
+    monkeypatch.delenv('KUBERWEAVER_DASHBOARD_PROBE_SECONDS', raising=False)
+    monkeypatch.delenv('KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT', raising=False)
     if origins is None:
         monkeypatch.delenv('KUBERWEAVER_DASHBOARD_EMBED_ORIGINS', raising=False)
     else:
@@ -62,10 +70,10 @@ def test_create_read_list_and_restart_persist_the_record(platform, tmp_path, mon
     assert record == {**spec(), 'id': record['id'], 'revision': 1,
                       'created_at': record['created_at'], 'created_by': 'admin',
                       'origin': 'http://grafana.lab:3000', 'probe_path': '/api/health',
-                      'embeddable': False}
+                      'embeddable': False, 'health': UNKNOWN_HEALTH}
     assert client.get('/api/dashboards/' + record['id']).json() == record
     assert client.get('/api/dashboards').json() == {'dashboards': [record], 'embed_origins': [],
-                                                    'embed_error': None}
+                                                    'embed_error': None, 'probe': PROBE}
     stored = json.loads(app.state.store.one('SELECT body FROM dashboards WHERE id=?',
                                             (record['id'],))['body'])
     assert stored == {**spec(), 'id': record['id'], 'revision': 1,
@@ -155,7 +163,8 @@ def test_embedding_accepts_an_allowlisted_origin(tmp_path, monkeypatch):
         assert record['origin'] == 'https://grafana.lab'
         assert record['embeddable'] is True
         assert client.get('/api/dashboards').json() == {
-            'dashboards': [record], 'embed_origins': ['https://grafana.lab'], 'embed_error': None}
+            'dashboards': [record], 'embed_origins': ['https://grafana.lab'],
+            'embed_error': None, 'probe': PROBE}
         for url in ('http://grafana.lab/d/abc', 'https://grafana.lab:8443/d/abc',
                     'https://other.lab/d/abc'):
             refused = client.post('/api/dashboards', json=spec(url=url, embed=True))

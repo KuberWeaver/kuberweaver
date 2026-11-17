@@ -31,6 +31,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - A single page registry drives the grouped sidebar, breadcrumbs, page headings and role gating, with named loading states, empty states and a `Page not found` fallback; see `docs/NAVIGATION.md`.
 - External dashboard registry: Grafana, Uptime Kuma, Prometheus, Netdata and custom links with a kind, a default health probe path and an optional embed flag that is accepted only for an origin on `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`; see `docs/DASHBOARDS.md`.
 - Embed page for a registered dashboard (`GET /api/dashboards/{id}/embed`): it frames the recorded URL only for an enabled record on the origin allowlist, with `frame-src` derived from that one origin, `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`; otherwise it serves the deep link with `frame-src 'none'` and states the reason. Every other response keeps `frame-ancestors 'none'`.
+- Read-only dashboard health probe: every enabled record is observed once per interval on its own origin and probe path, with no credential, no redirect and a 64 KiB budget; the result is stored in `dashboard_health` and surfaced as a `health` status column (`healthy`, `unhealthy`, `unreachable`, `malformed`, `unknown`, `disabled`) with a `drift` flag, an administrator-only `POST /api/dashboards/{id}/probe`, and no automatic remediation; see `docs/DASHBOARDS.md`.
 
 ### Security
 

@@ -182,6 +182,8 @@ def required_scope(method, path):
     if ((method == 'POST' and path == '/api/dashboards')
             or (method in ('PATCH', 'DELETE') and re.fullmatch(dashboard, path))):
         return 'configure'
+    if method == 'POST' and re.fullmatch(dashboard + r'/probe', path):
+        return 'configure'
     if method == 'GET':
         reads = {
             '/api/jobs': 'read:jobs', '/api/plugins': 'read:catalog', '/openapi.json': 'read:catalog',
