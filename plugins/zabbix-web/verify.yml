@@ -1,0 +1,51 @@
+---
+- name: Verify the zabbix-web brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the Apache unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'apache2']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Probe the login page
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.listen_port }}/"
+        status_code: 200
+        return_content: true
+      register: kw_probe
+      failed_when: false
+
+    - name: Inspect the generated configuration
+      ansible.builtin.stat:
+        path: /etc/zabbix/web/zabbix.conf.php
+      register: kw_config_file
+
+    - name: Record the assertions
+      ansible.builtin.set_fact:
+        kw_checks:
+          service-active: "{{ kw_unit.stdout | default('') | trim == 'active' }}"
+          http-200: "{{ kw_probe.status | default(0) == 200 }}"
+          login-form: "{{ 'name=\"password\"' in (kw_probe.content | default('')) and 'Zabbix' in (kw_probe.content | default('')) }}"
+          config-present: "{{ kw_config_file.stat.exists }}"
+
+    - name: Fail when an assertion is not met
+      ansible.builtin.assert:
+        that:
+          - kw_checks['service-active'] | bool
+          - kw_checks['http-200'] | bool
+          - kw_checks['login-form'] | bool
+          - kw_checks['config-present'] | bool
+        fail_msg: "zabbix-web verification failed: {{ kw_checks }}"
+        quiet: true
+
+    - name: Persist the verification report
+      ansible.builtin.copy:
+        content: "{{ {'brick': 'zabbix-web', 'assertions': kw_checks} | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

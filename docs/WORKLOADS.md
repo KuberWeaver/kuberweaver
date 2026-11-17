@@ -98,8 +98,8 @@ portal; it takes the UUID, address, key and configuration on the command line.
 
 ## Limitations
 
-- One brick per job. A multi-brick stack needs dependencies the plan contract
-  does not model yet.
+- One brick per job. A multi-brick stack is a preset of dependency-ordered
+  one-brick jobs; see [PRESETS.md](PRESETS.md).
 - No manual rollback policy for a succeeded brick; the brick's own rollback
   covers a failed apply or verify.
 - No removal route in the portal. The brick declares `remove`; the CLI drives it.

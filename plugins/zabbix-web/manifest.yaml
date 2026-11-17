@@ -1,0 +1,89 @@
+id: zabbix-web
+name: Zabbix web frontend on a guest
+version: 1.0.0
+description: Zabbix web interface brick for an existing Ubuntu guest, wrapping the pinned community.zabbix.zabbix_web role over Apache and PHP.
+category: monitoring
+kind: workload
+capability: live
+engine: ansible
+executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
+requires: compute.vm
+data_class: config
+implementation:
+  role: community.zabbix.zabbix_web
+  version: 4.2.0
+  license: GPL-3.0
+  source: https://github.com/ansible-collections/community.zabbix
+  reason: Maintained collection role that installs the official Zabbix frontend, Apache, PHP and the vhost in one reviewed unit.
+schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_uuid
+  - ssh_key_id
+  - server_host
+  - database_handoff
+  properties:
+    target_uuid:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
+    server_host:
+      type: string
+      pattern: ^[A-Za-z0-9.-]{1,253}$
+    database_handoff:
+      type: string
+      pattern: ^/[A-Za-z0-9._/-]{1,200}$
+      default: /etc/kuberweaver/postgresql/handoff.json
+    server_port:
+      type: integer
+      minimum: 1
+      maximum: 65535
+      default: 10051
+    listen_port:
+      type: integer
+      minimum: 1
+      maximum: 65535
+      default: 80
+    zabbix_version:
+      type: string
+      enum:
+      - "7.0"
+      - "7.2"
+      - "7.4"
+      default: "7.4"
+defaults:
+  database_handoff: /etc/kuberweaver/postgresql/handoff.json
+  server_port: 10051
+  listen_port: 80
+  zabbix_version: "7.4"
+resources:
+  cpu: 1
+  memory_mb: 512
+  disk_gb: 5
+lifecycle:
+  snapshot: snapshot.yml
+  apply: apply.yml
+  verify: verify.yml
+  rollback: rollback.yml
+  remove: remove.yml
+verify:
+  assertions:
+  - id: service-active
+    description: the Apache unit is active
+  - id: http-200
+    description: GET / on the configured port returns 200
+  - id: login-form
+    description: the served page carries the Zabbix login form
+  - id: config-present
+    description: the generated frontend configuration exists
+teardown:
+  description: Removing the brick removes the frontend, its vhost and its configuration; the database and the server stay with their own bricks.
+  removes:
+  - the Zabbix frontend package when the brick installed it
+  - /etc/apache2/sites-available/zabbix.conf and /etc/zabbix/web/zabbix.conf.php
+  keeps:
+  - Apache and PHP when another brick still serves through them

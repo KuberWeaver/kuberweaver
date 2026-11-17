@@ -16,6 +16,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [Drift reports](docs/DRIFT.md): the nightly read-only comparison of each recorded declaration against the live hypervisor, field by field, with no remediation and the only driver call being `read_resource`.
 - [Git-backed declarations](docs/DECLARATIONS.md): a CI bundle that pins one commit, one stack declaration and one saved OpenTofu plan by SHA-256, verified from the Git object database and executed as-is behind the stack state claim.
 - [Workload bricks](docs/WORKLOADS.md): one pinned Ansible role on one recorded guest, prepared from the deployment evidence a succeeded provisioning job produced, approved as an exact saved plan and executed with the declared assertions.
+- [Presets](docs/PRESETS.md): a saved stack graph of workload bricks, validated into dependency-ordered one-brick jobs; the Zabbix 7 preset composes PostgreSQL, the server, the web frontend and the agent on one guest.
 - [Users and roles](docs/USERS.md): Argon2id password storage, the password policy and account rotation. [Sessions](docs/SESSIONS.md): cookie flags, absolute and idle timeouts, CSRF binding and login throttling. [Single sign-on](docs/OIDC.md): optional OpenID Connect provider, claim mapping and account linking.
 - [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
 - [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.

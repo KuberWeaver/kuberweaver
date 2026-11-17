@@ -1,7 +1,7 @@
 {
-  "iteration": 19,
+  "iteration": 20,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T16:52:00+01:00",
+  "updated_at": "2026-11-17T18:05:28+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -195,9 +195,9 @@
       "title": "Zabbix preset",
       "detail": "Compose the PostgreSQL, Zabbix server, web and agent bricks as a preset graph on one VM.",
       "acceptance": "Preset validates, plan ordering respects dependencies, no new code path.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "Four workload bricks are data: db-postgresql wraps geerlingguy.postgresql 4.3.0 and publishes a 0600 credential handoff for the generated database role; zabbix-server, zabbix-web and zabbix-agent wrap community.zabbix 4.2.0 collection roles, each with pinned requirements, a real roles.lock.json checksum, lifecycle playbooks, declared assertions and an honest data class (state for PostgreSQL, config for the other three). presets/zabbix-7.yaml declares the one-guest stack: database, server, web and agent, with server requiring database and web/agent requiring server. scripts/validate_preset.py loads the preset, refuses undeclared fields, portal inputs stored in the file, duplicate/unknown/dependent-later/cyclic steps, a bad UUID or key, a missing or drifted role lock and any step config that violates its brick; it then builds one complete one-node graph per step and proves each through the same Catalog and Admission the portal uses, printing the dependency order and the graphs. No runtime code path was added: the workload contract stays one brick per job, so the preset is submitted as four normal jobs in the printed order. Collection installs stay under the existing gitignore alongside roles. docs/PRESETS.md plus README, CHANGELOG, WORKLOADS and the bricks plan; 13 tests in tests/test_zabbix_preset.py cover the order, per-step admission, all four brick contracts, bad inputs and every refusal; backend suite 1770 passed, 2 skipped; secret scan and git diff --check clean; frontend untouched."
     },
     {
       "id": "F3",
@@ -227,7 +227,8 @@
     "iteration 17: the 'tests' check on 5c7240f is satisfied. Eight spaced push attempts moved from 'queued' to 'in progress' and the final rejection lists only 'Changes must be made through a pull request', so main stays blocked by the pull-request rule alone and the loop cannot open one without a token",
     "iteration 18: the same outcome for dd052ca. Eight spaced attempts moved from 'in progress' to satisfied; the final rejection lists only 'Changes must be made through a pull request'. The check on the exact commit is green, main stays blocked by the pull-request rule alone, and the loop has no token to open a pull request. A rebase onto origin/develop is still refused: develop is 0 ahead and 23 behind main, so it would drop main's history and rewrite 31 published commits",
     "iteration 19: the 'tests' check on ed6e43c became satisfied after seven spaced push attempts; the final rejection lists only 'Changes must be made through a pull request', so main stays blocked by the pull-request rule alone and the loop has no token to open one. origin/develop is 0 commits ahead and 33 behind this branch, so the rebase is a no-op and was skipped rather than rewriting published history",
-    "iteration 19: ed6e43c carried a stub PEM header line in tests/test_workload_portal.py, which ops/ci/secret_scan.py reports in both the tree and the history scan. The stub is replaced with plain bytes in the follow-up commit, so the tree scan is clean, but the history scan still matches the published commit. Force-pushing or rewriting published history is forbidden, a revert does not remove history either, and weakening the scanner for tests/ is not acceptable: a squash merge into main drops the line, otherwise a human decision is required"
+    "iteration 19: ed6e43c carried a stub PEM header line in tests/test_workload_portal.py, which ops/ci/secret_scan.py reports in both the tree and the history scan. The stub is replaced with plain bytes in the follow-up commit, so the tree scan is clean, but the history scan still matches the published commit. Force-pushing or rewriting published history is forbidden, a revert does not remove history either, and weakening the scanner for tests/ is not acceptable: a squash merge into main drops the line, otherwise a human decision is required",
+    "iteration 20: origin/develop is 0 commits ahead and 36 behind this branch, so a rebase onto it would rewrite 36 published commits; it was skipped, as in iterations 18 and 19. The preset validates through the existing catalogue and admission policy and needs no runtime code change; the four one-brick jobs are submitted in the printed order"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
