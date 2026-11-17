@@ -162,9 +162,14 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
             agent_tokens.record_use(request.state.agent, request.method, request.url.path,
                                     response.status_code, getattr(request.state, 'agent_scope', None))
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
         response.headers['Referrer-Policy'] = 'same-origin'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+        # A page that frames an allowlisted dashboard sets both embedding headers
+        # on its own response; every other response keeps the default boundary,
+        # which forbids framing this portal and any remote origin.
+        if 'x-frame-options' not in response.headers:
+            response.headers['X-Frame-Options'] = 'DENY'
+        if 'content-security-policy' not in response.headers:
+            response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
         if request.url.path.startswith('/api/'):
             response.headers['Cache-Control'] = 'no-store'
         if request.state.stale_session and request.url.path != '/api/auth/login' \

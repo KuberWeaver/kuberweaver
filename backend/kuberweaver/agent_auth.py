@@ -176,7 +176,8 @@ def required_scope(method, path):
         return 'read:infrastructure'
     # A dashboard record is a link and a probe path, never a credential store.
     dashboard = r'/api/dashboards/[0-9a-f]{32}'
-    if method == 'GET' and (path == '/api/dashboards' or re.fullmatch(dashboard, path)):
+    if method == 'GET' and (path == '/api/dashboards'
+                            or re.fullmatch(dashboard + r'(?:/embed)?', path)):
         return 'read:integrations'
     if ((method == 'POST' and path == '/api/dashboards')
             or (method in ('PATCH', 'DELETE') and re.fullmatch(dashboard, path))):

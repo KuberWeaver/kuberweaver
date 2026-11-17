@@ -31,7 +31,7 @@ All normal portal routes share `/api` and the same origin. `POST /api/auth/login
 | `GET /api/jobs/{id}/events` | SSE with polling fallback. |
 | `GET /api/audit`, `/api/finops`, `/api/diagnostics`, `/api/integrations` | Audit, internal estimates, source-labelled diagnostics and explicit availability. |
 | `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/password` | Human-only account administration: list, create, role change and password rotation, with last-administrator protection. |
-| `GET/POST /api/dashboards`, `GET/PATCH/DELETE /api/dashboards/{id}` | External observability registry: link, kind, default probe path and an embed flag gated by the origin allowlist. No dashboard is rendered and no credential is stored. |
+| `GET/POST /api/dashboards`, `GET/PATCH/DELETE /api/dashboards/{id}`, `GET /api/dashboards/{id}/embed` | External observability registry: link, kind, default probe path and an embed flag gated by the origin allowlist. The embed page frames the URL only for an enabled, allowlisted record and otherwise offers the deep link. No credential is stored and no dashboard is proxied. |
 | `/metrics`, `/healthz`, `/readyz` | Local process/job metrics, liveness, and structured readiness for the database, the selected secret source and the plugin directory. |
 
 Transient statuses include `queued`, `running`, `rolling_back`; terminal outcomes include `succeeded`, `failed`, `rolled_back`, `rollback_failed`, `rejected`. Interrupted work remains visible for review rather than silent retry. Current schemas may include additional states for provider-specific preparation and recovery; use OpenAPI rather than inferring unsupported transitions.

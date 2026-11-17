@@ -30,6 +30,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Black and light themes over one token layer: every colour is a CSS variable, the stored preference is applied by a blocking boot script before the first paint, and the toggle in the top bar and on the login card follows a switch made in another tab; see `docs/THEMING.md`.
 - A single page registry drives the grouped sidebar, breadcrumbs, page headings and role gating, with named loading states, empty states and a `Page not found` fallback; see `docs/NAVIGATION.md`.
 - External dashboard registry: Grafana, Uptime Kuma, Prometheus, Netdata and custom links with a kind, a default health probe path and an optional embed flag that is accepted only for an origin on `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`; see `docs/DASHBOARDS.md`.
+- Embed page for a registered dashboard (`GET /api/dashboards/{id}/embed`): it frames the recorded URL only for an enabled record on the origin allowlist, with `frame-src` derived from that one origin, `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`; otherwise it serves the deep link with `frame-src 'none'` and states the reason. Every other response keeps `frame-ancestors 'none'`.
 
 ### Security
 

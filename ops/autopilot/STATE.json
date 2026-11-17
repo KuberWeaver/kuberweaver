@@ -1,7 +1,7 @@
 {
-  "iteration": 11,
+  "iteration": 12,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T07:49:00",
+  "updated_at": "2026-11-17T08:44:16+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -133,9 +133,9 @@
       "title": "Dashboard embedding policy",
       "detail": "Serve an embed page that only frames allowlisted origins, with CSP frame-src derived from the registry, falling back to a deep link when embedding is not allowed.",
       "acceptance": "Tests cover CSP header content and the fallback link.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboards.py serves GET /api/dashboards/{id}/embed as text/html with no-store. The page frames the recorded URL only when embed is true, enabled is true and the origin is on KUBERWEAVER_DASHBOARD_EMBED_ORIGINS; it then carries a per-record policy (default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src <origin>; frame-ancestors 'self') and X-Frame-Options SAMEORIGIN, so only the portal origin can frame it. Otherwise the page has no iframe, sets frame-src 'none', names one of three reasons (embedding not requested, record disabled, origin not on the allowlist) and serves the deep link with target=_blank rel=noopener noreferrer. Label and URL are HTML-escaped and the page loads no remote script, style or font. The middleware now leaves an explicit Content-Security-Policy or X-Frame-Options on a response alone; every other response keeps frame-ancestors 'none' with XFO DENY, and a test pins both defaults. Access follows the registry: any signed-in role, agents need read:integrations, unknown ids are 404. docs/DASHBOARDS.md documents the page, the policy, the three fallbacks and the fact that the allowlist cannot force a remote tool to accept a frame; CHANGELOG, README and IMPLEMENTATION updated. 8 tests cover the exact CSP of a framed page, the per-record derivation across two allowlisted origins, the three fallbacks (including an allowlist shrunk across a restart and a disabled record), HTML escaping, refusals (404, 401, viewer/operator read, agent scope separation) and the untouched default policy; tests/test_dashboards.py 56 passed, backend suite 1501 passed, 2 skipped. Local deployment not applied: systemctl --user restart is denied for unattended runs (approvals.cron_mode: deny), so the unit still serves 18a932b; the route was verified live on a throwaway uvicorn process (200 embed page with the expected headers, 401 anonymous), and the deployed 8088 answers 404 for the new path."
     },
     {
       "id": "D3",
@@ -237,8 +237,13 @@
     "url": "http://127.0.0.1:8088",
     "verify": [
       "/readyz -> 200",
-      "/api/dashboards -> 401"
+      "/api/dashboards -> 401",
+      "/api/dashboards/{unknown}/embed -> 401 once the embed page is deployed"
     ],
-    "deployed_sha": "18a932b"
+    "deployed_sha": "18a932b",
+    "pending": {
+      "since": "2026-11-17T08:44:16+01:00",
+      "reason": "systemd restart is blocked for unattended runs by approvals.cron_mode=deny, so the unit keeps serving the previous commit; the changed backend was exercised on a throwaway uvicorn process instead (readyz 200, /api/dashboards 401, embed page 200 with the derived CSP, anonymous embed 401). A human restart of kuberweaver.service loads the track branch."
+    }
   }
 }

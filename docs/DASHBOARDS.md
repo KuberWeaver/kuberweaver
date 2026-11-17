@@ -48,6 +48,7 @@ the host the operator registered.
 | --- | --- | --- |
 | `GET /api/dashboards` | any signed-in role | `{dashboards, embed_origins, embed_error}`; newest first. |
 | `GET /api/dashboards/{id}` | any signed-in role | One record, with the computed fields. |
+| `GET /api/dashboards/{id}/embed` | any signed-in role | HTML page that frames the URL when allowed, otherwise a deep link; see below. |
 | `POST /api/dashboards` | administrator | `201` with the stored record. |
 | `PATCH /api/dashboards/{id}` | administrator | Partial update; `revision` is required and the stored revision increments. Unset fields are unchanged; an explicit `health_path: null` clears the override. |
 | `DELETE /api/dashboards/{id}?revision=N` | administrator | Deletes the record when `N` is the current revision. |
@@ -94,7 +95,50 @@ id as the resource and `label`, `kind` and `embed` in the detail.
 
 ## Scope
 
-This registry is the data half of the observability story. It does not frame
-anything, generate a CSP header, probe a target or render a time series; those
-belong to the embedding policy and the periodic probe that consume this registry.
-The tools themselves remain external and are not certified by KuberWeaver.
+This registry is the data half of the observability story. It does not proxy or
+render a dashboard, generate a time series or certify the external tool. The
+embed page below frames an allowlisted URL, the periodic probe consumes the
+probe path, and both leave the dashboard itself on the operator's server.
+
+## Embed page
+
+`GET /api/dashboards/{id}/embed` answers `text/html` with `Cache-Control:
+no-store`. Any signed-in role may read it, and a machine client needs
+`read:integrations`, like the JSON routes.
+
+The page frames the recorded URL only when all three conditions hold: `embed` is
+`true`, `enabled` is `true`, and the URL origin is on
+`KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`. The policy is built for that one record:
+
+```
+Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline';
+  base-uri 'none'; form-action 'none'; frame-src https://grafana.lab;
+  frame-ancestors 'self'
+X-Frame-Options: SAMEORIGIN
+```
+
+`frame-src` names the record origin and nothing else, so the page cannot frame a
+second host; `frame-ancestors 'self'` lets the portal frame the page while
+keeping other sites out. The framed document is an `<iframe>` with
+`loading="lazy"` and `referrerpolicy="no-referrer"`, and a small
+`Open in a new tab` link sits over it.
+
+When the record is not framed, the page carries no iframe, sets
+`frame-src 'none'`, states the reason and offers the deep link with
+`target="_blank" rel="noopener noreferrer"`. The three reasons are: embedding is
+not requested for this record, the record is disabled, or its origin is not on
+the deployment allowlist. The third case covers a stored `embed: true` record
+after the allowlist has shrunk.
+
+Record values are HTML-escaped before they reach the markup, so a label or a
+deep link containing markup stays text. The page loads no remote script, style
+or font; the stylesheet is inline and allowed by `style-src 'unsafe-inline'`.
+
+Every other response from the portal keeps the default boundary:
+`frame-ancestors 'none'` with `X-Frame-Options: DENY`. The embed route sets both
+headers itself, and the middleware leaves an explicit value alone.
+
+The allowlist says what KuberWeaver may frame; it cannot make the remote tool
+accept a frame. A tool that sends `X-Frame-Options` or a restrictive
+`frame-ancestors` of its own will be refused by the browser, and the overlaid
+link is the way in.

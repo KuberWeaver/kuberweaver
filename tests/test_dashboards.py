@@ -355,3 +355,140 @@ def test_postgresql_registers_the_dashboard_table():
     assert statement == f'CREATE TABLE IF NOT EXISTS dashboards ({DDL["dashboards"]})'
     assert '_kw_rowid BIGSERIAL UNIQUE NOT NULL' in DDL['dashboards']
     assert translate_sql('SELECT body FROM dashboards ORDER BY rowid DESC').endswith('ORDER BY _kw_rowid DESC')
+
+
+EMBED_POLICY = ("default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; "
+                "form-action 'none'; frame-src {source}; frame-ancestors 'self'")
+
+
+def test_embed_page_frames_the_allowlisted_origin_with_a_derived_csp(tmp_path, monkeypatch):
+    app = make_app(tmp_path, monkeypatch, origins='https://grafana.lab')
+    with TestClient(app) as client:
+        login(client, app)
+        record = client.post('/api/dashboards', json=spec(
+            url='https://grafana.lab/d/abc?orgId=1&kiosk', embed=True)).json()
+        page = client.get('/api/dashboards/' + record['id'] + '/embed')
+        assert page.status_code == 200
+        assert page.headers['content-type'].startswith('text/html')
+        assert page.headers['content-security-policy'] == EMBED_POLICY.format(source='https://grafana.lab')
+        assert page.headers['x-frame-options'] == 'SAMEORIGIN'
+        assert page.headers['cache-control'] == 'no-store'
+        assert '<iframe src="https://grafana.lab/d/abc?orgId=1&amp;kiosk"' in page.text
+        assert 'title="Lab Grafana"' in page.text
+        assert 'referrerpolicy="no-referrer"' in page.text
+        assert 'href="https://grafana.lab/d/abc?orgId=1&amp;kiosk" target="_blank" rel="noopener noreferrer"' in page.text
+        assert 'is not embedded' not in page.text
+
+
+def test_each_embed_page_frames_only_its_own_origin(tmp_path, monkeypatch):
+    app = make_app(tmp_path, monkeypatch, origins='https://grafana.lab,https://prometheus.lab:9090')
+    with TestClient(app) as client:
+        login(client, app)
+        grafana = client.post('/api/dashboards', json=spec(
+            url='https://grafana.lab/d/a', embed=True)).json()
+        prometheus = client.post('/api/dashboards', json=spec(
+            label='Lab Prometheus', kind='prometheus', url='https://prometheus.lab:9090/graph?g0.expr=up',
+            embed=True)).json()
+        first = client.get('/api/dashboards/' + grafana['id'] + '/embed').headers['content-security-policy']
+        second = client.get('/api/dashboards/' + prometheus['id'] + '/embed').headers['content-security-policy']
+        assert first == EMBED_POLICY.format(source='https://grafana.lab')
+        assert second == EMBED_POLICY.format(source='https://prometheus.lab:9090')
+        assert 'prometheus' not in first and 'grafana' not in second
+
+
+def test_a_record_without_embedding_falls_back_to_a_deep_link(platform):
+    app, client = platform
+    record = client.post('/api/dashboards', json=spec(url='http://grafana.lab:3000/d/lab?view=1')).json()
+    page = client.get('/api/dashboards/' + record['id'] + '/embed')
+    assert page.status_code == 200
+    assert page.headers['content-security-policy'] == EMBED_POLICY.format(source="'none'")
+    assert page.headers['x-frame-options'] == 'SAMEORIGIN'
+    assert '<iframe' not in page.text
+    assert 'This dashboard is not embedded: embedding is not requested for this record.' in page.text
+    assert '<a class="open" href="http://grafana.lab:3000/d/lab?view=1" target="_blank" rel="noopener noreferrer">Open Lab Grafana</a>' in page.text
+
+
+def test_a_shrunk_allowlist_falls_back_to_a_deep_link(tmp_path, monkeypatch):
+    app = make_app(tmp_path, monkeypatch, origins='https://grafana.lab')
+    with TestClient(app) as client:
+        login(client, app)
+        record = client.post('/api/dashboards', json=spec(url='https://grafana.lab/d/a', embed=True)).json()
+        assert record['embeddable'] is True
+        assert client.get('/api/dashboards/' + record['id'] + '/embed').status_code == 200
+    restarted = make_app(tmp_path, monkeypatch, origins=None)
+    with TestClient(restarted) as client:
+        login(client, restarted)
+        assert client.get('/api/dashboards/' + record['id']).json()['embeddable'] is False
+        page = client.get('/api/dashboards/' + record['id'] + '/embed')
+        assert page.headers['content-security-policy'] == EMBED_POLICY.format(source="'none'")
+        assert '<iframe' not in page.text
+        assert 'its origin is not on the deployment allowlist' in page.text
+        assert 'href="https://grafana.lab/d/a"' in page.text
+
+
+def test_a_disabled_record_falls_back_to_a_deep_link(tmp_path, monkeypatch):
+    app = make_app(tmp_path, monkeypatch, origins='https://grafana.lab')
+    with TestClient(app) as client:
+        login(client, app)
+        record = client.post('/api/dashboards', json=spec(url='https://grafana.lab/d/a', embed=True)).json()
+        client.patch('/api/dashboards/' + record['id'], json={'revision': 1, 'enabled': False})
+        page = client.get('/api/dashboards/' + record['id'] + '/embed')
+        assert EMBED_POLICY.format(source="'none'") == page.headers['content-security-policy']
+        assert '<iframe' not in page.text
+        assert 'the record is disabled' in page.text
+
+
+def test_embed_page_escapes_the_stored_values(tmp_path, monkeypatch):
+    app = make_app(tmp_path, monkeypatch, origins='https://grafana.lab')
+    with TestClient(app) as client:
+        login(client, app)
+        record = client.post('/api/dashboards', json=spec(
+            label='Lab <b>Grafana</b>', url='https://grafana.lab/d/a?q="><script>', embed=True)).json()
+        page = client.get('/api/dashboards/' + record['id'] + '/embed')
+        assert page.status_code == 200
+        assert '<script>' not in page.text and '<b>' not in page.text
+        assert 'Lab &lt;b&gt;Grafana&lt;/b&gt;' in page.text
+        assert '?q=&quot;&gt;&lt;script&gt;' in page.text
+
+
+def test_embed_page_refusals_and_access(tmp_path, monkeypatch):
+    # A second TestClient lifespan on an app that already serves a client would
+    # start a second worker on the same store, so this test opens one client at
+    # a time instead of nesting them.
+    app = make_app(tmp_path, monkeypatch)
+    with TestClient(app) as client:
+        login(client, app)
+        identity = client.post('/api/dashboards', json=spec()).json()['id']
+        assert client.get('/api/dashboards/' + '0' * 32 + '/embed').status_code == 404
+        assert client.get('/api/dashboards/not-an-identity/embed').status_code == 404
+        issued = client.post('/api/agent-tokens', json={
+            'label': 'embed-reader', 'role': 'viewer', 'scopes': ['read:integrations'],
+            'expires_in_seconds': 3600})
+        assert issued.status_code == 201, issued.text
+        reader = issued.json()['token']
+        narrow = client.post('/api/agent-tokens', json={
+            'label': 'jobs-only', 'role': 'viewer', 'scopes': ['read:jobs'],
+            'expires_in_seconds': 3600})
+        assert narrow.status_code == 201, narrow.text
+        narrow_token = narrow.json()['token']
+    for role in ('viewer', 'operator'):
+        with TestClient(app) as other:
+            login(other, app, role)
+            assert other.get('/api/dashboards/' + identity + '/embed').status_code == 200
+    with TestClient(app) as anonymous:
+        assert anonymous.get('/api/dashboards/' + identity + '/embed').status_code == 401
+        assert anonymous.get('/api/dashboards/' + identity + '/embed',
+                             headers={'authorization': 'Bearer ' + reader}).status_code == 200
+        assert anonymous.get('/api/dashboards/' + identity + '/embed',
+                             headers={'authorization': 'Bearer ' + narrow_token}).status_code == 403
+
+
+def test_the_default_policy_still_forbids_framing(platform):
+    app, client = platform
+    listing = client.get('/api/dashboards')
+    assert listing.headers['x-frame-options'] == 'DENY'
+    assert "frame-ancestors 'none'" in listing.headers['content-security-policy']
+    assert 'frame-src' not in listing.headers['content-security-policy']
+    health = client.get('/healthz')
+    assert health.headers['x-frame-options'] == 'DENY'
+    assert "frame-ancestors 'none'" in health.headers['content-security-policy']

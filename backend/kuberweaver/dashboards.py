@@ -2,12 +2,14 @@
 
 A record is a bookmark with enough structure for the portal to link to the tool
 and for a later read-only probe to reach a health endpoint on the same origin.
-Nothing here stores credentials, scrapes a dashboard or frames a page: the embed
-flag only records that the operator asked for embedding, and it is accepted only
-when the URL origin is on the deployment allowlist.
+Nothing here stores credentials, scrapes a dashboard or proxies its data. The
+embed flag records that the operator asked for embedding; the embed page frames
+the recorded URL only when that origin is on the deployment allowlist, and
+answers with a deep link otherwise.
 """
 from __future__ import annotations
 
+import html
 import json
 import os
 import re
@@ -16,6 +18,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .configuration import ConfigurationError
@@ -30,6 +33,57 @@ DEFAULT_HEALTH_PATHS = {
     'custom': '/',
 }
 EMBED_ORIGINS_VARIABLE = 'KUBERWEAVER_DASHBOARD_EMBED_ORIGINS'
+# The page frames exactly one origin, so frame-src is either that origin or
+# 'none'. default-src 'none' keeps the document itself from loading anything
+# remote; only the inline stylesheet is allowed, and the page is framable by the
+# portal alone.
+EMBED_PAGE_CSP = ("default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; "
+                  "form-action 'none'; frame-src {source}; frame-ancestors 'self'")
+_EMBED_STYLE = (
+    'html,body{margin:0;height:100%;background:#0b0d10;color:#e6e8eb;'
+    'font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}'
+    'body.fallback{display:grid;place-items:center}'
+    'iframe{display:block;width:100%;height:100%;border:0}'
+    '.tab{position:fixed;right:.75rem;bottom:.75rem;padding:.3rem .55rem;'
+    'border-radius:.375rem;background:rgb(17 19 23 / .85);color:#e6e8eb;'
+    'font-size:12px;text-decoration:none}'
+    '.tab:hover,.tab:focus{background:#111}'
+    'main{max-width:34rem;padding:1.5rem}'
+    'a.open{color:#7cc4ff}'
+)
+
+
+def embed_document(record, *, framed, reason=None):
+    """Render the embed page; the record values are escaped into the markup."""
+    label = html.escape(record['label'], quote=True)
+    url = html.escape(record['url'], quote=True)
+    head = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            f'<title>{label}</title>\n<style>{_EMBED_STYLE}</style>\n</head>\n')
+    if framed:
+        return head + (
+            '<body>\n'
+            f'<iframe src="{url}" title="{label}" loading="lazy" '
+            'referrerpolicy="no-referrer"></iframe>\n'
+            f'<a class="tab" href="{url}" target="_blank" rel="noopener noreferrer">'
+            'Open in a new tab</a>\n</body>\n</html>\n')
+    if reason is None:
+        raise ValueError('A fallback embed page needs a refusal reason')
+    return head + (
+        '<body class="fallback">\n<main>\n'
+        f'<h1>{label}</h1>\n'
+        f'<p>This dashboard is not embedded: {html.escape(reason)}. '
+        'Open it in a new tab instead.</p>\n'
+        f'<p><a class="open" href="{url}" target="_blank" rel="noopener noreferrer">'
+        f'Open {label}</a></p>\n</main>\n</body>\n</html>\n')
+
+
+def _embed_refusal(record):
+    if not record['embed']:
+        return 'embedding is not requested for this record'
+    if not record['enabled']:
+        return 'the record is disabled'
+    return 'its origin is not on the deployment allowlist'
 
 
 def origin_of(url):
@@ -168,6 +222,19 @@ class Dashboards:
         return {'dashboards': self.list(), 'embed_origins': list(self.embed_origins),
                 'embed_error': self.embed_error}
 
+    def embed(self, identity):
+        record = self.present(self._stored(identity))
+        # A disabled record is not framed even when it is still stored as
+        # embeddable: disabling it is the operator asking for the link only.
+        framed = record['embeddable'] and record['enabled']
+        return HTMLResponse(
+            embed_document(record, framed=framed,
+                           reason=None if framed else _embed_refusal(record)),
+            headers={'Content-Security-Policy': EMBED_PAGE_CSP.format(
+                         source=record['origin'] if framed else "'none'"),
+                     'X-Frame-Options': 'SAMEORIGIN',
+                     'Cache-Control': 'no-store'})
+
     def _checked(self, spec):
         value = DashboardSpec.model_validate(spec).model_dump()
         if value['embed'] and origin_of(value['url']) not in self.embed_origins:
@@ -243,6 +310,10 @@ def install_dashboards_api(app):
     @app.get('/api/dashboards/{identity}')
     def detail(identity: str, current=Depends(app.state.user_dependency)):
         return service.get(identity)
+
+    @app.get('/api/dashboards/{identity}/embed', response_class=HTMLResponse)
+    def embed(identity: str, current=Depends(app.state.user_dependency)):
+        return service.embed(identity)
 
     @app.post('/api/dashboards', status_code=201)
     def create(data: DashboardSpec, current=Depends(app.state.role_dependency('admin'))):
