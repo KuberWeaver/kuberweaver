@@ -77,7 +77,7 @@ export const pages: PageDefinition[] = [
     adminOnly: false,
     eyebrow: "OPERATE · OBSERVED",
     title: "Observed infrastructure",
-    description: "Observed GNS3 topology, distinct from the desired state in your blueprints.",
+    description: "Desired state from your blueprints, compared with an optional live topology.",
   },
   {
     id: "connections",
@@ -135,12 +135,12 @@ export const pages: PageDefinition[] = [
   },
   {
     id: "integrations",
-    label: "Integrations",
+    label: "Providers",
     group: "administer",
     adminOnly: false,
     eyebrow: "ADMINISTER · PROVIDERS",
-    title: "Providers and extensions",
-    description: "Providers connect the core to external systems. Their status is explicit, never assumed.",
+    title: "Providers and source of truth",
+    description: "One implementation per capability, and an explicit answer to which state is authoritative.",
   },
   {
     id: "operations",

@@ -27,6 +27,7 @@ import { capabilityState } from "./capabilities";
 import { pageHeading } from "./navigation";
 import { DeploymentCost } from "./DeploymentCost";
 import { ProviderConfiguration } from "./ProviderConfiguration";
+import { SourceOfTruth } from "./SourceOfTruth";
 import {
   useResource,
   PageTitle,
@@ -1311,8 +1312,9 @@ export function Integrations({ user }: { user: User }) {
         }
       />
       <Notice>
-        A planned or disabled capability is not an active connection. Secrets and endpoints are configured on the server.
+        A planned capability is not a connection. Endpoints and secrets are configured on the server, never in the browser.
       </Notice>
+      <SourceOfTruth />
       {planned.length > 0 && (
         <label className="inline-label">
           <input

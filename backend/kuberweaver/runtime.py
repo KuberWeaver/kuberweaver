@@ -18,7 +18,8 @@ ProviderName = Annotated[str, Field(pattern=r'^[a-z][a-z0-9_-]{0,63}$')]
 
 class ProviderPatch(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
-    bindings: dict[ProviderKind, ProviderName] = Field(min_length=1)
+    # An empty name is an explicit "not selected"; only optional kinds accept it.
+    bindings: dict[ProviderKind, Annotated[str, Field(pattern=r'^([a-z][a-z0-9_-]{0,63})?$')]] = Field(min_length=1)
 
 
 class ProviderConfig(BaseModel):
@@ -56,10 +57,16 @@ def change_provider_bindings(app, patch, actor):
         if queue_busy(app):
             raise HTTPException(409, 'Wait for the execution queue to become idle before changing providers')
         # Validate explicit names against the registered allowlist, never import config strings.
+        from .providers import OPTIONAL_KINDS
+        required = [kind for kind, name in patch.bindings.items() if not name and kind not in OPTIONAL_KINDS]
+        if required:
+            raise HTTPException(422, f'{required[0]} needs a provider; only {sorted(OPTIONAL_KINDS)} may stay unselected')
         previous_error = app.state.provider_config_error
         app.state.provider_config_error = None
         try:
             for kind, name in patch.bindings.items():
+                if not name:
+                    continue
                 resolve_provider(app, kind, name)
                 if kind == 'execution':
                     from .providers import execution_binding

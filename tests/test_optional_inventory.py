@@ -51,3 +51,26 @@ def test_binding_an_inventory_provider_brings_the_topology_back(tmp_path):
         body = client.get('/api/infrastructure').json()
         assert body.get('bound') is not False
         assert body['source'] == 'gns3'
+
+        # Clearing it again is a supported decision, not a broken configuration.
+        cleared = client.patch('/api/providers', json={'bindings': {'inventory': ''}})
+        assert cleared.status_code == 200
+        assert cleared.json()['bindings']['inventory'] == ''
+        assert client.get('/api/infrastructure').json()['bound'] is False
+
+
+def test_a_required_capability_cannot_be_cleared(tmp_path):
+    from kuberweaver.app import create_app
+
+    plugins = tmp_path / 'plugins'
+    plugins.mkdir()
+    app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
+    with TestClient(app) as client:
+        credentials = bootstrap(tmp_path / 'data')
+        response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})
+        client.headers['X-CSRF-Token'] = response.json()['csrf_token']
+
+        refused = client.patch('/api/providers', json={'bindings': {'execution': ''}})
+        assert refused.status_code == 422
+        assert 'execution needs a provider' in refused.json()['detail']
+        assert client.get('/api/providers').json()['bindings']['execution'] == 'default'

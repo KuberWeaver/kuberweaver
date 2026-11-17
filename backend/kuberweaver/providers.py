@@ -15,6 +15,8 @@ from .storage import now
 CONSUMER_METHODS = {'inventory': ('read',), 'diagnostics': ('read',),
                     'execution': ('execute', 'rollback'), 'notifications': ('send',),
                     'secrets': ('resolve',)}
+OPTIONAL_KINDS = frozenset({'inventory'})
+
 # Inventory is opt-in: a topology source is a lab convenience, not a requirement.
 DEFAULT_BINDINGS = {'inventory': '', 'diagnostics': 'rules', 'execution': 'default',
                     'notifications': 'local-outbox', 'secrets': 'restricted-file'}

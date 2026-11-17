@@ -5,11 +5,26 @@ import { Badge, ErrorNotice, LoadingState, errorMessage, useResource } from "./u
 
 type Descriptor = { kind: string; name: string; available?: boolean; status?: string; description?: string };
 type ProviderConfig = { bindings: Record<string, string>; available: Descriptor[]; errors: unknown[] };
+
+/**
+ * Capabilities that may legitimately stay unbound. Everything else needs an
+ * implementation for the platform to work, so the server refuses to clear it.
+ */
+const OPTIONAL_KINDS = new Set(["inventory"]);
+
+const KIND_HELP: Record<string, string> = {
+  inventory: "Reads a live network topology so you can compare it with your blueprints. Optional: the platform provisions without it.",
+  diagnostics: "Reasons about a plan before approval. Read only, never mutates.",
+  execution: "Runs an approved plan and records the evidence.",
+  notifications: "Delivers job summaries to a channel you control.",
+  secrets: "Resolves secret references. Values are never stored here.",
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 function parseConfig(value: unknown): ProviderConfig | null {
   if (!isRecord(value) || !isRecord(value.bindings) || !Array.isArray(value.available)
-    || Object.values(value.bindings).some((name) => typeof name !== "string" || !name)) return null;
+    || Object.values(value.bindings).some((name) => typeof name !== "string")) return null;
   return {
     bindings: value.bindings as Record<string, string>,
     available: value.available.filter((row): row is Descriptor => isRecord(row)
@@ -32,7 +47,9 @@ export function ProviderConfiguration({ user }: { user: User }) {
   const changes = Object.fromEntries(Object.entries(draft).filter(([kind, name]) =>
     config && Object.hasOwn(config.bindings, kind) && name !== config.bindings[kind]));
   const validChanges = config && Object.entries(changes).every(([kind, name]) =>
-    config.available.some((row) => row.kind === kind && row.name === name && row.available === true));
+    name === ""
+      ? OPTIONAL_KINDS.has(kind)
+      : config.available.some((row) => row.kind === kind && row.name === name && row.available === true));
   async function save() {
     if (user.role !== "admin" || busy || !validChanges || !Object.keys(changes).length) return;
     setBusy(true);
@@ -44,8 +61,7 @@ export function ProviderConfiguration({ user }: { user: User }) {
       const confirmed = parseConfig(exact);
       if (!confirmed) throw new Error("Binding verification failed: unsupported server response.");
       resource.setData(exact);
-      if (Object.entries(changes).some(([kind, name]) => confirmed.bindings[kind] !== name ||
-        !confirmed.available.some((row) => row.kind === kind && row.name === name && row.available === true))) {
+      if (Object.entries(changes).some(([kind, name]) => confirmed.bindings[kind] !== name)) {
         throw new Error("Binding verification failed: selection not confirmed by the server.");
       }
       setDraft({});
@@ -58,7 +74,7 @@ export function ProviderConfiguration({ user }: { user: User }) {
   }
   return <section className="panel settings-panel provider-configuration" aria-label="Provider configuration">
     <div className="panel-title"><h2>Selected providers</h2><button disabled={busy} onClick={() => { setDraft({}); setSaved(false); setError(""); resource.refresh(); }}>Refresh providers</button></div>
-    <p className="muted">Select registered implementations by capability. Changing a binding does not grant trust or activate extensions. Enabling Python code remains a separate, explicit trust decision.</p>
+    <p className="muted">One implementation per capability. Changing a binding does not grant trust or activate extensions: enabling Python code stays a separate, explicit decision.</p>
     {error && <ErrorNotice message={error} />}
     {saved && <p className="notice success" role="status">Bindings saved and verified from the server.</p>}
     {resource.loading ? <LoadingState label="Loading provider configuration" /> : resource.error || !config ? <p className="notice" role="status">Provider configuration unavailable. {resource.error || "Unsupported server response."}</p> : <>
@@ -67,15 +83,27 @@ export function ProviderConfiguration({ user }: { user: User }) {
       {Object.entries(config.bindings).map(([kind, current]) => {
         const choices = config.available.filter((row) => row.kind === kind);
         const active = choices.find((row) => row.name === current);
-        const available = active?.available === true;
+        const available = current !== "" && active?.available === true;
+        const optional = OPTIONAL_KINDS.has(kind);
         return <div className="setting-row" key={kind}>
-          <div><label htmlFor={`provider-${kind}`}>Provider {kind}</label><small>{current} · {available ? "Active" : "Unavailable"}</small><Badge tone={available ? "success" : "warning"}>{available ? "Active binding" : "Binding unavailable"}</Badge></div>
+          <div>
+            <label htmlFor={`provider-${kind}`}>Provider {kind}</label>
+            <small>{current ? `${current} · ${available ? "Active" : "Unavailable"}` : "No provider selected"}</small>
+            <small>{KIND_HELP[kind] || "Capability served by one selected implementation."}</small>
+            <Badge tone={available ? "success" : optional && !current ? "neutral" : "warning"}>
+              {available ? "Active binding" : optional && !current ? "Not selected" : "Binding unavailable"}
+            </Badge>
+          </div>
           <div><select id={`provider-${kind}`} disabled={busy || user.role !== "admin"} value={draft[kind] ?? current} onChange={(event) => { setSaved(false); setError(""); setDraft({ ...draft, [kind]: event.target.value }); }}>
-            {!active && <option value={current} disabled>{current} · Unavailable</option>}
+            {optional && <option value="">Not selected</option>}
+            {current !== "" && !active && <option value={current} disabled>{current} · Unavailable</option>}
             {choices.map((choice) => <option key={choice.name} value={choice.name} disabled={choice.available !== true}>{choice.name}{choice.available === true ? "" : " · Unavailable"}</option>)}
-          </select>{typeof active?.description === "string" && <small>{active.description}</small>}</div>
+          </select>
+          {typeof active?.description === "string" && <small>{active.description}</small>}
+          {optional && <small>Leaving this empty hides the observed topology instead of showing a stale one.</small>}</div>
         </div>;
       })}
+      {user.role !== "admin" && <p className="muted">Only an administrator can change bindings.</p>}
       {user.role === "admin" && <div className="provider-actions"><button className="primary" disabled={busy || !validChanges || !Object.keys(changes).length} onClick={save}>{busy ? "Saving…" : "Save providers"}</button></div>}
     </>}
   </section>;
