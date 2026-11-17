@@ -1,7 +1,7 @@
 {
   "iteration": 17,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T14:28:39+01:00",
+  "updated_at": "2026-11-17T14:47:00+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -223,13 +223,14 @@
     "data/ and docs/prompt/ stay untracked",
     "iteration 12 found uncommitted edits to ops/autopilot/RULES.md (a rule telling the loop to push the track commit to main) and to tests/test_provider_bindings.py, written by another process at 08:25; they were stashed as 'concurrent edit during iteration 12' because they are not this loop's work, and pushing to main contradicts the track-branch protocol",
     "iteration 14: main rejects a fast-forward push with GH006 'Changes must be made through a pull request'. The 'tests' check on 2fad12a was satisfied (that requirement disappeared from the rejection after CI finished), so the pull-request rule alone blocks main and the loop cannot open one without a token",
-    "iteration 15: the same GH006 pull-request rule blocks main for 2cc421f. Once the 'tests' check finished it reported failing, with no way to read the logs; the local run of the identical commands is green. A rebase onto origin/develop must not be run on this branch: develop is behind main, so a rebase drops the merge of the OVF CI pin and rewrites 24 published commits; the branch already contains origin/develop and origin/main, and only a fast-forward push is allowed"
+    "iteration 15: the same GH006 pull-request rule blocks main for 2cc421f. Once the 'tests' check finished it reported failing, with no way to read the logs; the local run of the identical commands is green. A rebase onto origin/develop must not be run on this branch: develop is behind main, so a rebase drops the merge of the OVF CI pin and rewrites 24 published commits; the branch already contains origin/develop and origin/main, and only a fast-forward push is allowed",
+    "iteration 17: the 'tests' check on 5c7240f is satisfied. Eight spaced push attempts moved from 'queued' to 'in progress' and the final rejection lists only 'Changes must be made through a pull request', so main stays blocked by the pull-request rule alone and the loop cannot open one without a token"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "17b2464b43603eca91611d41347df4f484bea5a2",
-    "note": "marker read at 2026-11-17T14:28+01:00: the timer had deployed 17b2464 (E3); /readyz answered 200. This iteration's commit is not deployed yet; the timer deploys it within two minutes and this run never restarts the unit. No deployment prerequisite was added: the drift reader uses the already deployed read_resource and the report table is created by the service at startup.",
+    "deployed_sha": "5c7240f02e0325e82a2cc9901eccbd92235d643c",
+    "note": "marker read at 2026-11-17T14:40+01:00: the timer had deployed 5c7240f (the drift commit); /readyz answered 200 and the deployed OpenAPI lists GET /api/environment-states/drift, GET /api/environment-states/{identity}/drift and POST /api/environment-states/drift/run; both GET and POST answer 401 anonymously, so the auth boundary is in front of the new routes. This run never restarts the unit. The drift report table is created by the service at startup with CREATE TABLE IF NOT EXISTS, so a successful start proves the DDL.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [
