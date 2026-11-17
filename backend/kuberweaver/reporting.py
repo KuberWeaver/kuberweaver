@@ -102,10 +102,13 @@ def describe(store) -> dict:
     """Report the surface without exposing credentials."""
     if store.backend != 'postgresql':
         return {'available': False, 'reason': 'reporting views require PostgreSQL'}
-    rows = store.all(
-        'SELECT table_name AS name FROM information_schema.views '
-        'WHERE table_schema = %s ORDER BY 1', (SCHEMA,))
-    names = [row['name'] if isinstance(row, dict) else row[0] for row in rows]
+    try:
+        rows = store.all(
+            "SELECT table_name AS name FROM information_schema.views "
+            f"WHERE table_schema = '{SCHEMA}' ORDER BY 1")
+        names = [row['name'] if isinstance(row, dict) else row[0] for row in rows]
+    except Exception:  # noqa: BLE001 - a diagnostic endpoint must answer
+        names = []
     return {
         'available': True,
         'schema': SCHEMA,
