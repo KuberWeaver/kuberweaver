@@ -83,6 +83,20 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Install pinned OpenTofu
+        # Offline saved-plan tests hash this exact distribution; the archive and
+        # binary digests below are pinned to the same release as TOFU_SHA256.
+        shell: bash
+        run: |
+          set -eu
+          umask 077
+          curl -fsSL -o "$RUNNER_TEMP/tofu.tar.gz" \
+            https://github.com/opentofu/opentofu/releases/download/v1.13.9/tofu_1.13.9_linux_amd64.tar.gz
+          echo "b34b327cc1ef07178207b6f2cd1f5276537d3e5b7be316500f6dac50d4c0a857  $RUNNER_TEMP/tofu.tar.gz" | sha256sum -c -
+          mkdir -p tools
+          tar -xzf "$RUNNER_TEMP/tofu.tar.gz" -C tools tofu
+          chmod 700 tools/tofu
+          echo "9ce9173bf161f6466ef57dab7edebe8f55089fdf81caa967415323c25d004990  tools/tofu" | sha256sum -c -
       - name: Install backend and integration dependencies
         run: >-
           python -m pip install

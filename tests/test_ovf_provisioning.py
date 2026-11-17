@@ -63,6 +63,13 @@ def executor(tmp_path):
     metadata.write_text(json.dumps({'image_id': 'ubuntu-24.04', 'path': str(ova),
                                     'sha256': hashlib.sha256(ova.read_bytes()).hexdigest()}))
     ex.image_metadata = metadata
+    # The pinned native root must be a private directory, not the host /usr/bin:
+    # OVF Tool is never redistributed, so CI exercises the pinning boundary with
+    # an inert stand-in while the lab runs against the real installation.
+    ovf_root = tmp_path / 'ovf'
+    ovf_root.mkdir()
+    ex.ovftool = ovf_root / 'ovftool'
+    ex.ovftool.write_bytes(b'FAKE ovftool stand-in, not OVF Tool')
     return ex
 
 
