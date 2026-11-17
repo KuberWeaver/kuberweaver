@@ -1,14 +1,21 @@
 {
   "iteration": 13,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T09:38:49+01:00",
+  "updated_at": "2026-11-17T09:55:38+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
     "track": "feat/production-track",
     "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
   },
-  "known_failures": [],
+  "known_failures": [
+    {
+      "sha": "c609b5d",
+      "check": "tests",
+      "status": "failing",
+      "summary": "21 OVF/VMware tests fail only in CI: tests/test_ovf_provisioning.py and tests/test_vmware_ssh_keys.py call OVFExecutor.prepare_plan, which runs tools/tofu; tools/ is gitignored so the CI checkout has no binary, and provisioning.py _errors turns the missing command into a generic ProvisioningError. The same 21 tests failed on 22d9994 (run 44042872260), so the failure predates D3. Local suite with tools/tofu present: 1530 passed, 2 skipped. Fixing it means obtaining a pinned OpenTofu in CI, which is a separate task and an unpinned install is forbidden."
+    }
+  ],
   "tasks": [
     {
       "id": "A1",
