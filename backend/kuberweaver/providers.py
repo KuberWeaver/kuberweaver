@@ -425,6 +425,6 @@ def register_builtins(registry, app):
 
 def integrations(app):
     listing = provider_listing(app)
-    rows = [{'id': item['name'], **item} for item in listing['active'].values()]
+    rows = [{'id': item['name'], **item} for item in listing['active'].values() if item.get('name')]
     rows.append({'id': 'local-gitops', 'name': 'Local GitOps', 'kind': 'gitops', 'status': 'configured', 'read_only': False})
     return rows + OPTIONAL
