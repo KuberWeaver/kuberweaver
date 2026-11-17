@@ -385,6 +385,13 @@ def register_builtins(registry, app):
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
     registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
+    from .adoption import connection_inspector
+    from .workload_execution import WorkloadProvider
+    registry.register('execution', WorkloadProvider.executor_id,
+                      WorkloadProvider(app.state.state_dir, app.state.catalog.directory,
+                                       store=app.state.store, inspector=connection_inspector(app)),
+                      {'status': 'configured',
+                       'description': 'Pinned Ansible workload bricks on one recorded guest; one saved plan per job.'})
     from .notifications import register_notifications
     register_notifications(registry, app)
     config = app.state.state_dir / 'config' / 'secrets.json'

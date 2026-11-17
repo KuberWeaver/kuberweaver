@@ -1,7 +1,7 @@
 {
-  "iteration": 18,
+  "iteration": 19,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T15:35:00+01:00",
+  "updated_at": "2026-11-17T16:34:00+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -186,9 +186,9 @@
       "title": "Workload bricks in the portal",
       "detail": "Wire the workload executor into job preparation so a workload node can be planned, approved and executed from the UI, with evidence visible.",
       "acceptance": "Tests cover the full path with a stub playbook and refusal for unpinned roles.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "workload_execution.py adds WorkloadProvider under the manifest name ansible-workload-v1 with requires_saved_plan: prepare_plan validates the brick contract (pinned role version, roles.lock.json, lifecycle playbooks, assertions, data class), resolves target_uuid from the deployment evidence of a succeeded approved provisioning job in the same environment (uuid, guest_ip, poweredOn, name; one address or the preparation is refused as ambiguous, latest evidence pinned), re-reads the guest through the connection registry when one is wired, binds the managed SSH key by id and fingerprint and saves review.json 0600; the public plan carries plan_digest, actions, summary and bindings so the existing deployment view shows the fingerprint, actions and summary before approval, the approval digest pins the saved plan, execution re-checks the durable evidence, stages the private key into a 0600 file that is removed afterwards, runs snapshot, apply and verify through WorkloadExecutor with the kernel-guarded runner and returns sanitized evidence (assertions, changed count, address) while raw playbook output stays private; a failed apply or verify rolls back and a failed rollback becomes rollback_failed with manual review; manual rollback is refused because bricks have no recorded restore target. policy.py admits one-node workload graphs with no edges and no failure injection without the container target/port rules; plugins/web-nginx declares execution_provider ansible-workload-v1 and the two portal inputs target_uuid and ssh_key_id; configuration.py adds KUBERWEAVER_ANSIBLE_PLAYBOOK with the venv default; docs/WORKLOADS.md plus README, CHANGELOG and the brick README. 9 tests in tests/test_workload_portal.py cover the full path with a stub playbook (prepared plan contract, approval, snapshot/apply/verify, assertions in the result, 0600 evidence, staged key removed, can_rollback false), the unpinned-role refusal, role-lock drift, missing target evidence, ambiguous evidence, a live identity change at preparation, a failed apply with rollback, workload scope and a mixed container node. Suite 1757 passed, 2 skipped; secret scan and git diff --check clean; frontend untouched."
     },
     {
       "id": "F2",
@@ -230,8 +230,8 @@
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "dd052ca7d05ce9d54149ada2a530b85a6889a3e4",
-    "note": "marker read at 2026-11-17T15:44+01:00: the timer had deployed dd052ca (the declarations commit); /readyz answered 200 and the deployed OpenAPI lists GET /api/declarations, POST /api/declarations/verify and POST /api/declarations/execute; GET /api/declarations answers 401 anonymously, so the auth boundary is in front of the new routes. This run never restarts the unit. The declaration_run table is created by the service at startup with CREATE TABLE IF NOT EXISTS, so a successful start proves the DDL.",
+    "deployed_sha": "3e4f3421625fadf74f6f0d824a85e12ef47be609",
+    "note": "marker read at 2026-11-17T16:34+01:00: the timer had deployed 3e4f342 (the declarations record commit); this iteration's commit is newer, so the timer deploys it within two minutes and the marker is re-read after the push. This run never restarts the unit.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [

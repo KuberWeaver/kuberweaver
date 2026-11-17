@@ -8,13 +8,16 @@ a schema-validated configuration.
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 import hashlib
 import ipaddress
 import json
+import os
 import re
-import shlex
+import secrets
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 import yaml
@@ -49,12 +52,15 @@ class WorkloadExecutor:
     executor_id = 'ansible-workload-v1'
 
     def __init__(self, state_dir, plugins_dir=None, *, playbook=None, key_path=None,
-                 user='ubuntu'):
+                 user='ubuntu', runner=None):
         self.state_dir = Path(state_dir).absolute()
         self.plugins_dir = Path(plugins_dir or Path(__file__).resolve().parents[2] / 'plugins').absolute()
         self.playbook = playbook
         self.key_path = Path(key_path).absolute() if key_path else None
         self.user = user
+        # The portal injects a guarded runner so every command boundary re-checks
+        # the durable approval; a standalone driver keeps subprocess.run.
+        self.runner = runner or subprocess.run
 
     # ------------------------------------------------------------------ brick
 
@@ -179,15 +185,15 @@ class WorkloadExecutor:
         argv = [str(self.playbook), '-i', str(inventory), str(playbook),
                 '-e', '@' + str(vars_path), '--diff']
         (folder / 'home').mkdir(exist_ok=True)
-        completed = subprocess.run(argv, capture_output=True, text=True, timeout=900,
-                                   cwd=str(folder), env={'PATH': '/usr/bin:/bin:/usr/local/bin',
-                                                         'HOME': str(folder / 'home'),
-                                                         # Bricks keep their pinned roles beside the
-                                                         # playbooks, not in a global path.
-                                                         'ANSIBLE_ROLES_PATH': str(brick['_directory'] / 'roles'),
-                                                         'ANSIBLE_HOST_KEY_CHECKING': 'False',
-                                                         'ANSIBLE_NOCOLOR': '1',
-                                                         'LANG': 'C.UTF-8'})
+        completed = self.runner(argv, capture_output=True, text=True, timeout=900,
+                                cwd=str(folder), env={'PATH': '/usr/bin:/bin:/usr/local/bin',
+                                                      'HOME': str(folder / 'home'),
+                                                      # Bricks keep their pinned roles beside the
+                                                      # playbooks, not in a global path.
+                                                      'ANSIBLE_ROLES_PATH': str(brick['_directory'] / 'roles'),
+                                                      'ANSIBLE_HOST_KEY_CHECKING': 'False',
+                                                      'ANSIBLE_NOCOLOR': '1',
+                                                      'LANG': 'C.UTF-8'})
         report = None
         if result_path.is_file():
             try:
@@ -307,3 +313,268 @@ class WorkloadExecutor:
             'license': brick['implementation'].get('license'),
         }})
         return json.loads(lock_path.read_text())
+
+
+def public_plan(signed):
+    """The bounded plan an operator reviews; private evidence never leaves the process."""
+    reviewed, plan = signed['reviewed'], signed['reviewed']['plan']
+    return {
+        'plan_digest': _digest(signed),
+        'actions': {reviewed['brick']: ['snapshot', 'apply', 'verify']},
+        'summary': {'brick': reviewed['brick'], 'brick_version': plan['brick_version'],
+                    'role': plan['role'], 'role_version': plan['role_version'],
+                    'target_uuid': signed['target']['uuid'], 'address': signed['target']['address'],
+                    'data_class': plan['data_class'], 'assertions': len(plan['assertions']),
+                    'reversible': True},
+        'bindings': {'brick': reviewed['brick'], 'brick_version': plan['brick_version'],
+                     'role': plan['role'], 'role_version': plan['role_version'],
+                     'target_job': signed['target']['job_id'], 'target_uuid': signed['target']['uuid'],
+                     'address': signed['target']['address'], 'ssh_key_id': signed['key']['id'],
+                     'ssh_key_fingerprint': signed['key']['fingerprint'],
+                     'brick_digest': plan['plan_digest'],
+                     'evidence_digest': signed['target']['evidence_digest']},
+    }
+
+
+class WorkloadProvider:
+    """Saved-plan execution provider for workload bricks on one recorded guest.
+
+    Preparation resolves the target from the deployment evidence of a succeeded
+    provisioning job and validates the brick contract; approval pins that exact
+    plan; execution runs snapshot, apply and verify with the brick's assertions.
+    """
+
+    executor_id = 'ansible-workload-v1'
+    requires_saved_plan = True
+    supports_rollback = False
+    ssh_keys: Any = None
+
+    def __init__(self, state_dir, plugins_dir=None, *, store=None, inspector=None,
+                 playbook=None, user='ubuntu'):
+        self.state_dir = Path(state_dir).absolute()
+        self.plugins_dir = Path(plugins_dir or Path(__file__).resolve().parents[2] / 'plugins').absolute()
+        self.store = store
+        self.inspector = inspector
+        self.playbook = Path(playbook) if playbook else None
+        self.user = user
+        # A real callable here lets the kernel wrap every command boundary with
+        # its durable approval guard before the brick runs anything.
+        self.runner = subprocess.run
+
+    def _playbook(self):
+        """Resolve the Ansible executable at use time, so a bad path is one refusal."""
+        if self.playbook is None:
+            from .configuration import ansible_playbook
+            try:
+                self.playbook = Path(ansible_playbook())
+            except ValueError as error:
+                raise WorkloadError('Ansible executable is not configured: ' + str(error)[:200]) from None
+        if not self.playbook.is_file():
+            raise WorkloadError('Ansible executable is unavailable')
+        return self.playbook
+
+    def read(self):
+        try:
+            present = self._playbook().is_file()
+        except WorkloadError:
+            present = False
+        return {'provider': self.executor_id, 'requires_saved_plan': True,
+                'supports_rollback': False, 'binary_present': present,
+                'status': 'configured' if present else 'unavailable',
+                'limitations': ['one workload brick per job',
+                                'no manual rollback; a failed brick rolls back its own snapshot',
+                                'the target address is the evidence a succeeded provisioning job recorded']}
+
+    def _executor(self, key_path=None, runner=None):
+        return WorkloadExecutor(self.state_dir, self.plugins_dir, playbook=self._playbook(),
+                                key_path=key_path, user=self.user, runner=runner or self.runner)
+
+    def _recorded_target(self, uuid, environment):
+        """The single guest address a succeeded, approved provisioning job proved."""
+        if self.store is None:
+            raise WorkloadError('Recorded deployment evidence is unavailable')
+        matches = []
+        for job in self.store.list('jobs'):
+            if (job.get('status') != 'succeeded' or job.get('operation') != 'execute'
+                    or job.get('environment') != environment or not job.get('approved_by')):
+                continue
+            result = job.get('result') or {}
+            for row in result.get('evidence') or []:
+                if not (isinstance(row, dict) and isinstance(row.get('uuid'), str)
+                        and row['uuid'].lower() == uuid):
+                    continue
+                address = row.get('guest_ip')
+                if not isinstance(address, str):
+                    continue
+                try:
+                    ipaddress.ip_address(address)
+                except ValueError:
+                    continue
+                if row.get('power_state') != 'poweredOn' or not isinstance(row.get('name'), str):
+                    continue
+                matches.append((job, row, address))
+        if not matches:
+            raise WorkloadError('Target guest has no recorded deployment evidence')
+        if len({address for _, _, address in matches}) != 1:
+            raise WorkloadError('Recorded deployment evidence for the target is ambiguous')
+        job, row, address = sorted(matches, key=lambda item: (
+            str(item[0].get('finished_at') or item[0].get('created_at') or ''), item[0]['id']))[-1]
+        connection_id = None
+        for node in (job.get('graph') or {}).get('nodes') or []:
+            candidate = (node.get('config') or {}).get('connection_id')
+            if isinstance(candidate, str) and re.fullmatch(r'[0-9a-f]{32}', candidate):
+                connection_id = candidate
+        return {'uuid': uuid, 'address': address, 'name': row['name'],
+                'job_id': job['id'], 'connection_id': connection_id,
+                'evidence_digest': _digest({'job_id': job['id'], 'uuid': uuid,
+                                            'address': address})}
+
+    def _live(self, target):
+        if self.inspector is None:
+            return
+        if not target.get('connection_id'):
+            raise WorkloadError('Recorded target carries no connection identity')
+        try:
+            row = self.inspector(target['connection_id'], target['uuid'])
+        except Exception:
+            raise WorkloadError('Target guest could not be re-read; preparation refused') from None
+        if (not isinstance(row, dict) or str(row.get('uuid', '')).lower() != target['uuid']
+                or row.get('power_state') != 'poweredOn'
+                or (target.get('name') and row.get('name') != target['name'])):
+            raise WorkloadError('Target guest identity or power state changed')
+
+    def _key(self, identity):
+        if self.ssh_keys is None:
+            raise WorkloadError('SSH key registry is unavailable')
+        try:
+            binding = self.ssh_keys.binding(identity)
+        except Exception:
+            raise WorkloadError('Selected SSH key is unavailable or disabled') from None
+        if (not isinstance(binding, dict) or binding.get('id') != identity
+                or not binding.get('fingerprint')):
+            raise WorkloadError('Selected SSH key binding is inconsistent')
+        return binding
+
+    @contextmanager
+    def _staged_key(self, identity):
+        if self.ssh_keys is None:
+            raise WorkloadError('SSH key registry is unavailable')
+        folder = self.state_dir / 'workloads' / 'keys'
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        folder.chmod(0o700)
+        path = folder / (identity + '-' + secrets.token_hex(8))
+        try:
+            with self.ssh_keys.private_key(identity) as secret:
+                material = secret.bytes()
+                if not isinstance(material, bytes) or not material or len(material) > 16384:
+                    raise ValueError()
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(material)
+                del material
+                yield path
+        except WorkloadError:
+            raise
+        except Exception:
+            raise WorkloadError('SSH key material is unavailable') from None
+        finally:
+            path.unlink(missing_ok=True)
+
+    def review(self, job, *, live=False):
+        """Validate the brick contract and resolve the target from recorded evidence."""
+        identity = job.get('id')
+        graph = job.get('graph') or {}
+        nodes = graph.get('nodes') or []
+        if not isinstance(identity, str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,63}', identity):
+            raise WorkloadError('Invalid workload job identifier')
+        if len(nodes) != 1 or graph.get('edges') or graph.get('failure_mode', 'none') != 'none':
+            raise WorkloadError('A workload job carries exactly one brick and no edges')
+        node = nodes[0]
+        executor = self._executor()
+        brick = executor.brick(node.get('plugin_id'))
+        config = {**copy.deepcopy(brick.get('defaults') or {}), **(node.get('config') or {})}
+        try:
+            json.dumps(config, allow_nan=False)
+            jsonschema.validate(config, brick['schema'])
+        except (TypeError, ValueError):
+            raise WorkloadError('Invalid brick configuration') from None
+        except jsonschema.ValidationError as exc:
+            raise WorkloadError('Invalid brick configuration: ' + str(exc.message)[:200]) from None
+        uuid = str(config.get('target_uuid', '')).lower()
+        if not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', uuid):
+            raise WorkloadError('Target identity is not a VM UUID')
+        target = self._recorded_target(uuid, graph.get('environment'))
+        if live:
+            self._live(target)
+        plan = executor.prepare(brick['id'], config, {'uuid': uuid, 'address': target['address']}, identity)
+        return {'job_id': identity, 'environment': graph.get('environment'), 'node_id': node.get('id'),
+                'brick': brick['id'], 'config': config, 'plan': plan,
+                'key': self._key(config.get('ssh_key_id')), 'target': target}
+
+    def _checked(self, job, *, live=False):
+        reviewed = self.review(job, live=live)
+        folder = self.state_dir / 'workloads' / job['id']
+        path = folder / 'review.json'
+        if path.is_symlink() or not path.is_file():
+            raise WorkloadError('Saved workload plan is missing')
+        try:
+            signed = json.loads(path.read_text())
+        except ValueError:
+            raise WorkloadError('Saved workload plan is unreadable') from None
+        if not isinstance(signed, dict) or signed.get('reviewed') != reviewed:
+            raise WorkloadError('Workload plan or its inputs changed')
+        if job.get('prepared_plan') != public_plan(signed):
+            raise WorkloadError('Approved workload plan changed')
+        return signed, folder
+
+    def prepare_plan(self, job, emit):
+        reviewed = self.review(job, live=True)
+        folder = self.state_dir / 'workloads' / job['id']
+        if folder.exists() and any(folder.iterdir()):
+            raise WorkloadError('Existing workload preparation cannot be resumed or replanned')
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        folder.chmod(0o700)
+        signed = {'reviewed': reviewed, 'target': reviewed['target'],
+                  'key': {'id': reviewed['key']['id'], 'fingerprint': reviewed['key']['fingerprint'],
+                          'revision': reviewed['key'].get('revision')}}
+        _private_write(folder / 'review.json', signed)
+        emit('plan', 'info', 'Workload brick plan prepared; no guest was changed')
+        return public_plan(signed)
+
+    def validate_plan(self, job):
+        """Local approval check: brick files, recorded evidence and the saved plan."""
+        self._checked(job)
+
+    def execute(self, job, emit):
+        try:
+            signed, _folder = self._checked(job)
+            if (not job.get('approved_by') or not job.get('approved_at')
+                    or job.get('approved_execution_provider', {}).get('name') != self.executor_id
+                    or job.get('approved_prepared_plan') != _digest(job.get('prepared_plan'))):
+                raise WorkloadError('Explicit approval of this exact workload plan is required')
+            self._live(signed['target'])
+            with self._staged_key(signed['key']['id']) as key_path:
+                executor = self._executor(key_path=key_path)
+                evidence = executor.execute(signed['reviewed']['brick'], job['id'],
+                                            signed['reviewed']['config'],
+                                            {'uuid': signed['target']['uuid'],
+                                             'address': signed['target']['address']},
+                                            emit=emit)
+        except WorkloadError as error:
+            rolled = 'rollback did not succeed' in str(error)
+            return {'status': 'rollback_failed' if rolled else 'failed',
+                    'error': 'Workload brick refused or failed: ' + str(error)[:300],
+                    'evidence': [], 'endpoints': [], 'can_rollback': False,
+                    'requires_manual_review': rolled}
+        except (Exception, KeyboardInterrupt):
+            return {'status': 'failed', 'error': 'Workload execution failed; raw output suppressed',
+                    'evidence': [], 'endpoints': [], 'can_rollback': False,
+                    'requires_manual_review': True}
+        keep = ('status', 'plan_digest', 'brick', 'brick_version', 'role', 'role_version',
+                'data_class', 'target_uuid', 'address', 'assertions', 'changed')
+        return {'status': evidence['status'] if evidence.get('status') == 'succeeded' else 'failed',
+                'evidence': [{key: evidence.get(key) for key in keep if key in evidence}],
+                'endpoints': [], 'can_rollback': False, 'requires_manual_review': False}
+
+    def rollback(self, job, emit):
+        raise WorkloadError('Workload bricks have no manual rollback; submit a new brick')
