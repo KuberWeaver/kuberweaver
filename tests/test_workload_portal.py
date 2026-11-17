@@ -76,7 +76,7 @@ def graph(**config):
 class StubKeys:
     """Local stand-in for the managed key registry; no key material leaves tmp."""
 
-    material = b'-----BEGIN OPENSSH PRIVATE KEY-----\nstub\n-----END OPENSSH PRIVATE KEY-----\n'
+    material = b'stub-openssh-key-material-not-a-real-key'
 
     def __init__(self):
         self.reads = []
