@@ -1,7 +1,7 @@
 {
-  "iteration": 3,
+  "iteration": 4,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T00:42:29",
+  "updated_at": "2026-11-17T01:26:38",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -49,9 +49,9 @@
       "title": "Health and readiness split",
       "detail": "/healthz stays liveness, add /readyz that checks PostgreSQL, vault and plugin directory, with a structured body.",
       "acceptance": "Tests cover each dependency failing and the aggregate result.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "health.py adds GET /readyz (200 ready / 503 not_ready) with fixed database, vault and plugins keys; database runs SELECT 1 on the active backend, vault resolves the selected secrets provider and verifies local-vault key+marker through a read-only verify() hook, plugins requires a real directory with at least one manifest; unconfigured vault is reported without blocking, unavailable blocks; response is no-store and omits paths, driver text and secrets; agent scope mapping keeps /readyz scope-free; docs/HEALTH.md; 15 tests cover each failing dependency, aggregate, corrupt/missing vault material, provider False and exceptions, empty and file plugin paths, no-session access, no state writes and the PostgreSQL backend"
     },
     {
       "id": "B1",

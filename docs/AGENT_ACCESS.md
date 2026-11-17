@@ -54,7 +54,7 @@ Invalid, expired, revoked, malformed, duplicate Authorization or mixed session/B
 
 Strict FinOps example: `{"label":"finops-reader","role":"viewer","scopes":["read:finops"],"expires_in_seconds":3600}`. Do not add `read` or `read:overview`: they deliberately broaden access. This token reads costs but receives 403 for jobs, infrastructure, audit and all mutations. Agent access does not automatically select any scope.
 
-`GET /api/auth/me` and `/healthz` accept a valid token without an additional scope. SSE streams revalidate expiry, revocation and `read:jobs`/`read` on every iteration.
+`GET /api/auth/me`, `/healthz` and `/readyz` accept a valid token without an additional scope. SSE streams revalidate expiry, revocation and `read:jobs`/`read` on every iteration.
 
 Existing endpoints may require stricter roles (e.g. operations is admin-only); scopes never elevate roles. Future endpoints must be added explicitly to `agent_auth.required_scope`, with HTTP tests. Query parameters do not change authority; unsupported methods and trailing aliases fail closed.
 

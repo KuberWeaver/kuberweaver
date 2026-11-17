@@ -134,6 +134,11 @@ class LocalVaultProvider:
                 'namespaced_references': True, 'persistent_secret_cache': False,
                 'encryption': 'fernet'}
 
+    def verify(self):
+        """Validate existing key and marker; creates nothing and reads no secret."""
+        with _directory(self._directory) as fd:
+            _cipher(fd)
+
     def _filename(self, name):
         return hashlib.sha256(_name(name).encode('ascii')).hexdigest() + '.fernet'
 

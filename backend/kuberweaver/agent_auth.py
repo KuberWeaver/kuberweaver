@@ -136,6 +136,7 @@ def required_scope(method, path):
             '/api/blueprints': 'read:blueprints', '/api/audit': 'read:audit', '/api/finops': 'read:finops',
             '/api/overview': 'read:overview', '/api/operations': 'read:operations',
             '/api/operations/notifications': 'read:operations', '/metrics': 'read:operations', '/healthz': '',
+            '/readyz': '',
         }
         if path in reads:
             return reads[path]

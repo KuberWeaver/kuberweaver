@@ -22,6 +22,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - CI workflow covering the backend suite, frontend typecheck/test/build, a secret scan over tracked files and history, and repository hygiene checks.
 - Contributor guide and release tooling: `CONTRIBUTING.md` and `scripts/release.py`.
 - Environment-based configuration for the state, plugins, frontend and OpenSSH paths, with drift-free defaults, absolute-path validation and a refusal that names the missing variable.
+- Structured readiness at `GET /readyz` for the database, the selected secret source and the plugin directory, with `/healthz` kept as liveness only.
 
 ### Security
 

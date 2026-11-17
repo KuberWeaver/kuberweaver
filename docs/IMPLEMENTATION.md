@@ -30,7 +30,7 @@ All normal portal routes share `/api` and the same origin. `POST /api/auth/login
 | `POST /api/jobs/{id}/rollback` | Administrator-only serialized rollback for eligible successful changes or verified `rollback_failed` journals, never arbitrary failed/interrupted jobs. |
 | `GET /api/jobs/{id}/events` | SSE with polling fallback. |
 | `GET /api/audit`, `/api/finops`, `/api/diagnostics`, `/api/integrations` | Audit, internal estimates, source-labelled diagnostics and explicit availability. |
-| `/metrics`, `/healthz` | Local process/job metrics and basic health. |
+| `/metrics`, `/healthz`, `/readyz` | Local process/job metrics, liveness, and structured readiness for the database, the selected secret source and the plugin directory. |
 
 Transient statuses include `queued`, `running`, `rolling_back`; terminal outcomes include `succeeded`, `failed`, `rolled_back`, `rollback_failed`, `rejected`. Interrupted work remains visible for review rather than silent retry. Current schemas may include additional states for provider-specific preparation and recovery; use OpenAPI rather than inferring unsupported transitions.
 

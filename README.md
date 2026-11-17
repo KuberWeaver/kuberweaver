@@ -162,7 +162,7 @@ state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests -q
 ```
 
-FastAPI serves the frontend build on the same origin. `/healthz`, `/metrics` and `/docs` are local endpoints. Metrics describe the process and jobs, not a proven remote monitoring deployment.
+FastAPI serves the frontend build on the same origin. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory, as described in [health and readiness](docs/HEALTH.md). Metrics describe the process and jobs, not a proven remote monitoring deployment.
 
 `scripts/browser_acceptance.py` and `scripts/api_acceptance.py` have real effects on example resources. Prepare target state and ports before running them; they are not unit tests. Playwright is an optional, separately installed acceptance dependency. Historical evidence is indexed by [verification](docs/VERIFICATION.md); old test counts are not fresh results and passing tests do not establish production maturity.
 

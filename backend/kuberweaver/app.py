@@ -204,12 +204,14 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
 
     from .api import install_api
     install_api(app, Path(plugins_dir or configured_plugins_dir()), executor=executor)
+    from .health import install_health
+    install_health(app)
     from fastapi.responses import FileResponse
     frontend = Path(frontend_dir or configured_frontend_dir()).resolve()
 
     @app.get('/{asset_path:path}', include_in_schema=False)
     def frontend_asset(asset_path: str):
-        if asset_path == 'api' or asset_path.startswith('api/') or asset_path in {'healthz', 'metrics'}:
+        if asset_path == 'api' or asset_path.startswith('api/') or asset_path in {'healthz', 'readyz', 'metrics'}:
             raise HTTPException(404, 'Unknown API endpoint')
         target = (frontend / asset_path).resolve()
         if not target.is_relative_to(frontend) or any(part.startswith('.') for part in Path(asset_path).parts):
