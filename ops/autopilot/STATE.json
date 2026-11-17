@@ -1,21 +1,14 @@
 {
-  "iteration": 13,
+  "iteration": 14,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T09:55:38+01:00",
+  "updated_at": "2026-11-17T10:59:26+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
     "track": "feat/production-track",
     "note": "develop and main are protected and require a pull request plus the tests check; the loop pushes the track branch only, fast-forward only, because a rebase onto a diverged develop would rewrite published history and a force-push is forbidden"
   },
-  "known_failures": [
-    {
-      "sha": "c609b5d",
-      "check": "tests",
-      "status": "failing",
-      "summary": "21 OVF/VMware tests fail only in CI: tests/test_ovf_provisioning.py and tests/test_vmware_ssh_keys.py call OVFExecutor.prepare_plan, which runs tools/tofu; tools/ is gitignored so the CI checkout has no binary, and provisioning.py _errors turns the missing command into a generic ProvisioningError. The same 21 tests failed on 22d9994 (run 44042872260), so the failure predates D3. Local suite with tools/tofu present: 1530 passed, 2 skipped. Fixing it means obtaining a pinned OpenTofu in CI, which is a separate task and an unpinned install is forbidden."
-    }
-  ],
+  "known_failures": [],
   "tasks": [
     {
       "id": "A1",
@@ -139,9 +132,9 @@
       "title": "Durable environment state",
       "detail": "Add state per environment and stack, encrypted at rest, with generation and resource list, replacing per-job state as the source of truth.",
       "acceptance": "Tests cover concurrent apply refusal, generation increment, and state surviving restart.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "environment_state.py owns one record per (environment, stack) under a 32-hex identity derived from both names: generation (0 before the first apply), resources (address/type/name/mode, deduplicated and sorted), the committing job, the canonical-document digest and the encrypted document, plus a lease column. The document is a Fernet token encrypted with state.key (0600 in a 0700 directory under <state_dir>/environment-state); a missing key is never regenerated while documents exist, a replaced token or digest is reported as unavailable, and no HTTP route returns the document or creates/updates a record. An apply claims the pair exclusively, the claim row's primary key arbitrates across processes, the claim records the observed generation, and a commit requires the matching claim token and an unchanged generation; the commit writes the document, then the record, then drops the claim, and finally reads both back. Failures after the attempt marker keep the claim, so a stack whose apply may have mutated the host stays blocked; POST /api/environment-states/{id}/lease/release is the only way to clear it, is administrator-only, requires the job named by the lease and audits environment_state.lease_released. Every commit audits environment_state.applied. TofuExecutor uses the store when the kernel resolves it (provider.environments): it claims before apply, refuses a stack another job already committed, releases the claim only when no attempt marker was written, commits the two owned addresses, and on removal requires the record to name the same job and commits an emptied generation. A standalone executor keeps its per-job folder as its only record. PostgreSQL registers environment_state, environment_state_documents and environment_state_claim; the SQLite migration accepts the same tables. docs/ENVIRONMENT_STATE.md plus README, IMPLEMENTATION, OPENTOFU and CHANGELOG updates. 37 tests in tests/test_environment_state.py cover generation 1 then 2, encryption at rest and key modes, concurrent-claim refusal, stale expected generation, a lost claim, the generation CAS, restart survival, missing-key refusal, tampered token and digest, invalid scope/job/resource/document specifications, API reads without the document, 404, anonymous/viewer/operator refusals, CSRF, admin lease release with audit, agent read:infrastructure versus read:jobs, and the PostgreSQL tables; 4 tests in tests/test_tofu_execution.py cover the committed generation, an apply refused by a held claim, a stack already committed by another job, and removal committing an empty generation. Suite 1572 passed, 2 skipped; secret scan and diff check clean. Frontend not touched (API-only iteration), so tsc/build were not rerun."
     },
     {
       "id": "E2",
@@ -224,14 +217,18 @@
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "18a932b",
-    "pending": {
-      "since": "2026-11-17T08:44:16+01:00",
-      "reason": "systemd restart is blocked for unattended runs by approvals.cron_mode=deny, so the unit keeps serving the previous commit; the changed backend was exercised on a throwaway uvicorn process instead (readyz 200, /api/dashboards 401, embed page 200 with the derived CSP, anonymous embed 401). A human restart of kuberweaver.service loads the track branch."
-    },
+    "deployed_sha": "d2f98e5d672b67bc801ff6e768de1561a0b7c714",
+    "note": "marker read at 2026-11-17T10:52+01:00, before this iteration's commit: the timer deployed d2f98e5, so the mechanism works and the pushed track commit is expected to be loaded within two minutes. This run never restarts the unit.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [
+    {
+      "test": "tests/test_ovf_provisioning.py and tests/test_vmware_ssh_keys.py (21 tests)",
+      "detail": "21 OVF/VMware tests failed only in CI because they call OVFExecutor.prepare_plan, which runs tools/tofu; tools/ is gitignored so the CI checkout had no binary and provisioning.py turned the missing command into a generic ProvisioningError. The same 21 tests failed on 22d9994 and c609b5d.",
+      "recorded_at": "2026-11-17",
+      "owner_task": "unassigned",
+      "resolution": "a300005 pins OpenTofu in .github/workflows/ci.yml and isolates the OVF native root in tests/test_ovf_provisioning.py; commit written outside this iteration, merged to main as 05a126b"
+    },
     {
       "test": "tests/test_provider_bindings.py::test_selected_execution_is_approved_pinned_and_uses_real_worker",
       "detail": "PATCH /api/providers returns 409 instead of 200 when it follows a job that just reported a terminal status: Worker clears active_identity in its finally block after publishing the status, so queue_busy() still sees a busy worker. Same race as the two entries below. Reproduced on fa7a46d without the B2 changes (2 failures in 3 runs), so it predates them.",

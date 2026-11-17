@@ -12,6 +12,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
 - [Navigation and page states](docs/NAVIGATION.md): the page registry, grouped sidebar, role gating, loading and empty states.
 - [External dashboards](docs/DASHBOARDS.md): the registry for Grafana, Uptime Kuma, Prometheus and Netdata links, probe paths, the periodic read-only health and drift column, the embed allowlist and the embed page.
+- [Environment and stack state](docs/ENVIRONMENT_STATE.md): one encrypted, generation-numbered record per environment and stack, the exclusive apply claim, the resource list and the administrator lease release.
 - [Users and roles](docs/USERS.md): Argon2id password storage, the password policy and account rotation. [Sessions](docs/SESSIONS.md): cookie flags, absolute and idle timeouts, CSRF binding and login throttling. [Single sign-on](docs/OIDC.md): optional OpenID Connect provider, claim mapping and account linking.
 - [Acceptance gates](docs/ACCEPTANCE.md), [verification history](docs/VERIFICATION.md) and [capability evidence](docs/COMPLETION_STATUS.md).
 - [Contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and release script: branch model, local checks and how a version is tagged.

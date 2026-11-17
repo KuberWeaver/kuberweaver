@@ -25,6 +25,8 @@ def install_api(app, plugins_dir, executor=None):
     app.state.executor = executor if executor is not None else Executor(store.path, plugins_dir)
     jobs = app.state.jobs = Jobs(app)
     app.state.worker = Worker(app)
+    from .environment_state import install_environment_state_api
+    install_environment_state_api(app)
     from .runtime import configure
     configure(app)
     from .ssh_keys import install_ssh_keys_api

@@ -32,6 +32,7 @@ All normal portal routes share `/api` and the same origin. `POST /api/auth/login
 | `GET /api/audit`, `/api/finops`, `/api/diagnostics`, `/api/integrations` | Audit, internal estimates, source-labelled diagnostics and explicit availability. |
 | `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/password` | Human-only account administration: list, create, role change and password rotation, with last-administrator protection. |
 | `GET/POST /api/dashboards`, `GET/PATCH/DELETE /api/dashboards/{id}`, `GET /api/dashboards/{id}/embed`, `POST /api/dashboards/{id}/probe` | External observability registry: link, kind, default probe path and an embed flag gated by the origin allowlist. The embed page frames the URL only for an enabled, allowlisted record and otherwise offers the deep link. A periodic read-only probe records one health observation per enabled record, surfaced as a `health` column with a drift flag and never auto-remediated. No credential is stored, no redirect is followed and no dashboard is proxied. |
+| `GET /api/environment-states`, `GET /api/environment-states/{id}`, `POST /api/environment-states/{id}/lease/release` | One durable record per environment and stack: generation, applied resource list, committing job and the encrypted document, never the document itself. Only an execution provider writes state; an administrator may clear a stuck apply claim explicitly. |
 | `/metrics`, `/healthz`, `/readyz` | Local process/job metrics, liveness, and structured readiness for the database, the selected secret source and the plugin directory. |
 
 Transient statuses include `queued`, `running`, `rolling_back`; terminal outcomes include `succeeded`, `failed`, `rolled_back`, `rollback_failed`, `rejected`. Interrupted work remains visible for review rather than silent retry. Current schemas may include additional states for provider-specific preparation and recovery; use OpenAPI rather than inferring unsupported transitions.
@@ -50,6 +51,27 @@ webfont is requested: `Inter` is used when the workstation has it, otherwise the
 platform UI font. `THEMING.md` lists the tokens, the contrast floor enforced by
 the frontend tests and the rule that colour literals stay inside the token
 blocks.
+
+## Durable stack state
+
+`EnvironmentStates(store)` keeps one record per `(environment, stack)`, keyed by a
+stable identity derived from both names. A record carries a monotonic
+generation, the resource list of the last applied document, the committing job
+and the SHA-256 of the canonical plaintext; the document itself is stored as a
+Fernet token under `<state_dir>/environment-state/state.key` (0600 in a 0700
+directory) and is never returned by an HTTP route. A missing key is never
+replaced while documents exist.
+
+An apply takes an exclusive claim before any host mutation: the claim row's
+primary key refuses a second job, the claim records the generation it observed,
+and a commit requires the matching claim token and an unchanged generation. A
+failure after the attempt marker keeps the claim, so a stack whose apply may
+have mutated the host stays blocked until an administrator clears it with
+`POST /api/environment-states/{id}/lease/release`; every commit and every release
+writes one audit row. `TofuExecutor` claims, commits and refuses through this
+store when the kernel resolves it inside the portal, and keeps its previous
+per-job behaviour when constructed standalone. `ENVIRONMENT_STATE.md` lists the
+record fields, limits and encryption threat model.
 
 ## Execution provider
 

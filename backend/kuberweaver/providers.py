@@ -31,6 +31,10 @@ def resolve_provider(app, kind, name=None):
             provider.connections = getattr(app.state, 'connections', None)
         if hasattr(provider, 'ssh_keys'):
             provider.ssh_keys = getattr(app.state, 'ssh_keys', None)
+        if hasattr(provider, 'environments'):
+            # Durable stack state belongs to the kernel, not to a provider's
+            # per-job folder, so a resolved executor is handed the one store.
+            provider.environments = getattr(app.state, 'environment_states', None)
     return provider
 
 

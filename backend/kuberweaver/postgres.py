@@ -27,8 +27,12 @@ COLUMNS = {
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
     'dashboards': ('id', 'body'),
     'dashboard_health': ('dashboard_id', 'body'),
+    'environment_state': ('id', 'body'),
+    'environment_state_documents': ('id', 'body'),
+    'environment_state_claim': ('id', 'body'),
 }
-ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards'}
+ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards',
+           'environment_state'}
 DDL = {
     'ssh_keys': 'id TEXT PRIMARY KEY, body TEXT NOT NULL',
     'users': 'id TEXT PRIMARY KEY, username TEXT UNIQUE, role TEXT, password_hash TEXT',
@@ -39,7 +43,8 @@ DDL = {
     'notification_deliveries': 'id TEXT PRIMARY KEY, payload TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, error TEXT, updated TEXT NOT NULL',
     'dashboard_health': 'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL',
 }
-for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards'):
+for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards',
+               'environment_state', 'environment_state_documents', 'environment_state_claim'):
     DDL[_table] = ('key' if _table == 'settings' else 'id') + ' TEXT PRIMARY KEY, body TEXT NOT NULL'
 for _table in ORDERED:
     DDL[_table] += ', _kw_rowid BIGSERIAL UNIQUE NOT NULL'
