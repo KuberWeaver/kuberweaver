@@ -117,7 +117,7 @@
       "acceptance": "Snapshot-level tests for the page registry, no French or prototype wording in tracked UI strings.",
       "status": "done",
       "attempts": 1,
-      "note": "frontend/src/navigation.ts is now the single page registry: 13 entries with id, label, group, adminOnly, eyebrow, title and description, four groups (Build, Operate, Govern, Administer), pageHeading() feeding every PageTitle, and navigationFor(role) hiding Operations and Agent access from operators and viewers. The sidebar renders the groups with captions, the dead workspace switcher and the nav-separator hack are gone, the breadcrumb follows the registry and an unknown hash renders a Page not found empty state. Prototype copy is removed from every page heading and from the login story, and index.html is English (title and meta description). ui.tsx adds LoadingState (role=status, aria-busy, skeleton rows, Loading… kept) used by ResourceBoundary with per-page labels, and Empty takes an optional action; Jobs links back to the canvas, Keys, Agent access and Operations gained empty states. navigation.test.ts snapshots the full registry and the per-role grouped navigation plus id uniqueness, group order and unknown page refusal; ui.test.tsx covers empty action, loading status and boundary precedence; pages.test.tsx covers the empty-deployments action; English.test.ts scans the registry copy and the document title. docs/NAVIGATION.md plus README and CHANGELOG updates. Frontend 290 tests, tsc and build green; backend 1445 passed, 2 skipped; secret scan and diff check clean."
+      "note": "frontend/src/navigation.ts is now the single page registry: 13 entries with id, label, group, adminOnly, eyebrow, title and description, four groups (Build, Operate, Govern, Administer), pageHeading() feeding every PageTitle, and navigationFor(role) hiding Operations and Agent access from operators and viewers. The sidebar renders the groups with captions, the dead workspace switcher and the nav-separator hack are gone, the breadcrumb follows the registry and an unknown hash renders a Page not found empty state. Prototype copy is removed from every page heading and from the login story, and index.html is English (title and meta description). ui.tsx adds LoadingState (role=status, aria-busy, skeleton rows, Loading\u2026 kept) used by ResourceBoundary with per-page labels, and Empty takes an optional action; Jobs links back to the canvas, Keys, Agent access and Operations gained empty states. navigation.test.ts snapshots the full registry and the per-role grouped navigation plus id uniqueness, group order and unknown page refusal; ui.test.tsx covers empty action, loading status and boundary precedence; pages.test.tsx covers the empty-deployments action; English.test.ts scans the registry copy and the document title. docs/NAVIGATION.md plus README and CHANGELOG updates. Frontend 290 tests, tsc and build green; backend 1445 passed, 2 skipped; secret scan and diff check clean."
     },
     {
       "id": "D1",
@@ -231,5 +231,14 @@
   "constraints": [
     "no GitHub API token is available on the host: no pull request creation, no branch protection change",
     "data/ and docs/prompt/ stay untracked"
-  ]
+  ],
+  "deployment": {
+    "unit": "kuberweaver.service",
+    "url": "http://127.0.0.1:8088",
+    "verify": [
+      "/readyz -> 200",
+      "/api/dashboards -> 401"
+    ],
+    "deployed_sha": "18a932b"
+  }
 }

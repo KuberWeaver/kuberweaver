@@ -47,19 +47,35 @@ nothing.
     `develop` through a pull request when they choose to.
 16. Update `STATE.json` in the same iteration, in the same commit as the work.
 
+## Deployment of the local instance
+
+The portal runs as the user unit `kuberweaver.service` on 127.0.0.1:8088. Code on
+disk is not code in memory: a green commit that is never loaded is invisible.
+
+22. After a green iteration that touched `backend/` or `frontend/`, rebuild the
+    frontend when it changed (`cd frontend && npm run build`) and restart the
+    unit (`systemctl --user restart kuberweaver`).
+23. Verify the loaded code, not just the exit code: `GET /readyz` must answer 200
+    and `GET /api/dashboards` must answer 401 (route present, authentication
+    required). A 404 means the process is still running the previous build.
+24. Record the commit that is actually loaded in `STATE.json` as `deployed_sha`.
+    If verification fails, return to `deployed_sha`, restart, and mark the task
+    `blocked` with the reason. Never leave the portal serving code that failed
+    verification.
+
 ## Stopping
 
-17. After three consecutive failures on the same task, mark it `blocked` with the
+25. After three consecutive failures on the same task, mark it `blocked` with the
     reason, leave the tree clean, and stop. Do not thrash.
-18. If a test failure is pre-existing and unrelated, record it in `STATE.json`
+26. If a test failure is pre-existing and unrelated, record it in `STATE.json`
     under `known_failures` and continue. Do not fix it inside another task.
-19. Leave the working tree clean at the end of every iteration. No half-applied
+27. Leave the working tree clean at the end of every iteration. No half-applied
     edits, no stray files.
-20. If you cannot finish the task, revert your branch, mark it `partial` with what
+28. If you cannot finish the task, revert your branch, mark it `partial` with what
     remains, and stop. A clean tree beats a half feature.
 
 ## Reporting
 
-21. The final message of an iteration states: task id, what changed, test result,
+29. The final message of an iteration states: task id, what changed, test result,
     commit sha, branch pushed, and what the next task is. Two or three lines, no
     narrative.
