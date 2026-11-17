@@ -11,6 +11,7 @@ import secrets
 from fastapi import Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from .catalog import Catalog
+from . import reporting
 from .policy import Admission
 
 
@@ -167,6 +168,10 @@ def install_api(app, plugins_dir, executor=None):
     @app.post('/api/extensions/{identity}/enable')
     def enable_extension(identity: str, data: TrustRequest, current=Depends(role('admin'))):
         return change_extension(app, identity, True, current, data.trusted)
+
+    @app.get('/api/reporting')
+    def reporting_surface(current=Depends(role('admin', 'operator', 'viewer'))):
+        return reporting.describe(app.state.store)
 
     @app.post('/api/extensions/{identity}/disable')
     def disable_extension(identity: str, current=Depends(role('admin'))):
