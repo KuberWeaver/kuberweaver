@@ -1,7 +1,7 @@
 {
   "iteration": 19,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T16:34:00+01:00",
+  "updated_at": "2026-11-17T16:52:00+01:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -225,13 +225,14 @@
     "iteration 14: main rejects a fast-forward push with GH006 'Changes must be made through a pull request'. The 'tests' check on 2fad12a was satisfied (that requirement disappeared from the rejection after CI finished), so the pull-request rule alone blocks main and the loop cannot open one without a token",
     "iteration 15: the same GH006 pull-request rule blocks main for 2cc421f. Once the 'tests' check finished it reported failing, with no way to read the logs; the local run of the identical commands is green. A rebase onto origin/develop must not be run on this branch: develop is behind main, so a rebase drops the merge of the OVF CI pin and rewrites 24 published commits; the branch already contains origin/develop and origin/main, and only a fast-forward push is allowed",
     "iteration 17: the 'tests' check on 5c7240f is satisfied. Eight spaced push attempts moved from 'queued' to 'in progress' and the final rejection lists only 'Changes must be made through a pull request', so main stays blocked by the pull-request rule alone and the loop cannot open one without a token",
-    "iteration 18: the same outcome for dd052ca. Eight spaced attempts moved from 'in progress' to satisfied; the final rejection lists only 'Changes must be made through a pull request'. The check on the exact commit is green, main stays blocked by the pull-request rule alone, and the loop has no token to open a pull request. A rebase onto origin/develop is still refused: develop is 0 ahead and 23 behind main, so it would drop main's history and rewrite 31 published commits"
+    "iteration 18: the same outcome for dd052ca. Eight spaced attempts moved from 'in progress' to satisfied; the final rejection lists only 'Changes must be made through a pull request'. The check on the exact commit is green, main stays blocked by the pull-request rule alone, and the loop has no token to open a pull request. A rebase onto origin/develop is still refused: develop is 0 ahead and 23 behind main, so it would drop main's history and rewrite 31 published commits",
+    "iteration 19: the 'tests' check on ed6e43c became satisfied after seven spaced push attempts; the final rejection lists only 'Changes must be made through a pull request', so main stays blocked by the pull-request rule alone and the loop has no token to open one. origin/develop is 0 commits ahead and 33 behind this branch, so the rebase is a no-op and was skipped rather than rewriting published history"
   ],
   "deployment": {
     "unit": "kuberweaver.service",
     "url": "http://127.0.0.1:8088",
-    "deployed_sha": "3e4f3421625fadf74f6f0d824a85e12ef47be609",
-    "note": "marker read at 2026-11-17T16:34+01:00: the timer had deployed 3e4f342 (the declarations record commit); this iteration's commit is newer, so the timer deploys it within two minutes and the marker is re-read after the push. This run never restarts the unit.",
+    "deployed_sha": "ed6e43c57151bf7fd375bbdb7c4ae435914b515b",
+    "note": "marker read at 2026-11-17T16:47+01:00: the timer had deployed ed6e43c (this iteration's workload commit) and /readyz answered 200, so the new execution provider registers and the service starts cleanly; a local probe of the provider listing reports ansible-workload-v1 available while the active execution binding stays default. This run never restarts the unit and does not mark the deployment itself: the timer did.",
     "mechanism": "kuberweaver-deploy.timer (2 min) -> ops/deploy/local-deploy.sh"
   },
   "resolved_failures": [
