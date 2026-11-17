@@ -37,6 +37,19 @@ Transient statuses include `queued`, `running`, `rolling_back`; terminal outcome
 
 Validation covers schema, dependency DAG, roles, quotas, targets, unsafe public access and planned capabilities. Approved sanitized plans receive actual Git commits. Approval pins graph, provider provenance and executable dependencies, revalidated before mutation. Agent access uses the separate cumulative role/scope contract in `AGENT_ACCESS.md`; an agent never mints its own privileges.
 
+## Portal shell
+
+The portal is served from the FastAPI origin. Its style sheet carries a single
+token layer with a black default and a light override; rules read variables
+only, so a theme is one block rather than a second style sheet. The preference
+is stored per browser and applied by `public/theme-boot.js` from `<head>`, a
+classic script because the origin sends `script-src 'self'` and refuses inline
+code. That ordering is what keeps the first paint on the stored theme. No
+webfont is requested: `Inter` is used when the workstation has it, otherwise the
+platform UI font. `THEMING.md` lists the tokens, the contrast floor enforced by
+the frontend tests and the rule that colour literals stay inside the token
+blocks.
+
 ## Execution provider
 
 The Ansible `Executor(state_dir: Path, plugins_dir: Path | None = None)` exposes `execute(job, emit)` and `rollback(job, emit)`. `emit(phase, level, message)` records progress. Results include an honest status, target evidence and actual snapshots. Preflight may fail; restore failure must never be swallowed.

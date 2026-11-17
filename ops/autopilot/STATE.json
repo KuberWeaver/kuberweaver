@@ -1,7 +1,7 @@
 {
-  "iteration": 8,
+  "iteration": 9,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T05:08:30",
+  "updated_at": "2026-11-17T06:07:51",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -106,9 +106,9 @@
       "title": "Black and light theme",
       "detail": "CSS variables for both themes, persisted preference, no flash of wrong theme, no remote fonts.",
       "acceptance": "Frontend tests cover preference persistence and default; build passes.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "style.css opens with one 60-token layer: black values in :root, which is the default, and light overrides under :root[data-theme=light]; every other rule reads var() and theme.test.ts refuses a colour literal outside the two blocks, a token missing from either theme, a token read but never defined, and any remote font (@import, font CDN, url(https). public/theme-boot.js applies kuberweaver.theme from <head> before the app module, as a classic script because the origin sends script-src 'self' and refuses inline code; index.html carries data-theme=dark plus the matching theme-color, and the test evaluates the boot script for unset, light, unknown and throwing storage and compares its key and both colours with theme.ts. useTheme keeps the document in step when it mounts without the boot script, follows storage events from another tab, and survives a refused write. The toggle (name 'Black theme', aria-pressed carries the state) sits in the top bar and on the login card. The light palette was consolidated into surfaces, text, borders and status scales; muted, faint, ghost and the four status texts were darkened so body text clears 4.5:1 and captions 3.5:1. Both themes were measured in headless Chromium: black shows no light surface at all, light keeps only the intended dark chrome (sidebar, primary button, console), and the faintest text is a decorative separator at 4.08 and 3.45; all body text and badges measure 4.5 or more. docs/THEMING.md, CHANGELOG and IMPLEMENTATION updated. Frontend 279 tests, tsc and build green; backend 1445 passed, 2 skipped."
     },
     {
       "id": "C2",

@@ -39,6 +39,7 @@ import {
   Integrations,
 } from "./pages";
 import { ErrorNotice, Spinner, errorMessage, useResource } from "./ui";
+import { ThemeToggle } from "./ThemeToggle";
 const nav = [
   { id: "canvas", label: "Canvas", icon: LayoutDashboard },
   { id: "catalogue", label: "Catalogue", icon: Package },
@@ -191,6 +192,9 @@ function Login({
         </div>
       </aside>
       <main className="login-form">
+        <div className="login-theme">
+          <ThemeToggle />
+        </div>
         <div className="login-mobile-brand">
           <Brand />
         </div>
@@ -360,6 +364,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
             <strong>{current.label}</strong>
           </div>
           <div className="topbar-right">
+            <ThemeToggle />
             <span className="role-pill">{user.role}</span>
           </div>
         </header>
