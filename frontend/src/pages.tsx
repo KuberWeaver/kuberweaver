@@ -58,10 +58,13 @@ export function Catalogue({
 }) {
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState("all"),
+    [showPlanned, setShowPlanned] = useState(false),
     [selected, setSelected] = useState<Plugin | null>(null);
   const categories = [...new Set(plugins.map((p) => p.category))];
+  const hidden = plugins.filter((p) => p.capability === "planned").length;
   const filtered = plugins.filter(
     (p) =>
+      (showPlanned || p.capability !== "planned") &&
       (category === "all" || p.category === category) &&
       `${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()),
   );
@@ -94,6 +97,16 @@ export function Catalogue({
             ))}
           </select>
         </label>
+        {hidden > 0 && (
+          <label className="inline-label">
+            <input
+              type="checkbox"
+              checked={showPlanned}
+              onChange={(e) => setShowPlanned(e.target.checked)}
+            />{" "}
+            Show {hidden} planned
+          </label>
+        )}
         <button
           className="icon-button"
           aria-label="Refresh catalogue"
@@ -1263,9 +1276,15 @@ export function Audit() {
 export function Integrations({ user }: { user: User }) {
   const r = useResource<any[]>("/integrations");
   const extensions = useResource<any>("/extensions");
+  const [showPlanned, setShowPlanned] = useState(false);
   const registry = Array.isArray(extensions.data)
     ? extensions.data
     : extensions.data?.extensions || extensions.data?.registry || [];
+  const rows = Array.isArray(r.data) ? r.data : [];
+  const planned = rows.filter((row) => capabilityState(row).label === "Planned");
+  const visible = rows.filter(
+    (row) => showPlanned || capabilityState(row).label !== "Planned",
+  );
   return (
     <>
       <PageTitle
@@ -1285,6 +1304,16 @@ export function Integrations({ user }: { user: User }) {
       <Notice>
         A planned or disabled capability is not an active connection. Secrets and endpoints are configured on the server.
       </Notice>
+      {planned.length > 0 && (
+        <label className="inline-label">
+          <input
+            type="checkbox"
+            checked={showPlanned}
+            onChange={(e) => setShowPlanned(e.target.checked)}
+          />{" "}
+          Show {planned.length} not configured
+        </label>
+      )}
       <ResourceBoundary
         loading={r.loading}
         error={r.error}
@@ -1292,7 +1321,7 @@ export function Integrations({ user }: { user: User }) {
         label="Loading integrations"
       >
         <div className="integrations-grid">
-          {r.data?.map((integration: any, i: number) => {
+          {visible.map((integration: any, i: number) => {
             const state = capabilityState(integration);
             return (
               <section

@@ -99,10 +99,10 @@ export const pages: PageDefinition[] = [
   },
   {
     id: "governance",
-    label: "Governance",
+    label: "Policies & pricing",
     group: "govern",
     adminOnly: false,
-    eyebrow: "GOVERN · POLICIES",
+    eyebrow: "GOVERN · POLICIES & PRICING",
     title: "Approval policies",
     description: "Budget, images, network exposure and targets: explicit rules enforced by the server.",
   },

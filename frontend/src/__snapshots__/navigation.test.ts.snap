@@ -75,10 +75,10 @@ exports[`keeps the grouped navigation stable per role 1`] = `
       {
         "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
-        "eyebrow": "GOVERN · POLICIES",
+        "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
         "id": "governance",
-        "label": "Governance",
+        "label": "Policies & pricing",
         "title": "Approval policies",
       },
       {
@@ -221,10 +221,10 @@ exports[`keeps the grouped navigation stable per role 2`] = `
       {
         "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
-        "eyebrow": "GOVERN · POLICIES",
+        "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
         "id": "governance",
-        "label": "Governance",
+        "label": "Policies & pricing",
         "title": "Approval policies",
       },
       {
@@ -349,10 +349,10 @@ exports[`keeps the grouped navigation stable per role 3`] = `
       {
         "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
-        "eyebrow": "GOVERN · POLICIES",
+        "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
         "id": "governance",
-        "label": "Governance",
+        "label": "Policies & pricing",
         "title": "Approval policies",
       },
       {
@@ -481,10 +481,10 @@ exports[`keeps the page registry stable 1`] = `
     {
       "adminOnly": false,
       "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
-      "eyebrow": "GOVERN · POLICIES",
+      "eyebrow": "GOVERN · POLICIES & PRICING",
       "group": "govern",
       "id": "governance",
-      "label": "Governance",
+      "label": "Policies & pricing",
       "title": "Approval policies",
     },
     {
