@@ -29,6 +29,7 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Optional OpenID Connect sign-in behind `KUBERWEAVER_OIDC_ISSUER`, disabled by default: discovery, S256 PKCE, single-use state and nonce, JWKS signature checks, and binding of an external subject to an existing local account whose role stays authoritative; see `docs/OIDC.md`.
 - Black and light themes over one token layer: every colour is a CSS variable, the stored preference is applied by a blocking boot script before the first paint, and the toggle in the top bar and on the login card follows a switch made in another tab; see `docs/THEMING.md`.
 - A single page registry drives the grouped sidebar, breadcrumbs, page headings and role gating, with named loading states, empty states and a `Page not found` fallback; see `docs/NAVIGATION.md`.
+- External dashboard registry: Grafana, Uptime Kuma, Prometheus, Netdata and custom links with a kind, a default health probe path and an optional embed flag that is accepted only for an origin on `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`; see `docs/DASHBOARDS.md`.
 
 ### Security
 

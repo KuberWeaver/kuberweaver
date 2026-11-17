@@ -1,7 +1,7 @@
 {
-  "iteration": 10,
+  "iteration": 11,
   "started_at": "2026-11-17T00:00:00",
-  "updated_at": "2026-11-17T06:59:00",
+  "updated_at": "2026-11-17T07:49:00",
   "branch_policy": {
     "prod": "main",
     "integration": "develop",
@@ -124,9 +124,9 @@
       "title": "External dashboard registry",
       "detail": "Model external observability tools (Grafana, Uptime Kuma, Prometheus, Netdata) as integrations with URL, kind, health probe and optional embed flag; no built-in dashboard code.",
       "acceptance": "Schema validated, CRUD tested, refusal for non-http URLs and for embed without allowlist.",
-      "status": "pending",
-      "attempts": 0,
-      "note": ""
+      "status": "done",
+      "attempts": 1,
+      "note": "dashboards.py owns the registry: a dashboard is label, kind (grafana, uptime-kuma, prometheus, netdata, custom), absolute http/https URL, optional health_path on the same origin, embed and enabled, with revision, created_at and created_by. Reads add computed origin, probe_path (kind default /api/health, /, /-/healthy, /api/v1/info, /) and embeddable; nothing derived is stored. GET/POST /api/dashboards plus GET/PATCH/DELETE /api/dashboards/{id}; PATCH needs the current revision (409 otherwise), DELETE takes ?revision= and confirms the row is gone, browser writes need CSRF, admin-only writes and any-role reads. Embedding is refused 422 unless the URL origin is on KUBERWEAVER_DASHBOARD_EMBED_ORIGINS (comma-separated origins, default empty, default ports and a trailing slash normalized, path/query/fragment/credentials/wildcard refused); a malformed allowlist is reported in embed_error without stopping the app and keeps embedding refused, and embeddable is recomputed on read so a shrunken allowlist falls back to a link. Agent scopes read:integrations for reads and configure for writes. dashboards(id, body) is registered in the PostgreSQL DDL with insertion order, and every create/update/delete writes one dashboard.* audit row. docs/DASHBOARDS.md plus README, CONFIGURATION, IMPLEMENTATION and CHANGELOG updates. 48 tests cover CRUD and restart persistence, all five default probe paths and the explicit override, 23 invalid specifications including non-http/javascript/relative URLs, credentials, fragments, bad ports, control characters and relative or traversal health paths, embed refusal without and outside an allowlist, allowlist normalization and malformed values, partial updates and revision conflicts, delete conflicts, role/CSRF refusal, agent scope separation including a configure token performing create/update/delete, the audit trail and the PostgreSQL registration; backend suite 1493 passed, 2 skipped."
     },
     {
       "id": "D2",

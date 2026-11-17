@@ -16,6 +16,7 @@ differs from the checkout layout selects its paths with the variables below.
 | `KUBERWEAVER_PLUGINS_DIR` | `<checkout>/plugins` | No | Reviewed plugin manifests and playbooks served to the portal. |
 | `KUBERWEAVER_FRONTEND_DIR` | `<checkout>/frontend/dist` | No | Built portal assets. When absent, the API still runs and asset requests return 404. |
 | `KUBERWEAVER_SSH_CONFIG` | `~/.ssh/config` | For execution and OpenTofu runs | OpenSSH client configuration holding the aliases `infra-app`, `infra-branch-client` and `infra-hypervisor`. |
+| `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS` | empty | No | Comma-separated origins allowed to be embedded by the external dashboard registry. Empty refuses every embed. |
 
 Existing database and MCP settings keep their documented behaviour:
 `KUBERWEAVER_DATABASE_URL_FILE`, `KUBERWEAVER_DATABASE_URL`,
@@ -25,6 +26,11 @@ Existing database and MCP settings keep their documented behaviour:
 The optional single sign-on provider is configured by its own
 `KUBERWEAVER_OIDC_*` variables, documented in [single sign-on](OIDC.md). They
 are read only by that provider and are unset in the default installation.
+
+The optional dashboard registry reads `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS`,
+documented in [external dashboards](DASHBOARDS.md). It is a comma-separated
+origin allowlist, empty by default, which is why embedding is refused until an
+operator names the origins they trust.
 
 ## Input rules
 
