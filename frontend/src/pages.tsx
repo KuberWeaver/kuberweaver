@@ -404,7 +404,7 @@ function JobDetail({
     if (!active.current || !canMutate || r.data?.id !== id || (name === "approve" && approvalBlocked)) return;
     if (
       name === "rollback" &&
-      !window.confirm("Restore the previous version of this deployment?")
+      !window.confirm("Restore state from before this deployment? This can remove resources created by the request or restore previous versions. It is not a permanent service decommission.")
     )
       return;
     setBusy(name);
@@ -593,23 +593,26 @@ function JobDetail({
             {j.result && (
               <Details title="Execution result" data={j.result} />
             )}{" "}
-            {user.role === "admin" &&
-              canRollback(j) && (
+            {["succeeded", "rollback_failed", "rolled_back"].includes(j.status) && (
                 <div className="rollback-box">
                   <div>
-                    <strong>Restore previous state</strong>
+                    <strong>{j.status === "rolled_back" ? "Rollback completed" : "Restore previous state"}</strong>
                     <p>
-                      Rollback is journaled and scoped to this request.
+                      {j.status === "rolled_back" ? "The request was rolled back. Previously existing resources may have been restored." :
+                        j.requires_manual_review ? "Manual review is required. Automatic rollback is blocked." :
+                        !canRollback(j) ? "The server does not currently permit rollback for this deployment." :
+                        user.role !== "admin" ? "Only an administrator can request rollback." :
+                        "Rollback is scoped to this request. It may remove newly created resources or restore previous versions; it does not retire the service."}
                     </p>
                   </div>
-                  <button
+                  {user.role === "admin" && canRollback(j) && <button
                     className="danger"
                     disabled={!canMutate}
                     onClick={() => action("rollback")}
                   >
                     <RotateCcw size={15} />
                     {busy === "rollback" ? "Requesting…" : "Manual rollback"}
-                  </button>
+                  </button>}
                 </div>
               )}
           </>

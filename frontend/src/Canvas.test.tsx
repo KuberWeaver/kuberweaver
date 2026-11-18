@@ -13,11 +13,11 @@ const response = (value: unknown) => new Response(JSON.stringify(value));
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
-function mount(roleName = "admin", allowed = true) {
+function mount(roleName = "admin", allowed = true, execution?: object) {
   const submitted: { path: string; body: Record<string, unknown> }[] = [];
   vi.stubGlobal("fetch", vi.fn(async (path: string, options: RequestInit) => {
     if (options.method === "POST") submitted.push({ path, body: JSON.parse(String(options.body)) });
-    if (path === "/api/plans/validate") return response({ allowed, cost: { monthly: 6 }, violations: allowed ? [] : [{ code: "mixed_profiles", message: "Not supported" }] });
+    if (path === "/api/plans/validate") return response({ allowed, execution, cost: { monthly: 6 }, violations: allowed ? [] : [{ code: "mixed_profiles", message: "Not supported" }] });
     if (path === "/api/blueprints" && options.method === "POST") return response({ id: "saved-graph" });
     if (path === "/api/studio/offerings") return response({ title: "My blueprint", version: 1 });
     return response([]);
@@ -82,4 +82,15 @@ it("refuses undeclared variables, secret fields and non-object imports", () => {
   expect(() => parseResourceVariables('[{"cpu":2}]', image)).toThrow(/object/);
   const passwordPlugin: Plugin = { ...image, schema: { properties: { password: { type: "string" } } } };
   expect(() => parseResourceVariables('{"password":"not-a-real-password"}', passwordPlugin)).toThrow(/credential references/);
+});
+
+
+it("distinguishes a policy pass from an unavailable executor", async () => {
+  mount("admin", true, { status: "unavailable", reason: "Provider registration unavailable" });
+  fireEvent.click(screen.getByRole("button", { name: "Add resource" }));
+  fireEvent.change(screen.getByLabelText("Deployment adapter"), { target: { value: image.id } });
+  fireEvent.click(screen.getByRole("button", { name: "Validate blueprint" }));
+  await screen.findByText("Provider registration unavailable");
+  expect(screen.getByRole("button", { name: "Publish to Service Catalog" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "Submit for approval" })).toHaveProperty("disabled", true);
 });

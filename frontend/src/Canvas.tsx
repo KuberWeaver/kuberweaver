@@ -126,9 +126,11 @@ export function Canvas({
       return { ...g, edges: [...g.edges, { id: crypto.randomUUID(), source, target: selected }] };
     });
   }
+  const executionBlocked = validation?.execution?.status === "unavailable";
   async function run(action: "validate" | "save" | "job" | "publish") {
     if (!complete || busy || (action !== "validate" && !edit)) return;
-    if (action === "publish" && (user.role !== "admin" || !validation?.allowed)) return;
+    if ((action === "publish" || action === "job") && (!validation?.allowed || executionBlocked)) return;
+    if (action === "publish" && user.role !== "admin") return;
     setBusy(action);
     setError("");
     setMessage("");
@@ -466,6 +468,11 @@ export function Canvas({
                   </li>
                 )}
               </ul>
+              {validation.execution?.status === "configured" && <p className="muted">
+                Execution provider: {validation.execution.provider}. {validation.execution.requires_saved_plan && "A deployment plan is prepared before approval. "}
+                Target connectivity and runtime health were not checked.
+              </p>}
+              {executionBlocked && <ErrorNotice message={validation.execution.reason} />}
               {validation.phases?.length > 0 && (
                 <div className="phase-preview">
                   {validation.phases.map((p: any, i: number) => (
@@ -507,14 +514,14 @@ export function Canvas({
           <button
             className="primary"
             disabled={
-              !edit || !complete || !validation?.allowed || !!busy
+              !edit || !complete || !validation?.allowed || executionBlocked || !!busy
             }
             onClick={() => run("job")}
           >
             {busy === "job" ? "Creating…" : "Submit for approval"}
             <ArrowRight size={16} />
           </button>
-          {user.role === "admin" && <button disabled={!complete || !validation?.allowed || !!busy || published} onClick={() => run("publish")}>
+          {user.role === "admin" && <button disabled={!complete || !validation?.allowed || executionBlocked || !!busy || published} onClick={() => run("publish")}>
             <Store size={16} /> {busy === "publish" ? "Publishing…" : "Publish to Service Catalog"}
           </button>}
           <small className="approval-note">

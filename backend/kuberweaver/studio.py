@@ -229,7 +229,7 @@ class Studio:
             attribution = (recorded or {}).get('service_request')
             if not isinstance(attribution, dict) or attribution.get('offering_id') != offering['id']:
                 raise HTTPException(503, 'Service request attribution was not recorded')
-            return {'job_id': job['id']}
+            return {'job_id': job['id'], 'status': recorded['status']}
 
     # -- owned services ----------------------------------------------------
 

@@ -59,6 +59,7 @@ export function ResourceInspector({ node, graph, plugins, loading, error, retry,
           </select>
         </div>
         {!options.some((p) => p.capability === "live") && <p className="muted">No available adapter matches this view. Try All or enable a compatible integration.</p>}
+        {choices.filter((p) => p.capability !== "live").map((p) => <p className="muted" key={p.id}><strong>{p.name} — unavailable.</strong> {p.description}</p>)}
       </>}
       {plugin && <div className="resource-source-summary">
         <strong>{plugin.name} · {plugin.engine}</strong>

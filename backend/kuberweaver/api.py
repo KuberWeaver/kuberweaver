@@ -82,7 +82,23 @@ def install_api(app, plugins_dir, executor=None):
     @app.post('/api/plans/validate')
     def validate(graph: Graph, current=Depends(user)):
         jobs.notify('before_plan', {'job_id': None, 'status': 'planning', 'operation': 'validate', 'environment': graph.environment})
-        return admission.validate(graph.model_dump(), current['role'])
+        value = graph.model_dump()
+        report = admission.validate(value, current['role'])
+        execution: dict[str, str | bool] = {'status': 'not_checked', 'target_connectivity': 'not_checked'}
+        if report['allowed']:
+            from .providers import execution_binding, graph_execution_name
+            try:
+                name = graph_execution_name(app, value)
+                execution['provider'] = name
+                execution_binding(app, name)
+                provider = resolve_provider(app, 'execution', name)
+                execution.update(status='configured',
+                                 requires_saved_plan=bool(getattr(provider, 'requires_saved_plan', False)))
+            except HTTPException as exc:
+                execution.update(status='unavailable', reason=(
+                    'The blueprint must use one execution provider.' if exc.status_code == 422
+                    else 'The execution provider is unavailable or its registration has changed.'))
+        return {**report, 'execution': execution}
 
     @app.get('/api/settings')
     def settings(current=Depends(user)):
