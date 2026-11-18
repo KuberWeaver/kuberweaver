@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
-import { ReactFlowProvider } from "@xyflow/react";
 import {
   Workflow,
   LayoutDashboard,
@@ -386,16 +385,15 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
         <main className={`page page-${page}`}>
           {logoutError && <ErrorNotice message={logoutError} />}{" "}
           {page === "canvas" && (
-            <ReactFlowProvider>
-              <Canvas
-                user={user}
-                plugins={plugins.data || []}
-                pluginsLoading={plugins.loading}
-                pluginsError={plugins.error}
-                retryPlugins={plugins.refresh}
-                onJob={() => navigate("jobs")}
-              />
-            </ReactFlowProvider>
+            <Canvas
+              user={user}
+              plugins={plugins.data || []}
+              pluginsLoading={plugins.loading}
+              pluginsError={plugins.error}
+              retryPlugins={plugins.refresh}
+              onJob={() => navigate("jobs")}
+              onOfferings={() => navigate("offerings")}
+            />
           )}
           {page === "catalogue" && (
             <Catalogue

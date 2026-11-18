@@ -31,6 +31,10 @@ export type Plugin = {
   resources?: unknown;
   security?: unknown;
   executor?: unknown;
+  kind?: string;
+  service?: { image?: string };
+  implementation?: { role?: string; version?: string; source?: string };
+  iac?: { template?: string };
 };
 export type GraphNode = {
   id: string;
