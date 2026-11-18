@@ -356,3 +356,33 @@ it("affiche l’empreinte, les actions et le résumé sauvegardés avant l’app
   expect(estimate.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Manual rollback" })).toBeNull();
 });
+
+
+it("retires an eligible service through its dedicated endpoint after confirmation", async () => {
+  let detail = { ...job, status: "succeeded", can_decommission: true };
+  const request = vi.fn(async (path: string, options?: RequestInit) => {
+    if (options?.method === "POST") {
+      expect(path).toBe("/api/studio/services/prepared-request/decommission");
+      detail = { ...detail, status: "decommissioned", can_decommission: false };
+    }
+    return new Response(JSON.stringify(path === "/api/jobs" ? [detail] : detail));
+  });
+  vi.stubGlobal("fetch", request);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+  sessionStorage.setItem("kuberweaver.job", detail.id);
+  render(<Jobs user={admin} />);
+  const button = await screen.findByRole("button", { name: "Retire service" });
+  fireEvent.click(button);
+  expect(request.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+  fireEvent.click(button);
+  expect(await screen.findByText(/provider verified removal/)).toBeTruthy();
+  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(request.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
+});
+
+it("does not offer service retirement to an operator", async () => {
+  const request = loadJob({ status: "succeeded", can_decommission: true }, "operator");
+  expect(await screen.findByText("Service retirement")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Retire service" })).toBeNull();
+  expect(request.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+});

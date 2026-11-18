@@ -80,6 +80,7 @@ export type Job = {
   approved_by?: string;
   error?: string;
   can_rollback?: boolean;
+  can_decommission?: boolean;
   requires_manual_review?: boolean;
   prepared_plan?: PreparedPlan;
   requires_saved_plan?: boolean;
@@ -185,4 +186,8 @@ export const statuses: Record<string, string> = {
   rolled_back: "Rolled back",
   rollback_failed: "Rollback failed",
   rejected: "Rejected",
+  decommission_queued: "Retirement queued",
+  decommissioning: "Retiring",
+  decommissioned: "Retired",
+  decommission_failed: "Retirement failed",
 };

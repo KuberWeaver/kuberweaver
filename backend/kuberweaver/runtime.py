@@ -49,7 +49,8 @@ def load_provider_bindings(app):
 
 def queue_busy(app):
     return app.state.worker.active_identity is not None or any(
-        job['status'] in {'queued', 'planning', 'approving', 'running', 'rolling_back'} for job in app.state.store.list('jobs'))
+        job['status'] in {'queued', 'planning', 'approving', 'running', 'rolling_back',
+                          'decommission_queued', 'decommissioning'} for job in app.state.store.list('jobs'))
 
 
 def change_provider_bindings(app, patch, actor):

@@ -11,7 +11,7 @@ export type ResourceKind = (typeof resourceKinds)[number]["id"];
 export function resourceKind(plugin: Plugin): ResourceKind {
   if (plugin.kind === "workload" || plugin.implementation?.role) return "configuration";
   if (plugin.category === "compute") return "vm";
-  if (plugin.service?.image) return "container";
+  if (plugin.kind === "container" || plugin.service?.image) return "container";
   return "other";
 }
 

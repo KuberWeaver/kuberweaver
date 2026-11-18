@@ -1,0 +1,30 @@
+---
+- name: Verify the KuberWeaver local VM baseline
+  hosts: all
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Read the managed baseline marker
+      ansible.builtin.slurp:
+        src: "{{ kw_marker_path }}"
+      register: kw_marker
+
+    - name: Confirm the guest Python interpreter
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - --version
+      changed_when: false
+      register: kw_python
+
+    - name: Publish verification assertions on the controller
+      ansible.builtin.copy:
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+        content: >-
+          {{ {'assertions': {
+                'guest-reachable': true,
+                'python-available': (kw_python.rc == 0),
+                'baseline-marker': ((kw_marker.content | b64decode | trim) == kw_marker_content)
+             }} | to_json }}
+      delegate_to: localhost

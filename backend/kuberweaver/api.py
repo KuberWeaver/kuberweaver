@@ -92,6 +92,14 @@ def install_api(app, plugins_dir, executor=None):
                 execution['provider'] = name
                 execution_binding(app, name)
                 provider = resolve_provider(app, 'execution', name)
+                ready = getattr(provider, 'ready', None)
+                if callable(ready):
+                    try:
+                        if ready() is not True:
+                            raise ValueError('Provider not ready')
+                    except (OSError, ValueError):
+                        raise HTTPException(503, 'Execution provider prerequisites not met') from None
+                    execution['prerequisites'] = 'verified'
                 execution.update(status='configured',
                                  requires_saved_plan=bool(getattr(provider, 'requires_saved_plan', False)))
             except HTTPException as exc:
@@ -251,7 +259,7 @@ def install_api(app, plugins_dir, executor=None):
     @app.get('/api/overview')
     def overview(current=Depends(user)):
         all_jobs = store.list('jobs')
-        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed')}
+        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'decommission_queued', 'decommissioning', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed', 'decommissioned', 'decommission_failed')}
         counts.update(jobs=len(all_jobs), plugins=len(catalog.discover()), blueprints=len(store.list('blueprints')),
                       nodes=len(getattr(app.state, 'inventory_cache', {}).get('nodes', [])), pending_approvals=counts['pending_approval'])
         return {'counts': counts, 'recent_jobs': [jobs.present(job) for job in all_jobs[:10]], 'costs': costs(), 'integrations': integration_list(app)}
@@ -285,7 +293,8 @@ def install_api(app, plugins_dir, executor=None):
                     if event['id'] > cursor:
                         cursor = event['id']
                         yield f'id: {cursor}\nevent: log\ndata: {json.dumps(event)}\n\n'
-                if job['status'] in {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}:
+                if job['status'] in {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected',
+                                     'decommissioned', 'decommission_failed'}:
                     yield 'event: done\ndata: ' + json.dumps({'status': job['status']}) + '\n\n'
                     return
                 yield ': heartbeat\n\n'

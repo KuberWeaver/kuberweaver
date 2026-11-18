@@ -24,11 +24,11 @@ import type { Offering, Service } from "./studio";
 const statusTone = (status: string) =>
   status === "pending_approval"
     ? "warning"
-    : status === "succeeded"
+    : ["succeeded", "decommissioned"].includes(status)
       ? "success"
-      : ["failed", "rejected", "rollback_failed"].includes(status)
+      : ["failed", "rejected", "rollback_failed", "decommission_failed"].includes(status)
         ? "danger"
-        : ["queued", "planning", "running", "approving"].includes(status)
+        : ["queued", "planning", "running", "approving", "decommission_queued", "decommissioning"].includes(status)
           ? "info"
           : "neutral";
 
@@ -174,7 +174,7 @@ export function MyServices({
       />
       <Notice>
         Monthly estimates describe declared resources. They are not bills, and this
-        workspace does not meter usage. Open a deployment to see its verification log and whether an administrator can roll it back.
+        workspace does not meter usage. Open a deployment to see its verification log and whether an administrator can roll it back or retire it.
       </Notice>
       <ResourceBoundary
         loading={services.loading}
