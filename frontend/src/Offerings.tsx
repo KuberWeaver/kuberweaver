@@ -24,11 +24,11 @@ import type { Offering, Service } from "./studio";
 const statusTone = (status: string) =>
   status === "pending_approval"
     ? "warning"
-    : status === "succeeded"
+    : ["succeeded", "decommissioned"].includes(status)
       ? "success"
-      : ["failed", "rejected", "rollback_failed"].includes(status)
+      : ["failed", "rejected", "rollback_failed", "decommission_failed"].includes(status)
         ? "danger"
-        : ["queued", "planning", "running", "approving"].includes(status)
+        : ["queued", "planning", "running", "approving", "decommission_queued", "decommissioning"].includes(status)
           ? "info"
           : "neutral";
 
@@ -44,7 +44,7 @@ export function ServiceOfferings({
   const offerings = useResource<Offering[]>("/studio/offerings");
   const [requesting, setRequesting] = useState("");
   const [requestError, setRequestError] = useState("");
-  const [requested, setRequested] = useState<{ title: string; jobId: string } | null>(null);
+  const [requested, setRequested] = useState<{ title: string; jobId: string; status?: string } | null>(null);
   const allowed = canRequestOffering(user.role);
 
   async function request(offering: Offering) {
@@ -52,11 +52,11 @@ export function ServiceOfferings({
     setRequestError("");
     setRequested(null);
     try {
-      const result = await api<{ job_id: string }>(
+      const result = await api<{ job_id: string; status?: string }>(
         `/studio/offerings/${encodeURIComponent(offering.id)}/request`,
         { method: "POST", body: JSON.stringify({}) },
       );
-      setRequested({ title: offering.title, jobId: result.job_id });
+      setRequested({ title: offering.title, jobId: result.job_id, status: result.status });
     } catch (error) {
       setRequestError(errorMessage(error));
     } finally {
@@ -77,7 +77,7 @@ export function ServiceOfferings({
       />
       <Notice>
         Offerings are ready-made services. A request creates a deployment job that stays
-        pending approval — nothing is deployed until an operator approves it.
+        pending approval or first prepares a plan — nothing is applied until an administrator approves it.
       </Notice>
       {!allowed && (
         <Notice>
@@ -88,7 +88,7 @@ export function ServiceOfferings({
       {requested && (
         <div className="notice success" role="status">
           <ShieldCheck size={18} />
-          <span>{offeringRequestMessage(requested.title, requested.jobId)}</span>
+          <span>{offeringRequestMessage(requested.title, requested.jobId, requested.status)}</span>
           {onOpenServices && (
             <button className="text-button" onClick={onOpenServices}>
               Open my services
@@ -113,8 +113,7 @@ export function ServiceOfferings({
                   <small>v{offering.version}</small>
                 </h2>
                 <p>
-                  Published from a platform blueprint. Review the deployment plan after
-                  approval in Deployments.
+                  Published from a platform blueprint. Review the request and any prepared plan in Deployments before approval.
                 </p>
                 <div className="catalogue-actions">
                   <button
@@ -155,7 +154,7 @@ export function MyServices({
   onOpenDeployments?: () => void;
   onOpenCatalogue?: () => void;
 }) {
-  const services = useResource<Service[]>("/studio/services");
+  const services = useResource<Service[]>("/studio/services", 5000);
 
   function openDeployment(service: Service) {
     sessionStorage.setItem("kuberweaver.job", service.job_id);
@@ -175,7 +174,7 @@ export function MyServices({
       />
       <Notice>
         Monthly estimates describe declared resources. They are not bills, and this
-        workspace does not meter usage.
+        workspace does not meter usage. Open a deployment to see its verification log and whether an administrator can roll it back or retire it.
       </Notice>
       <ResourceBoundary
         loading={services.loading}
@@ -218,7 +217,7 @@ export function MyServices({
                           aria-label={`Open deployment ${service.job_id}`}
                           onClick={() => openDeployment(service)}
                         >
-                          Open
+                          View lifecycle
                         </button>
                       </td>
                     </tr>

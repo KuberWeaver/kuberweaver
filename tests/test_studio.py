@@ -220,7 +220,8 @@ def test_offering_request_creates_a_pending_job_with_durable_attribution(api):
     owner = client.get('/api/auth/me').json()['user']['id']
     response = client.post(f"/api/studio/offerings/{offering['id']}/request")
     assert response.status_code == 201, response.text
-    assert set(response.json()) == {'job_id'}
+    assert set(response.json()) == {'job_id', 'status'}
+    assert response.json()['status'] == 'pending_approval'
     job = client.get('/api/jobs/' + response.json()['job_id']).json()
     assert job['status'] == 'pending_approval'  # no approval bypass
     assert job['created_by'] == 'operator'
@@ -297,9 +298,11 @@ def test_service_status_follows_the_existing_job_lifecycle(api):
     client, app = api
     record = save_blueprint(client)
     offering = publish(client, 'Web stack', record['id']).json()
-    install_executor(app, RecordingExecutor())
+    executor = install_executor(app, RecordingExecutor())
     login(client, app.state.state_dir, 'operator')
     identity = client.post(f"/api/studio/offerings/{offering['id']}/request").json()['job_id']
+    assert executor.calls == []
+    assert client.post(f'/api/jobs/{identity}/approve').status_code == 403
     login(client, app.state.state_dir, 'admin')
     assert client.post(f'/api/jobs/{identity}/approve').status_code == 200
     result = wait_job(client, identity)
@@ -309,6 +312,13 @@ def test_service_status_follows_the_existing_job_lifecycle(api):
     assert row['status'] == 'succeeded'
     assert row['monthly_estimate'] == pytest.approx(result['cost']['monthly'])
     assert row['job_id'] == identity
+    assert client.post(f'/api/jobs/{identity}/rollback').status_code == 403
+    login(client, app.state.state_dir, 'admin')
+    assert client.post(f'/api/jobs/{identity}/rollback').status_code == 200
+    assert wait_job(client, identity)['status'] == 'rolled_back'
+    login(client, app.state.state_dir, 'operator')
+    assert client.get('/api/studio/services').json()[0]['status'] == 'rolled_back'
+    assert executor.calls == [('execute', identity), ('rollback', identity)]
 
 
 def test_jobs_without_studio_attribution_never_appear_in_services(api):

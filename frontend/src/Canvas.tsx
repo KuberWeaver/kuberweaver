@@ -1,87 +1,15 @@
-import { useEffect, useMemo, useState, useRef } from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  Handle,
-  Position,
-  applyNodeChanges,
-  useReactFlow,
-  MarkerType,
-} from "@xyflow/react";
-import type { Node, NodeProps, Connection, NodeChange } from "@xyflow/react";
-import {
-  Plus,
-  Search,
-  ArrowRight,
-  Save,
-  FolderOpen,
-  ShieldCheck,
-  Trash2,
-  X,
-  GitBranch,
-  MousePointer2,
-  Box,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  RotateCcw,
-  ChevronDown,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, ArrowRight, Save, FolderOpen, ShieldCheck, X, GitBranch, Box, CheckCircle2, AlertTriangle, Info, RotateCcw, ChevronDown, Store } from "lucide-react";
 import type { Graph, Plugin, User, GraphNode } from "./model";
-import {
-  emptyGraph,
-  serializeGraph,
-  defaultsFor,
-  mayEdit,
-  money,
-  sortPlugins,
-  reconcileDraft,
-} from "./model";
+import { emptyGraph, serializeGraph, defaultsFor, mayEdit, money, reconcileDraft } from "./model";
 import { api } from "./api";
-import { DiscoverySchemaFields } from "./DiscoverySchemaFields";
 import { pageHeading } from "./navigation";
-import {
-  Badge,
-  ErrorNotice,
-  PluginIcon,
-  Spinner,
-  errorMessage,
-  useResource,
-  PageTitle,
-} from "./ui";
-type ResourceNode = Node<
-  {
-    label: string;
-    plugin: string;
-    engine: string;
-    cost: number;
-    readonly: boolean;
-  },
-  "resource"
->;
-function ResourceCard({ data, selected }: NodeProps<ResourceNode>) {
-  return (
-    <div className={`resource-node ${selected ? "selected" : ""}`}>
-      <Handle type="target" position={Position.Left} />
-      <div className="resource-top">
-        <span className="plugin-icon">
-          <PluginIcon name={data.plugin} />
-        </span>
-        <span className="node-type">{data.plugin}</span>
-        <span className="node-dot" />
-      </div>
-      <strong>{data.label}</strong>
-      <div className="node-meta">
-        <span>{data.engine}</span>
-        <span>{money(data.cost)} / month</span>
-      </div>
-      <Handle type="source" position={Position.Right} />
-    </div>
-  );
-}
-const nodeTypes = { resource: ResourceCard };
+import { Badge, ErrorNotice, PluginIcon, Spinner, errorMessage, useResource, PageTitle } from "./ui";
+import { ResourceInspector } from "./ResourceInspector";
+import { resourceKind, resourceKinds, wouldCycle } from "./resourceWorkspace";
+import { offeringTitleError } from "./studio";
+import "./resourceWorkspace.css";
+
 export function loadDraft(key: string): Graph {
   try {
     const raw = JSON.parse(localStorage.getItem(key) || "null");
@@ -105,6 +33,7 @@ export function Canvas({
   pluginsError,
   retryPlugins,
   onJob,
+  onOfferings,
 }: {
   user: User;
   plugins: Plugin[];
@@ -112,19 +41,17 @@ export function Canvas({
   pluginsError: string;
   retryPlugins: () => void;
   onJob: () => void;
+  onOfferings?: () => void;
 }) {
   const draftKey = `kuberweaver.draft.${user.id}`;
   const [graph, setGraph] = useState<Graph>(() => loadDraft(draftKey)),
     [selected, setSelected] = useState<string | null>(null),
-    [query, setQuery] = useState(""),
     [validation, setValidation] = useState<any>(null),
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [paletteOpen, setPaletteOpen] = useState(false),
+    [published, setPublished] = useState(false),
     [blueprintsOpen, setBlueprintsOpen] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const flow = useReactFlow();
   const edit = mayEdit(user.role);
   const blueprints = useResource<any[]>("/blueprints");
   const [reconciled, setReconciled] = useState(false);
@@ -149,27 +76,21 @@ export function Canvas({
     return () => window.removeEventListener("keydown", key);
   }, []);
   const mutate = (fn: (graph: Graph) => Graph) => {
-    if (!edit) return;
+    if (!edit || busy) return;
     setGraph(fn);
     setValidation(null);
     setMessage("");
+    setPublished(false);
   };
-  function add(plugin: Plugin, position?: { x: number; y: number }) {
-    if (!edit || plugin.capability !== "live") return;
+  function add(plugin?: Plugin) {
+    if (!edit || (plugin && plugin.capability !== "live")) return;
     const id = crypto.randomUUID();
-    const node: GraphNode = {
-      id,
-      plugin_id: plugin.id,
-      label: plugin.name,
-      position: position || {
-        x: 70 + (graph.nodes.length % 3) * 260,
-        y: 70 + Math.floor(graph.nodes.length / 3) * 160,
-      },
-      config: defaultsFor(plugin),
-    };
-    mutate((g) => ({ ...g, nodes: [...g.nodes, node] }));
+    mutate((g) => ({ ...g, nodes: [...g.nodes, {
+      id, plugin_id: plugin?.id ?? "", label: plugin?.name ?? "New resource",
+      position: { x: 70 + (g.nodes.length % 3) * 260, y: 70 + Math.floor(g.nodes.length / 3) * 160 },
+      config: plugin ? defaultsFor(plugin) : {},
+    }] }));
     setSelected(id);
-    setPaletteOpen(false);
   }
   useEffect(() => {
     const id = sessionStorage.getItem("kuberweaver.add");
@@ -179,34 +100,8 @@ export function Canvas({
       if (plugin) add(plugin);
     }
   }, [plugins, edit]);
-  const nodes: ResourceNode[] = useMemo(
-    () =>
-      graph.nodes.map((n) => {
-        const p = plugins.find((p) => p.id === n.plugin_id);
-        return {
-          id: n.id,
-          type: "resource",
-          position: n.position,
-          selected: n.id === selected,
-          data: {
-            label: n.label,
-            plugin: p?.name || n.plugin_id,
-            engine: p?.engine || "Extension missing",
-            cost: p?.price_monthly || 0,
-            readonly: !edit,
-          },
-        };
-      }),
-    [graph.nodes, plugins, selected, edit],
-  );
-  const edges = graph.edges.map((e) => ({
-    ...e,
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: "#7b929d", strokeWidth: 1.6 },
-  }));
-  const chosen = graph.nodes.find((n) => n.id === selected),
-    chosenPlugin = plugins.find((p) => p.id === chosen?.plugin_id);
+  const chosen = graph.nodes.find((n) => n.id === selected);
+  const complete = graph.nodes.length > 0 && graph.nodes.every((n) => plugins.some((p) => p.id === n.plugin_id && p.capability === "live"));
   const updateNode = (patch: Partial<GraphNode>) =>
     mutate((g) => ({
       ...g,
@@ -222,41 +117,20 @@ export function Canvas({
     }));
     setSelected(null);
   };
-  function onNodesChange(changes: NodeChange<ResourceNode>[]) {
-    if (!edit) return;
-    const next = applyNodeChanges(changes, nodes);
-    const removed = new Set(
-      changes.filter((c) => c.type === "remove").map((c) => c.id),
-    );
-    if (changes.some((c) => c.type === "position" || c.type === "remove"))
-      mutate((g) => ({
-        ...g,
-        nodes: g.nodes
-          .filter((n) => !removed.has(n.id))
-          .map((n) => ({
-            ...n,
-            position: next.find((v) => v.id === n.id)?.position || n.position,
-          })),
-        edges: g.edges.filter(
-          (e) => !removed.has(e.source) && !removed.has(e.target),
-        ),
-      }));
+  function dependency(source: string, enabled: boolean) {
+    if (!selected) return;
+    mutate((g) => {
+      const same = (e: Graph["edges"][number]) => e.source === source && e.target === selected;
+      if (!enabled) return { ...g, edges: g.edges.filter((e) => !same(e)) };
+      if (g.edges.some(same) || wouldCycle(g, source, selected)) return g;
+      return { ...g, edges: [...g.edges, { id: crypto.randomUUID(), source, target: selected }] };
+    });
   }
-  function connect(c: Connection) {
-    if (
-      c.source === c.target ||
-      graph.edges.some((e) => e.source === c.source && e.target === c.target)
-    )
-      return;
-    mutate((g) => ({
-      ...g,
-      edges: [
-        ...g.edges,
-        { id: crypto.randomUUID(), source: c.source, target: c.target },
-      ],
-    }));
-  }
-  async function run(action: string) {
+  const executionBlocked = validation?.execution?.status === "unavailable";
+  async function run(action: "validate" | "save" | "job" | "publish") {
+    if (!complete || busy || (action !== "validate" && !edit)) return;
+    if ((action === "publish" || action === "job") && (!validation?.allowed || executionBlocked)) return;
+    if (action === "publish" && user.role !== "admin") return;
     setBusy(action);
     setError("");
     setMessage("");
@@ -268,7 +142,12 @@ export function Canvas({
             body: JSON.stringify(serializeGraph(graph)),
           }),
         );
-      } else if (action === "save") {
+      } else if (action === "save" || action === "publish") {
+        const title = graph.name.trim();
+        if (action === "publish") {
+          const problem = offeringTitleError(title);
+          if (problem) throw new Error(problem);
+        }
         const created = await api("/blueprints", {
           method: "POST",
           body: JSON.stringify({
@@ -276,9 +155,15 @@ export function Canvas({
             graph: serializeGraph(graph),
           }),
         });
-        await api(`/blueprints/${encodeURIComponent(created.id)}`);
         blueprints.refresh();
         setMessage("Blueprint saved on the server.");
+        if (action === "publish") {
+          const offering = await api("/studio/offerings", {
+            method: "POST", body: JSON.stringify({ title, blueprint_id: created.id }),
+          });
+          setMessage(`Published to Service Catalog: ${offering.title} · v${offering.version}.`);
+          setPublished(true);
+        }
       } else if (action === "job") {
         const job = await api("/jobs", {
           method: "POST",
@@ -304,18 +189,13 @@ export function Canvas({
       setSelected(null);
       setBlueprintsOpen(false);
       setMessage("Blueprint loaded.");
-      setTimeout(() => flow.fitView({ padding: 0.2 }), 80);
+      setPublished(false);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
       setBusy("");
     }
   }
-  const filtered = sortPlugins(plugins).filter((p) =>
-    `${p.name} ${p.description} ${p.category}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
   const estimate =
     validation?.cost?.monthly ??
     graph.nodes.reduce(
@@ -327,13 +207,15 @@ export function Canvas({
     <>
       <PageTitle
         {...pageHeading("canvas")}
+        title="Blueprint workspace"
+        description="Add resource squares, configure them and publish the complete blueprint to self-service."
         actions={
           <>
             <button onClick={() => setBlueprintsOpen((v) => !v)}>
               <FolderOpen size={16} />
               My blueprints
             </button>
-            <button disabled={!edit || !!busy} onClick={() => run("save")}>
+            <button disabled={!edit || !complete || !!busy} onClick={() => run("save")}>
               <Save size={16} />
               {busy === "save" ? "Saving…" : "Save"}
             </button>
@@ -351,6 +233,7 @@ export function Canvas({
         <div className="notice success" role="status">
           <CheckCircle2 size={17} />
           {message}
+          {published && onOfferings && <button onClick={onOfferings}>Open Service Catalog <ArrowRight size={14} /></button>}
         </div>
       )}
       {blueprintsOpen && (
@@ -437,268 +320,29 @@ export function Canvas({
           </button>
         </div>
       </div>
-      <div className={`canvas-workspace ${chosen ? "has-inspector" : ""}`}>
-        <aside className={`palette ${paletteOpen ? "mobile-open" : ""}`}>
-          <div className="palette-heading">
-            <h2>Components</h2>
-            <Badge>
-              {plugins.filter((p) => p.capability === "live").length}
-            </Badge>
-            <button
-              className="icon-button mobile-close"
-              aria-label="Close components"
-              onClick={() => setPaletteOpen(false)}
-            >
-              <X size={17} />
-            </button>
+      <div className={`resource-workspace ${chosen ? "has-selection" : ""}`}>
+        <section className="resource-board panel" aria-labelledby="board-title">
+          <header className="board-header"><div><h2 id="board-title">Resources</h2>
+            <p className="muted">{graph.nodes.length ? "Select a square to configure it." : "Start with a blank resource square."}</p></div>
+            <Badge>{graph.nodes.length}</Badge>
+          </header>
+          <div className="resource-grid">
+            {graph.nodes.map((node) => {
+              const plugin = plugins.find((p) => p.id === node.plugin_id);
+              const kind = plugin && resourceKinds.find(({ id }) => id === resourceKind(plugin))?.label;
+              return <button key={node.id} className="resource-square" aria-label={`${node.label || "Unnamed resource"} — ${kind ?? "Not configured"}`} aria-pressed={selected === node.id} onClick={() => setSelected(node.id)}>
+                <span className="plugin-icon">{plugin ? <PluginIcon name={plugin.name} /> : <Box size={20} />}</span>
+                <strong>{node.label || "Unnamed resource"}</strong>
+                <small>{plugin ? `${kind} · ${plugin.engine}` : node.plugin_id ? "Adapter missing" : "Not configured"}</small>
+              </button>;
+            })}
+            {edit && <button className="resource-square add-square" disabled={!!busy} onClick={() => add()}><Plus size={24} /><strong>Add resource</strong></button>}
           </div>
-          <p>Your platform extensions.</p>
-          <div className="search-input">
-            <Search size={15} />
-            <input
-              aria-label="Search components"
-              placeholder="Search…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          {pluginsLoading ? (
-            <Spinner />
-          ) : pluginsError ? (
-            <ErrorNotice message={pluginsError} retry={retryPlugins} />
-          ) : (
-            <div className="palette-list">
-              {filtered.map((p, i) => (
-                <div key={p.id}>
-                  {i === 0 || p.capability !== filtered[i - 1].capability ? (
-                    <div className="palette-section">
-                      {p.capability === "live"
-                        ? "AVAILABLE"
-                        : "UNAVAILABLE TARGETS"}
-                    </div>
-                  ) : null}
-                  <div
-                    className={`palette-tile ${p.capability === "planned" ? "planned" : ""}`}
-                    draggable={edit && p.capability === "live"}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        "application/kuberweaver-plugin",
-                        p.id,
-                      );
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                  >
-                    <span className="plugin-icon">
-                      <PluginIcon name={p.name} />
-                    </span>
-                    <div className="palette-tile-copy">
-                      <strong>{p.name}</strong>
-                      <small>
-                        {p.capability === "live"
-                          ? p.engine
-                          : "Target unavailable"}
-                      </small>
-                    </div>
-                    <button
-                      className="icon-button"
-                      aria-label={`Add ${p.name}`}
-                      title={
-                        p.capability === "live"
-                          ? "Add to canvas"
-                          : "Planned — target unavailable"
-                      }
-                      disabled={!edit || p.capability !== "live"}
-                      onClick={() => add(p)}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {!filtered.length && (
-                <p className="muted">No components found.</p>
-              )}
-            </div>
-          )}
-          <div className="palette-foot">
-            <Info size={14} />
-            <span>Drag a component or use + to add it.</span>
-          </div>
-        </aside>
-        <div
-          className="flow-canvas"
-          ref={canvasRef}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const p = plugins.find(
-              (p) =>
-                p.id ===
-                e.dataTransfer.getData("application/kuberweaver-plugin"),
-            );
-            if (p)
-              add(p, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
-          }}
-        >
-          <div className="canvas-breadcrumb">
-            <span className="canvas-live-dot" />
-            DESIRED STATE<span className="canvas-divider">/</span>
-            <span>
-              {graph.nodes.length} resource
-              {graph.nodes.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <button
-            className="mobile-palette"
-            disabled={!edit}
-            onClick={() => setPaletteOpen(true)}
-          >
-            <Plus size={15} />
-            Components
-          </button>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={(changes) => {
-              const removed = new Set(
-                changes.filter((c) => c.type === "remove").map((c) => c.id),
-              );
-              if (removed.size)
-                mutate((g) => ({
-                  ...g,
-                  edges: g.edges.filter((e) => !removed.has(e.id)),
-                }));
-            }}
-            onConnect={connect}
-            onNodeClick={(_, n) => setSelected(n.id)}
-            onPaneClick={() => setSelected(null)}
-            nodesDraggable={edit}
-            nodesConnectable={edit}
-            edgesReconnectable={edit}
-            elementsSelectable
-            deleteKeyCode={edit ? ["Backspace", "Delete"] : null}
-            minZoom={0.2}
-            maxZoom={1.5}
-            defaultViewport={{ x: 20, y: 40, zoom: 0.9 }}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background color="#d4dde2" gap={22} size={1} />
-            <Controls showInteractive={false} />
-            {graph.nodes.length > 3 && <MiniMap pannable zoomable />}
-          </ReactFlow>
-          {!graph.nodes.length && (
-            <div className="canvas-empty">
-              <div className="canvas-empty-art">
-                <Box size={35} strokeWidth={1.2} />
-                <span className="art-plus">
-                  <Plus size={13} />
-                </span>
-              </div>
-              <span className="eyebrow">
-                START WITH A BLANK CANVAS
-              </span>
-              <h2>Shape your infrastructure.</h2>
-              <p>
-                Add your first component from the catalogue.
-                <br />
-                Connect your resources, then configure them.
-              </p>
-              <button
-                className="empty-add"
-                disabled={
-                  !edit || !plugins.some((p) => p.capability === "live")
-                }
-                onClick={() => {
-                  if (window.innerWidth < 760) setPaletteOpen(true);
-                  else {
-                    const live = plugins.find((p) => p.capability === "live");
-                    if (live) add(live);
-                  }
-                }}
-              >
-                <Plus size={16} />
-                Add a component
-                <ArrowRight size={15} />
-              </button>
-              <div className="empty-shortcuts">
-                <span>
-                  <MousePointer2 size={13} />
-                  Drag and drop
-                </span>
-                <span>
-                  <GitBranch size={13} />
-                  Connect
-                </span>
-                <span>
-                  <ShieldCheck size={13} />
-                  Validate
-                </span>
-              </div>
-            </div>
-          )}
-          <div className="canvas-bottom-note">
-            <ShieldCheck size={13} />
-            No infrastructure changes before approval.
-          </div>
-        </div>
-        {chosen && (
-          <aside className="inspector">
-            <div className="panel-title">
-              <div>
-                <div className="eyebrow">CONFIGURATION</div>
-                <h3>{chosenPlugin?.name || chosen.plugin_id}</h3>
-              </div>
-              <button
-                className="icon-button"
-                aria-label="Close inspector"
-                onClick={() => setSelected(null)}
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <p className="muted inspector-description">
-              {chosenPlugin?.description ||
-                "This extension is no longer in the registry."}
-            </p>
-            <div className="field">
-              <label htmlFor="node-label">Resource name</label>
-              <input
-                id="node-label"
-                value={chosen.label}
-                disabled={!edit}
-                onChange={(e) => updateNode({ label: e.target.value })}
-              />
-            </div>
-            {chosenPlugin && (
-              <DiscoverySchemaFields
-                key={chosen.id}
-                canManageKeys={user.role === "admin"}
-                schema={chosenPlugin.schema}
-                value={chosen.config}
-                onChange={(config) => updateNode({ config })}
-                disabled={!edit}
-                prefix={`node-${chosen.id}`}
-              />
-            )}
-            <div className="inspector-cost">
-              <span>Monthly estimate</span>
-              <strong>{money(chosenPlugin?.price_monthly)}</strong>
-            </div>
-            <button
-              className="danger subtle full"
-              disabled={!edit}
-              onClick={remove}
-            >
-              <Trash2 size={15} />
-              Remove resource
-            </button>
-          </aside>
-        )}
+          {!complete && !!graph.nodes.length && <p className="muted">Choose an available adapter for every resource before validation or publication.</p>}
+          <p className="resource-board-note"><ShieldCheck size={15} /> Nothing is deployed before approval.</p>
+        </section>
+        {chosen && <ResourceInspector key={chosen.id} node={chosen} graph={graph} plugins={plugins} loading={pluginsLoading} error={pluginsError}
+          retry={retryPlugins} editable={edit && !busy} admin={user.role === "admin"} update={updateNode} dependency={dependency} close={() => setSelected(null)} remove={remove} />}
       </div>
       <section className="deployment-strip">
         <div className="strategy-copy">
@@ -786,7 +430,7 @@ export function Canvas({
                 Check policies, dependencies and budget before submitting.
               </span>
               <button
-                disabled={!graph.nodes.length || !!busy}
+                disabled={!complete || !!busy}
                 onClick={() => run("validate")}
               >
                 <ShieldCheck size={15} />
@@ -824,6 +468,11 @@ export function Canvas({
                   </li>
                 )}
               </ul>
+              {validation.execution?.status === "configured" && <p className="muted">
+                Execution provider: {validation.execution.provider}. {validation.execution.requires_saved_plan && "A deployment plan is prepared before approval. "}
+                Target connectivity and runtime health were not checked.
+              </p>}
+              {executionBlocked && <ErrorNotice message={validation.execution.reason} />}
               {validation.phases?.length > 0 && (
                 <div className="phase-preview">
                   {validation.phases.map((p: any, i: number) => (
@@ -865,13 +514,16 @@ export function Canvas({
           <button
             className="primary"
             disabled={
-              !edit || !graph.nodes.length || !validation?.allowed || !!busy
+              !edit || !complete || !validation?.allowed || executionBlocked || !!busy
             }
             onClick={() => run("job")}
           >
             {busy === "job" ? "Creating…" : "Submit for approval"}
             <ArrowRight size={16} />
           </button>
+          {user.role === "admin" && <button disabled={!complete || !validation?.allowed || executionBlocked || !!busy || published} onClick={() => run("publish")}>
+            <Store size={16} /> {busy === "publish" ? "Publishing…" : "Publish to Service Catalog"}
+          </button>}
           <small className="approval-note">
             <ShieldCheck size={12} />
             Administrator approval required

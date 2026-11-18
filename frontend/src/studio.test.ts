@@ -88,3 +88,10 @@ it("labels service status and monthly estimates without pretending to bill", () 
   expect(serviceEstimate(undefined)).toBe("Not estimated");
   expect(serviceEstimate(Number.NaN)).toBe("Not estimated");
 });
+
+
+it("reports plan preparation without claiming the job is awaiting approval", () => {
+  const message = offeringRequestMessage("Platform VM", "job-43", "planning");
+  expect(message).toContain("Preparing plan");
+  expect(message).not.toContain("pending approval");
+});

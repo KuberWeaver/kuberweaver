@@ -19,9 +19,10 @@ MAX_TOKENS = 2048
 MAX_RESPONSE_BYTES = 32768
 MAX_EVIDENCE_BYTES = 8192
 MAX_REQUEST_BYTES = 16384
-STATUSES = {'pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded',
-            'failed', 'rolled_back', 'rollback_failed', 'rejected'}
-PHASES = {'approval', 'execution', 'complete', 'recovery', 'rollback', 'observers',
+STATUSES = {'pending_approval', 'approving', 'queued', 'running', 'rolling_back',
+            'decommission_queued', 'decommissioning', 'succeeded', 'failed',
+            'rolled_back', 'rollback_failed', 'decommissioned', 'decommission_failed', 'rejected'}
+PHASES = {'approval', 'execution', 'complete', 'recovery', 'rollback', 'decommission', 'observers',
           'dependency', 'canary', 'rolling', 'snapshot', 'apply', 'verify', 'failure', 'restore'}
 
 

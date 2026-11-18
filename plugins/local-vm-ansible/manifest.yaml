@@ -1,0 +1,78 @@
+id: local-vm-ansible
+name: Local VM with a pinned Ansible baseline
+version: 1.0.0
+description: >-
+  Compound brick for a local QEMU-style guest: the local-runtime-v1 provisioner
+  creates the VM, the adapter proves the attested SSH host key and guest login,
+  then the digest-pinned baseline and verify playbooks run. No role is fetched.
+category: compute
+kind: workload
+capability: live
+engine: ansible
+executor: local-vm-ansible-v1
+execution_provider: local-vm-ansible-v1
+requires: compute.vm
+admission_profile: virtual-machine
+data_class: config
+implementation:
+  engine: ansible
+  ansible_core: 2.20.11
+  collections: []
+  playbooks:
+    apply: iac/baseline.yml
+    verify: iac/verify.yml
+  sha256:
+    iac/baseline.yml: 8f8a5e7c2aa7451643a59070ba510101a6a62b1e2853de0654b6d03f196f74ea
+    iac/verify.yml: a60f4215ef984aeeb1fbe9fcb369a7c0bfcf7b25c4e2dc703af4d24b354765d9
+  source: local reviewed playbooks only
+  reason: The composition is one fixed baseline, so a pinned pair beats a floating role.
+schema:
+  type: object
+  additionalProperties: false
+  required:
+    - vm_name
+    - ssh_key_id
+  properties:
+    vm_name:
+      type: string
+      pattern: ^[a-z0-9][a-z0-9-]{0,31}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
+    cpu:
+      type: integer
+      minimum: 1
+      maximum: 8
+      default: 1
+    memory_mb:
+      type: integer
+      minimum: 512
+      maximum: 16384
+      default: 1024
+    disk_gb:
+      type: integer
+      minimum: 4
+      maximum: 64
+      default: 8
+defaults:
+  cpu: 1
+  memory_mb: 1024
+  disk_gb: 8
+lifecycle:
+  apply: iac/baseline.yml
+  verify: iac/verify.yml
+verify:
+  assertions:
+    - id: guest-reachable
+      description: the playbooks ran over the verified SSH channel
+    - id: python-available
+      description: the guest provides /usr/bin/python3
+    - id: baseline-marker
+      description: the managed marker matches the approved job identity
+teardown:
+  description: >-
+    There is no automatic teardown. The guest runtime owns the VM lifecycle and
+    an operator must destroy it explicitly after reviewing the evidence.
+  removes: []
+  keeps:
+    - the local VM disk image and its runtime state

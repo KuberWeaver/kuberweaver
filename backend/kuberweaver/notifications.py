@@ -143,7 +143,7 @@ class WebhookNotifications:
         validation = (clean['operation'] == 'validate' and clean['event'] == 'before_plan'
                       and clean['job_id'] is None and clean['status'] == 'planning')
         if (clean['event'] not in ('before_plan', 'after_approval', 'job_started', 'job_finished')
-                or (clean['operation'] not in ('execute', 'rollback') and not validation)
+                or (clean['operation'] not in ('execute', 'rollback', 'decommission') and not validation)
                 or any(value is not None and (not isinstance(value, str) or len(value) > 128
                        or not re.fullmatch(r'[A-Za-z0-9_.:+-]+', value)) for value in clean.values())
                 or not clean['status'] or not clean['time']):

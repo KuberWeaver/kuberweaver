@@ -130,14 +130,19 @@ def graph_execution_name(app, graph):
 
 def execution_binding(app, name=None):
     name = name if name is not None else app.state.provider_bindings['execution']
-    resolve_provider(app, 'execution', name)
+    provider = resolve_provider(app, 'execution', name)
     try:
         provenance = provider_provenance(app, 'execution', name)
+        fingerprint = getattr(provider, 'binding_fingerprint', None)
+        configuration = fingerprint() if callable(fingerprint) else None
     except (OSError, TypeError, ValueError):
-        raise HTTPException(503, 'Execution provider source provenance unavailable')
+        raise HTTPException(503, 'Execution provider source or administrator configuration unavailable') from None
     if app.state.provider_loaded_sources.get(('execution', name)) != provenance:
         raise HTTPException(503, 'Execution provider source changed since registration; reload and approve again')
-    return {'name': name, 'provenance': provenance}
+    binding = {'name': name, 'provenance': provenance}
+    if configuration is not None:
+        binding['configuration'] = configuration
+    return binding
 
 
 def provider_listing(app):
@@ -388,6 +393,10 @@ def register_builtins(registry, app):
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
     registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
+    from .local_execution import LocalExecutor
+    registry.register('execution', LocalExecutor.executor_id,
+                      LocalExecutor(app.state.state_dir, plugins_dir=app.state.catalog.directory),
+                      {'status': 'configured', 'description': 'Administrator-pinned rootless OCI and QEMU TCG on the controller.'})
     from .adoption import connection_inspector
     from .workload_execution import WorkloadProvider
     registry.register('execution', WorkloadProvider.executor_id,

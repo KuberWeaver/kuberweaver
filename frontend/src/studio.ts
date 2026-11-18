@@ -104,8 +104,8 @@ export const canPublishOfferings = (role: string) => role === "admin";
 export const canRequestOffering = (role: string) =>
   role === "admin" || role === "operator";
 
-export const offeringRequestMessage = (title: string, jobId: string) =>
-  `Requested "${title}". Deployment job ${jobId} is pending approval: no infrastructure is created until an operator approves it.`;
+export const offeringRequestMessage = (title: string, jobId: string, status?: string) =>
+  `Requested "${title}". Job ${jobId}: ${status && status !== "pending_approval" ? serviceStatusLabel(status) : "pending approval"}. No infrastructure is created without administrator approval.`;
 
 export function serviceStatusLabel(status?: string | null): string {
   if (!status) return "Unknown";

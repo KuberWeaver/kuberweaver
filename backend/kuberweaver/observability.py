@@ -10,8 +10,9 @@ from .providers import CONSUMER_METHODS, registered_provider
 from .jobs import TERMINAL
 from .storage import StorageError
 
-STATUSES = ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded',
-            'failed', 'rejected', 'rolled_back', 'rollback_failed')
+STATUSES = ('pending_approval', 'approving', 'queued', 'running', 'rolling_back',
+            'decommission_queued', 'decommissioning', 'succeeded', 'failed', 'rejected',
+            'rolled_back', 'rollback_failed', 'decommissioned', 'decommission_failed')
 
 
 def _timestamp(value):

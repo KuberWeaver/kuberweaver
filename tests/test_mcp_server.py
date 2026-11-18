@@ -314,7 +314,7 @@ def test_real_stdio_bearer_read_mutation_and_scoped_approval_denial(tmp_path):
 
 
 @contextmanager
-def real_api(tmp_path):
+def real_api(tmp_path, *, plugins_dir=None):
     import os
     import socket
     import subprocess
@@ -322,8 +322,9 @@ def real_api(tmp_path):
     import httpx
     from test_core_graph import manifest
     from test_core_auth import bootstrap
-    plugins = tmp_path / 'plugins'
-    manifest(plugins)
+    plugins = plugins_dir if plugins_dir is not None else tmp_path / 'plugins'
+    if plugins_dir is None:
+        manifest(plugins)
     state = tmp_path / 'state'
     state.mkdir()
     with socket.socket() as sock:

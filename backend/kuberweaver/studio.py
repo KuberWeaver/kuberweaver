@@ -229,9 +229,18 @@ class Studio:
             attribution = (recorded or {}).get('service_request')
             if not isinstance(attribution, dict) or attribution.get('offering_id') != offering['id']:
                 raise HTTPException(503, 'Service request attribution was not recorded')
-            return {'job_id': job['id']}
+            return {'job_id': job['id'], 'status': recorded['status']}
 
     # -- owned services ----------------------------------------------------
+
+    def decommission(self, identity, actor):
+        """Ask the Jobs lifecycle to retire one succeeded service request.
+
+        The Studio adds no execution path of its own: the request only queues
+        the job under its pinned provider, and the one serialized worker runs
+        the provider's verified ``decommission``. Rollback is never substituted.
+        """
+        return self.jobs.present(self.jobs.decommission(identity, actor))
 
     def services(self, actor):
         owner = actor.get('id')
@@ -282,6 +291,10 @@ def install_studio_api(app):
     @app.get('/api/studio/services')
     def services(current=Depends(user)):
         return service.services(current)
+
+    @app.post('/api/studio/services/{identity}/decommission')
+    def decommission_service(identity: str, current=Depends(role('admin'))):
+        return service.decommission(identity, current)
 
     # Tests and optional installers can run after the SPA catch-all exists.
     added = app.router.routes[original_count:]
