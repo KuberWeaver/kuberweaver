@@ -76,6 +76,11 @@ class Jobs:
         self.admission = app.state.admission
         self.catalog = app.state.catalog
 
+    # Attribution a caller may add at creation time. These are observability
+    # facts about where a job came from; they can never replace approval,
+    # provider pins or any other security-relevant job field.
+    ATTRIBUTION_KEYS = ('service_request',)
+
     def get(self, identity):
         job = self.store.get('jobs', identity)
         if not job:
@@ -176,7 +181,15 @@ class Jobs:
         job[prefix + '_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
         job[prefix + '_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
 
-    def create(self, graph, actor):
+    def check_offering_pins(self, job, prefix):
+        if 'service_request' not in job:
+            return
+        pins = job['service_request'].get('pins')
+        if pins != {key: job.get(f'{prefix}_{key}')
+                    for key in ('graph_hash', 'manifest_hashes', 'source_hashes')}:
+            raise HTTPException(409, 'Published offering changed; publish a new version')
+
+    def create(self, graph, actor, attribution=None):
         with self.store.lock:
             identity = secrets.token_hex(16)
             self.notify('before_plan', {'job_id': identity, 'status': 'planning', 'environment': graph['environment'], 'operation': 'execute'})
@@ -187,6 +200,12 @@ class Jobs:
                    'environment': graph['environment'], 'graph': graph, 'cost': report['cost'],
                    'git_commit': None, 'events': [], 'result': None, 'approved_by': None,
                    'error': None, 'requires_manual_review': False, 'operation': 'execute'}
+            if attribution:
+                if not isinstance(attribution, dict) or set(attribution) - set(self.ATTRIBUTION_KEYS):
+                    raise ValueError('Unsupported job attribution')
+                # Persist attribution with the row itself: a request can never
+                # return a job id whose origin was not durably recorded.
+                job.update(copy.deepcopy(attribution))
             # Legacy graphs remain submittable even if their global provider is
             # unavailable; approval still fails closed, as before.
             try:
@@ -195,6 +214,7 @@ class Jobs:
                 provider = None
             if provider is not None and getattr(provider, 'requires_saved_plan', False):
                 self.pin_execution(job, 'preparation')
+                self.check_offering_pins(job, 'preparation')
                 job.update(status='queued', operation='prepare')
             self.store.put('jobs', job['id'], job)
             self.emit(job['id'], 'preparation' if job['operation'] == 'prepare' else 'approval', 'info',
@@ -272,7 +292,10 @@ class Jobs:
             try:
                 if not prepared:
                     job['approved_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
+                self.check_offering_pins(job, 'approved')
                 job['git_commit'] = self.git_commit(job)
+            except HTTPException:
+                raise
             except Exception:
                 self.store.audit(actor['username'], 'job.gitops_failed', identity)
                 raise HTTPException(503, 'Local GitOps commit failed; execution was not queued')

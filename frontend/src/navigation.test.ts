@@ -39,10 +39,24 @@ it("hides administration pages from roles without the admin role", () => {
   expect(idsFor("viewer")).toContain("audit");
 });
 
+it("keeps the engineer studio away from the customer-facing roles", () => {
+  const idsFor = (role: string) =>
+    navigationFor(role).flatMap((group) => group.pages.map((page) => page.id));
+  expect(idsFor("admin")).toContain("studio");
+  expect(idsFor("operator")).toContain("studio");
+  expect(idsFor("viewer")).not.toContain("studio");
+  expect(idsFor("viewer")).toContain("offerings");
+  expect(idsFor("viewer")).toContain("services");
+  expect(idsFor("viewer")).toContain("catalogue");
+});
+
 it("resolves a page id and refuses unknown addresses", () => {
   expect(pageFor("jobs")?.label).toBe("Deployments");
   expect(pageFor("#jobs")).toBeNull();
   expect(pageFor("missing")).toBeNull();
+  expect(pageFor("offerings")?.label).toBe("Service Catalog");
+  expect(pageFor("services")?.label).toBe("My services");
+  expect(pageFor("studio")?.label).toBe("Engineer Studio");
 });
 
 it("returns heading copy for a known page and refuses an unknown id", () => {

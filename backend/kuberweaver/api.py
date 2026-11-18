@@ -48,6 +48,8 @@ def install_api(app, plugins_dir, executor=None):
     install_operations_api(app)
     from .chatops import install_chatops_api
     install_chatops_api(app)
+    from .studio import install_studio_api
+    install_studio_api(app)
 
     @app.post('/api/jobs', status_code=201)
     def submit_job(data: JobRequest, current=Depends(role('admin', 'operator'))):

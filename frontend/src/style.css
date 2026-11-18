@@ -2426,6 +2426,86 @@
   .login-mobile-brand {
     display: none;
   }
+  /* Service Studio and customer-facing services */
+  .studio-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .studio-hint {
+    font-size: 10px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin-bottom: 15px;
+  }
+  .studio-form {
+    margin-bottom: 18px;
+  }
+  .studio-form .primary,
+  .studio-publish .primary {
+    width: 100%;
+    justify-content: center;
+  }
+  .studio-offerings {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-bottom: 18px;
+  }
+  .studio-offering {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 11px 13px;
+    background: var(--surface-raised);
+  }
+  .studio-offering > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .studio-offering strong {
+    font-size: 12px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+  .studio-offering small {
+    font-size: 9px;
+    color: var(--faint);
+  }
+  .studio-offering button {
+    flex-shrink: 0;
+  }
+  .studio-publish {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 18px;
+    margin-top: 4px;
+  }
+  .studio-publish h3 {
+    font-size: 12px;
+    margin-bottom: 13px;
+  }
+  .offering-card .catalogue-actions {
+    margin-top: auto;
+  }
+  .pending-note {
+    display: block;
+    margin-top: 5px;
+    font-size: 9px;
+    color: var(--warning-text);
+    line-height: 1.5;
+  }
+}
+@media (max-width: 1000px) {
+  .studio-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (min-width: 1550px) {
   .page {

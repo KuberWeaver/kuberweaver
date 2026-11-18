@@ -20,6 +20,9 @@ import {
   LockKeyhole,
   Bot,
   Command,
+  Wrench,
+  Store,
+  PackageCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, setCsrf, ApiError } from "./api";
@@ -29,6 +32,8 @@ import { Operations } from "./Operations";
 import { AgentAccess } from "./AgentAccess";
 import { Keys } from "./Keys";
 import { Connections } from "./Connections";
+import { EngineeringStudio } from "./Studio";
+import { MyServices, ServiceOfferings } from "./Offerings";
 import {
   Catalogue,
   Jobs,
@@ -45,12 +50,16 @@ import {
   defaultPageId,
   navigationFor,
   pageFor,
+  roleCanSee,
 } from "./navigation";
 import type { PageId } from "./navigation";
 
 const pageIcons: Record<PageId, LucideIcon> = {
   canvas: LayoutDashboard,
   catalogue: Package,
+  studio: Wrench,
+  offerings: Store,
+  services: PackageCheck,
   jobs: Play,
   infrastructure: Network,
   connections: Server,
@@ -282,6 +291,7 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
     }
   }
   const current = pageFor(page);
+  const permitted = !!current && roleCanSee(current, user.role);
   return (
     <div className="shell">
       {drawer && (
@@ -395,6 +405,26 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
               refresh={plugins.refresh}
               user={user}
               onCanvas={() => navigate("canvas")}
+              onOfferings={() => navigate("offerings")}
+            />
+          )}
+          {permitted && page === "studio" && (
+            <EngineeringStudio
+              user={user}
+              onOpenDeployments={() => navigate("jobs")}
+            />
+          )}
+          {page === "offerings" && (
+            <ServiceOfferings
+              user={user}
+              onOpenServices={() => navigate("services")}
+              onOpenCatalogue={() => navigate("catalogue")}
+            />
+          )}
+          {page === "services" && (
+            <MyServices
+              onOpenDeployments={() => navigate("jobs")}
+              onOpenCatalogue={() => navigate("offerings")}
             />
           )}
           {page === "jobs" && (
@@ -422,6 +452,22 @@ function Workspace({ user, onLogout }: { user: User; onLogout: () => void }) {
                 }
               >
                 The address does not match any portal page.
+              </Empty>
+            </div>
+          )}
+          {current && !permitted && (
+            <div className="panel">
+              <Empty
+                title="Page not available"
+                icon={<ShieldCheck size={27} />}
+                action={
+                  <button onClick={() => navigate("services")}>
+                    Open my services
+                  </button>
+                }
+              >
+                Your role does not include {current.label}. Ask an administrator for
+                access.
               </Empty>
             </div>
           )}

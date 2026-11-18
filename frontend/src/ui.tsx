@@ -94,11 +94,18 @@ export function ErrorNotice({
     </div>
   );
 }
-export function Notice({ children }: { children: ReactNode }) {
+export function Notice({
+  children,
+  action,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <div className="notice">
       <ShieldCheck size={18} />
       <span>{children}</span>
+      {action}
     </div>
   );
 }

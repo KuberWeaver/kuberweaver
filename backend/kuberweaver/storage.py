@@ -17,6 +17,9 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+# The closed set of row collections this store exposes. Anything else is an
+# unsupported statement, never an implicit table.
+TABLES = frozenset({'jobs', 'blueprints', 'settings', 'studio_artifacts', 'studio_offerings'})
 
 class Store:
     def __init__(self, path: Path, *, exclusive=False):
@@ -123,16 +126,16 @@ class Store:
                      (now(), actor, action, str(resource), json.dumps(detail or {}, ensure_ascii=False)))
 
     def put(self, table, key, value):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         column = 'key' if table == 'settings' else 'id'
         self.execute(f'INSERT OR REPLACE INTO {table}({column},body) VALUES(?,?)', (key, json.dumps(value, ensure_ascii=False)))
 
     def get(self, table, key):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         column = 'key' if table == 'settings' else 'id'
         row = self.one(f'SELECT body FROM {table} WHERE {column}=?', (key,))
         return json.loads(row['body']) if row else None
 
     def list(self, table):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         return [json.loads(row['body']) for row in self.all(f'SELECT body FROM {table} ORDER BY rowid DESC')]

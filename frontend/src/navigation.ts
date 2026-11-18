@@ -1,6 +1,9 @@
 export const pageIds = [
   "canvas",
   "catalogue",
+  "studio",
+  "offerings",
+  "services",
   "jobs",
   "infrastructure",
   "connections",
@@ -16,7 +19,14 @@ export const pageIds = [
 
 export type PageId = (typeof pageIds)[number];
 
-export type NavigationGroupId = "build" | "operate" | "govern" | "administer";
+export type PageRole = "admin" | "operator" | "viewer";
+
+export type NavigationGroupId =
+  | "build"
+  | "services"
+  | "operate"
+  | "govern"
+  | "administer";
 
 export type NavigationGroup = { id: NavigationGroupId; label: string };
 
@@ -30,13 +40,15 @@ export type PageDefinition = PageHeading & {
   id: PageId;
   label: string;
   group: NavigationGroupId;
-  adminOnly: boolean;
+  /** Absent means every signed-in role. */
+  roles?: PageRole[];
 };
 
 export const defaultPageId: PageId = "canvas";
 
 export const navigationGroups: NavigationGroup[] = [
   { id: "build", label: "Build" },
+  { id: "services", label: "Services" },
   { id: "operate", label: "Operate" },
   { id: "govern", label: "Govern" },
   { id: "administer", label: "Administer" },
@@ -47,25 +59,47 @@ export const pages: PageDefinition[] = [
     id: "canvas",
     label: "Canvas",
     group: "build",
-    adminOnly: false,
     eyebrow: "BUILD · BLUEPRINT",
     title: "Blueprint canvas",
     description: "Compose a blueprint, validate policies and review the plan before deployment.",
   },
   {
     id: "catalogue",
-    label: "Catalogue",
+    label: "Extension Catalog",
     group: "build",
-    adminOnly: false,
     eyebrow: "BUILD · CATALOGUE",
-    title: "Extension catalogue",
-    description: "Extensions declare their form schema, resources, security rules and executor.",
+    title: "Extension Catalog",
+    description: "Raw building blocks for engineers: extensions declare their form schema, resources, security rules and executor.",
+  },
+  {
+    id: "studio",
+    label: "Engineer Studio",
+    group: "build",
+    roles: ["admin", "operator"],
+    eyebrow: "BUILD · SERVICE STUDIO",
+    title: "Engineer Studio",
+    description: "Register artifact references and publish the service offerings customers can request.",
+  },
+  {
+    id: "offerings",
+    label: "Service Catalog",
+    group: "services",
+    eyebrow: "SERVICES · CATALOGUE",
+    title: "Service Catalog",
+    description: "Ready-made services. Requesting one opens a deployment that stays pending approval.",
+  },
+  {
+    id: "services",
+    label: "My services",
+    group: "services",
+    eyebrow: "SERVICES · MY SERVICES",
+    title: "My services",
+    description: "The services you requested, their approval state and a monthly estimate. Estimates are not bills.",
   },
   {
     id: "jobs",
     label: "Deployments",
     group: "operate",
-    adminOnly: false,
     eyebrow: "OPERATE · DEPLOYMENTS",
     title: "Deployments",
     description: "From approval to rollback: every step leaves an audit trail.",
@@ -74,7 +108,6 @@ export const pages: PageDefinition[] = [
     id: "infrastructure",
     label: "Infrastructure",
     group: "operate",
-    adminOnly: false,
     eyebrow: "OPERATE · OBSERVED",
     title: "Observed infrastructure",
     description: "Desired state from your blueprints, compared with an optional live topology.",
@@ -83,7 +116,6 @@ export const pages: PageDefinition[] = [
     id: "connections",
     label: "Connections",
     group: "operate",
-    adminOnly: false,
     eyebrow: "OPERATE · CONNECTIONS",
     title: "Hypervisor connections",
     description: "Connection references and explicit observations of your hypervisors.",
@@ -92,7 +124,6 @@ export const pages: PageDefinition[] = [
     id: "keys",
     label: "Keys",
     group: "operate",
-    adminOnly: false,
     eyebrow: "OPERATE · SSH KEYS",
     title: "SSH keys",
     description: "Generate and manage Ed25519 keys for guest access.",
@@ -101,7 +132,6 @@ export const pages: PageDefinition[] = [
     id: "governance",
     label: "Policies & pricing",
     group: "govern",
-    adminOnly: false,
     eyebrow: "GOVERN · POLICIES & PRICING",
     title: "Approval policies",
     description: "Budget, images, network exposure and targets: explicit rules enforced by the server.",
@@ -110,7 +140,6 @@ export const pages: PageDefinition[] = [
     id: "finops",
     label: "FinOps",
     group: "govern",
-    adminOnly: false,
     eyebrow: "GOVERN · COSTS",
     title: "Cost visibility",
     description: "Estimates based on declared resources and configured rates.",
@@ -119,7 +148,6 @@ export const pages: PageDefinition[] = [
     id: "diagnostics",
     label: "Diagnostics",
     group: "govern",
-    adminOnly: false,
     eyebrow: "GOVERN · DIAGNOSTICS",
     title: "Infrastructure diagnostics",
     description: "Explained findings. No automatic remediation or infrastructure changes.",
@@ -128,7 +156,6 @@ export const pages: PageDefinition[] = [
     id: "audit",
     label: "Audit",
     group: "govern",
-    adminOnly: false,
     eyebrow: "GOVERN · AUDIT",
     title: "Audit log",
     description: "Who did what, on which resource and when.",
@@ -137,7 +164,6 @@ export const pages: PageDefinition[] = [
     id: "integrations",
     label: "Providers",
     group: "administer",
-    adminOnly: false,
     eyebrow: "ADMINISTER · PROVIDERS",
     title: "Providers and source of truth",
     description: "One implementation per capability, and an explicit answer to which state is authoritative.",
@@ -146,7 +172,7 @@ export const pages: PageDefinition[] = [
     id: "operations",
     label: "Operations",
     group: "administer",
-    adminOnly: true,
+    roles: ["admin"],
     eyebrow: "ADMINISTER · OPERATIONS",
     title: "Operations and integrations",
     description: "Actual capabilities, explicit configuration and controlled recovery.",
@@ -155,7 +181,7 @@ export const pages: PageDefinition[] = [
     id: "agents",
     label: "Agent access",
     group: "administer",
-    adminOnly: true,
+    roles: ["admin"],
     eyebrow: "ADMINISTER · AGENT ACCESS",
     title: "Agent access",
     description: "Create and revoke scoped API and MCP access without sharing a human account.",
@@ -166,6 +192,10 @@ const pagesById = new Map<string, PageDefinition>(pages.map((page) => [page.id, 
 
 export function pageFor(id: string): PageDefinition | null {
   return pagesById.get(id) ?? null;
+}
+
+export function roleCanSee(page: PageDefinition, role: string): boolean {
+  return !page.roles || page.roles.includes(role as PageRole);
 }
 
 export function pageHeading(id: PageId): PageHeading {
@@ -181,7 +211,7 @@ export function navigationFor(role: string): NavigationSection[] {
     .map((group) => ({
       ...group,
       pages: pages.filter(
-        (page) => page.group === group.id && (!page.adminOnly || role === "admin"),
+        (page) => page.group === group.id && roleCanSee(page, role),
       ),
     }))
     .filter((group) => group.pages.length > 0);

@@ -49,6 +49,7 @@ export function Catalogue({
   refresh,
   user,
   onCanvas,
+  onOfferings,
 }: {
   plugins: Plugin[];
   loading: boolean;
@@ -56,6 +57,7 @@ export function Catalogue({
   refresh: () => void;
   user: User;
   onCanvas: () => void;
+  onOfferings?: () => void;
 }) {
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState("all"),
@@ -72,8 +74,18 @@ export function Catalogue({
   return (
     <>
       <PageTitle {...pageHeading("catalogue")} />
-      <Notice>
-        Only extensions executable on an available target can be added to the canvas.
+      <Notice
+        action={
+          onOfferings && (
+            <button className="text-button" onClick={onOfferings}>
+              Service Catalog
+            </button>
+          )
+        }
+      >
+        Raw building blocks for engineers: only extensions executable on an available
+        target can be added to the canvas. Customer-facing offerings live in the service
+        catalogue.
       </Notice>
       <div className="list-toolbar">
         <div className="search-input">
