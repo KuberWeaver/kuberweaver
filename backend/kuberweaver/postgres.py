@@ -27,6 +27,7 @@ COLUMNS = {
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
     'dashboards': ('id', 'body'),
     'dashboard_health': ('dashboard_id', 'body'),
+    'studio_artifacts': ('id', 'body'), 'studio_offerings': ('id', 'body'),
     'environment_state': ('id', 'body'),
     'environment_state_documents': ('id', 'body'),
     'environment_state_claim': ('id', 'body'),
@@ -36,7 +37,7 @@ COLUMNS = {
     'declaration_run': ('id', 'body'),
 }
 ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards',
-           'environment_state'}
+           'studio_artifacts', 'studio_offerings', 'environment_state'}
 DDL = {
     'ssh_keys': 'id TEXT PRIMARY KEY, body TEXT NOT NULL',
     'users': 'id TEXT PRIMARY KEY, username TEXT UNIQUE, role TEXT, password_hash TEXT',
@@ -49,6 +50,7 @@ DDL = {
 }
 KEY_COLUMNS = {'settings': 'key', 'environment_state_adoption': 'uuid'}
 for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards',
+               'studio_artifacts', 'studio_offerings',
                'environment_state', 'environment_state_documents', 'environment_state_claim',
                'environment_state_adoption', 'environment_state_destroy',
                'environment_state_drift', 'declaration_run'):

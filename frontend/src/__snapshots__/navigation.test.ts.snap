@@ -7,7 +7,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
     "label": "Build",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Compose a blueprint, validate policies and review the plan before deployment.",
         "eyebrow": "BUILD · BLUEPRINT",
         "group": "build",
@@ -16,13 +15,46 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Blueprint canvas",
       },
       {
-        "adminOnly": false,
-        "description": "Extensions declare their form schema, resources, security rules and executor.",
+        "description": "Raw building blocks for engineers: extensions declare their form schema, resources, security rules and executor.",
         "eyebrow": "BUILD · CATALOGUE",
         "group": "build",
         "id": "catalogue",
-        "label": "Catalogue",
-        "title": "Extension catalogue",
+        "label": "Extension Catalog",
+        "title": "Extension Catalog",
+      },
+      {
+        "description": "Register artifact references and publish the service offerings customers can request.",
+        "eyebrow": "BUILD · SERVICE STUDIO",
+        "group": "build",
+        "id": "studio",
+        "label": "Engineer Studio",
+        "roles": [
+          "admin",
+          "operator",
+        ],
+        "title": "Engineer Studio",
+      },
+    ],
+  },
+  {
+    "id": "services",
+    "label": "Services",
+    "pages": [
+      {
+        "description": "Ready-made services. Requesting one opens a deployment that stays pending approval.",
+        "eyebrow": "SERVICES · CATALOGUE",
+        "group": "services",
+        "id": "offerings",
+        "label": "Service Catalog",
+        "title": "Service Catalog",
+      },
+      {
+        "description": "The services you requested, their approval state and a monthly estimate. Estimates are not bills.",
+        "eyebrow": "SERVICES · MY SERVICES",
+        "group": "services",
+        "id": "services",
+        "label": "My services",
+        "title": "My services",
       },
     ],
   },
@@ -31,7 +63,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
     "label": "Operate",
     "pages": [
       {
-        "adminOnly": false,
         "description": "From approval to rollback: every step leaves an audit trail.",
         "eyebrow": "OPERATE · DEPLOYMENTS",
         "group": "operate",
@@ -40,7 +71,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Deployments",
       },
       {
-        "adminOnly": false,
         "description": "Desired state from your blueprints, compared with an optional live topology.",
         "eyebrow": "OPERATE · OBSERVED",
         "group": "operate",
@@ -49,7 +79,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Observed infrastructure",
       },
       {
-        "adminOnly": false,
         "description": "Connection references and explicit observations of your hypervisors.",
         "eyebrow": "OPERATE · CONNECTIONS",
         "group": "operate",
@@ -58,7 +87,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Hypervisor connections",
       },
       {
-        "adminOnly": false,
         "description": "Generate and manage Ed25519 keys for guest access.",
         "eyebrow": "OPERATE · SSH KEYS",
         "group": "operate",
@@ -73,7 +101,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
     "label": "Govern",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
         "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
@@ -82,7 +109,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Approval policies",
       },
       {
-        "adminOnly": false,
         "description": "Estimates based on declared resources and configured rates.",
         "eyebrow": "GOVERN · COSTS",
         "group": "govern",
@@ -91,7 +117,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Cost visibility",
       },
       {
-        "adminOnly": false,
         "description": "Explained findings. No automatic remediation or infrastructure changes.",
         "eyebrow": "GOVERN · DIAGNOSTICS",
         "group": "govern",
@@ -100,7 +125,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Infrastructure diagnostics",
       },
       {
-        "adminOnly": false,
         "description": "Who did what, on which resource and when.",
         "eyebrow": "GOVERN · AUDIT",
         "group": "govern",
@@ -115,7 +139,6 @@ exports[`keeps the grouped navigation stable per role 1`] = `
     "label": "Administer",
     "pages": [
       {
-        "adminOnly": false,
         "description": "One implementation per capability, and an explicit answer to which state is authoritative.",
         "eyebrow": "ADMINISTER · PROVIDERS",
         "group": "administer",
@@ -124,21 +147,25 @@ exports[`keeps the grouped navigation stable per role 1`] = `
         "title": "Providers and source of truth",
       },
       {
-        "adminOnly": true,
         "description": "Actual capabilities, explicit configuration and controlled recovery.",
         "eyebrow": "ADMINISTER · OPERATIONS",
         "group": "administer",
         "id": "operations",
         "label": "Operations",
+        "roles": [
+          "admin",
+        ],
         "title": "Operations and integrations",
       },
       {
-        "adminOnly": true,
         "description": "Create and revoke scoped API and MCP access without sharing a human account.",
         "eyebrow": "ADMINISTER · AGENT ACCESS",
         "group": "administer",
         "id": "agents",
         "label": "Agent access",
+        "roles": [
+          "admin",
+        ],
         "title": "Agent access",
       },
     ],
@@ -153,7 +180,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
     "label": "Build",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Compose a blueprint, validate policies and review the plan before deployment.",
         "eyebrow": "BUILD · BLUEPRINT",
         "group": "build",
@@ -162,13 +188,46 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Blueprint canvas",
       },
       {
-        "adminOnly": false,
-        "description": "Extensions declare their form schema, resources, security rules and executor.",
+        "description": "Raw building blocks for engineers: extensions declare their form schema, resources, security rules and executor.",
         "eyebrow": "BUILD · CATALOGUE",
         "group": "build",
         "id": "catalogue",
-        "label": "Catalogue",
-        "title": "Extension catalogue",
+        "label": "Extension Catalog",
+        "title": "Extension Catalog",
+      },
+      {
+        "description": "Register artifact references and publish the service offerings customers can request.",
+        "eyebrow": "BUILD · SERVICE STUDIO",
+        "group": "build",
+        "id": "studio",
+        "label": "Engineer Studio",
+        "roles": [
+          "admin",
+          "operator",
+        ],
+        "title": "Engineer Studio",
+      },
+    ],
+  },
+  {
+    "id": "services",
+    "label": "Services",
+    "pages": [
+      {
+        "description": "Ready-made services. Requesting one opens a deployment that stays pending approval.",
+        "eyebrow": "SERVICES · CATALOGUE",
+        "group": "services",
+        "id": "offerings",
+        "label": "Service Catalog",
+        "title": "Service Catalog",
+      },
+      {
+        "description": "The services you requested, their approval state and a monthly estimate. Estimates are not bills.",
+        "eyebrow": "SERVICES · MY SERVICES",
+        "group": "services",
+        "id": "services",
+        "label": "My services",
+        "title": "My services",
       },
     ],
   },
@@ -177,7 +236,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
     "label": "Operate",
     "pages": [
       {
-        "adminOnly": false,
         "description": "From approval to rollback: every step leaves an audit trail.",
         "eyebrow": "OPERATE · DEPLOYMENTS",
         "group": "operate",
@@ -186,7 +244,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Deployments",
       },
       {
-        "adminOnly": false,
         "description": "Desired state from your blueprints, compared with an optional live topology.",
         "eyebrow": "OPERATE · OBSERVED",
         "group": "operate",
@@ -195,7 +252,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Observed infrastructure",
       },
       {
-        "adminOnly": false,
         "description": "Connection references and explicit observations of your hypervisors.",
         "eyebrow": "OPERATE · CONNECTIONS",
         "group": "operate",
@@ -204,7 +260,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Hypervisor connections",
       },
       {
-        "adminOnly": false,
         "description": "Generate and manage Ed25519 keys for guest access.",
         "eyebrow": "OPERATE · SSH KEYS",
         "group": "operate",
@@ -219,7 +274,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
     "label": "Govern",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
         "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
@@ -228,7 +282,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Approval policies",
       },
       {
-        "adminOnly": false,
         "description": "Estimates based on declared resources and configured rates.",
         "eyebrow": "GOVERN · COSTS",
         "group": "govern",
@@ -237,7 +290,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Cost visibility",
       },
       {
-        "adminOnly": false,
         "description": "Explained findings. No automatic remediation or infrastructure changes.",
         "eyebrow": "GOVERN · DIAGNOSTICS",
         "group": "govern",
@@ -246,7 +298,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
         "title": "Infrastructure diagnostics",
       },
       {
-        "adminOnly": false,
         "description": "Who did what, on which resource and when.",
         "eyebrow": "GOVERN · AUDIT",
         "group": "govern",
@@ -261,7 +312,6 @@ exports[`keeps the grouped navigation stable per role 2`] = `
     "label": "Administer",
     "pages": [
       {
-        "adminOnly": false,
         "description": "One implementation per capability, and an explicit answer to which state is authoritative.",
         "eyebrow": "ADMINISTER · PROVIDERS",
         "group": "administer",
@@ -281,7 +331,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
     "label": "Build",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Compose a blueprint, validate policies and review the plan before deployment.",
         "eyebrow": "BUILD · BLUEPRINT",
         "group": "build",
@@ -290,13 +339,34 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Blueprint canvas",
       },
       {
-        "adminOnly": false,
-        "description": "Extensions declare their form schema, resources, security rules and executor.",
+        "description": "Raw building blocks for engineers: extensions declare their form schema, resources, security rules and executor.",
         "eyebrow": "BUILD · CATALOGUE",
         "group": "build",
         "id": "catalogue",
-        "label": "Catalogue",
-        "title": "Extension catalogue",
+        "label": "Extension Catalog",
+        "title": "Extension Catalog",
+      },
+    ],
+  },
+  {
+    "id": "services",
+    "label": "Services",
+    "pages": [
+      {
+        "description": "Ready-made services. Requesting one opens a deployment that stays pending approval.",
+        "eyebrow": "SERVICES · CATALOGUE",
+        "group": "services",
+        "id": "offerings",
+        "label": "Service Catalog",
+        "title": "Service Catalog",
+      },
+      {
+        "description": "The services you requested, their approval state and a monthly estimate. Estimates are not bills.",
+        "eyebrow": "SERVICES · MY SERVICES",
+        "group": "services",
+        "id": "services",
+        "label": "My services",
+        "title": "My services",
       },
     ],
   },
@@ -305,7 +375,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
     "label": "Operate",
     "pages": [
       {
-        "adminOnly": false,
         "description": "From approval to rollback: every step leaves an audit trail.",
         "eyebrow": "OPERATE · DEPLOYMENTS",
         "group": "operate",
@@ -314,7 +383,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Deployments",
       },
       {
-        "adminOnly": false,
         "description": "Desired state from your blueprints, compared with an optional live topology.",
         "eyebrow": "OPERATE · OBSERVED",
         "group": "operate",
@@ -323,7 +391,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Observed infrastructure",
       },
       {
-        "adminOnly": false,
         "description": "Connection references and explicit observations of your hypervisors.",
         "eyebrow": "OPERATE · CONNECTIONS",
         "group": "operate",
@@ -332,7 +399,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Hypervisor connections",
       },
       {
-        "adminOnly": false,
         "description": "Generate and manage Ed25519 keys for guest access.",
         "eyebrow": "OPERATE · SSH KEYS",
         "group": "operate",
@@ -347,7 +413,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
     "label": "Govern",
     "pages": [
       {
-        "adminOnly": false,
         "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
         "eyebrow": "GOVERN · POLICIES & PRICING",
         "group": "govern",
@@ -356,7 +421,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Approval policies",
       },
       {
-        "adminOnly": false,
         "description": "Estimates based on declared resources and configured rates.",
         "eyebrow": "GOVERN · COSTS",
         "group": "govern",
@@ -365,7 +429,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Cost visibility",
       },
       {
-        "adminOnly": false,
         "description": "Explained findings. No automatic remediation or infrastructure changes.",
         "eyebrow": "GOVERN · DIAGNOSTICS",
         "group": "govern",
@@ -374,7 +437,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
         "title": "Infrastructure diagnostics",
       },
       {
-        "adminOnly": false,
         "description": "Who did what, on which resource and when.",
         "eyebrow": "GOVERN · AUDIT",
         "group": "govern",
@@ -389,7 +451,6 @@ exports[`keeps the grouped navigation stable per role 3`] = `
     "label": "Administer",
     "pages": [
       {
-        "adminOnly": false,
         "description": "One implementation per capability, and an explicit answer to which state is authoritative.",
         "eyebrow": "ADMINISTER · PROVIDERS",
         "group": "administer",
@@ -411,6 +472,10 @@ exports[`keeps the page registry stable 1`] = `
       "label": "Build",
     },
     {
+      "id": "services",
+      "label": "Services",
+    },
+    {
       "id": "operate",
       "label": "Operate",
     },
@@ -425,7 +490,6 @@ exports[`keeps the page registry stable 1`] = `
   ],
   "pages": [
     {
-      "adminOnly": false,
       "description": "Compose a blueprint, validate policies and review the plan before deployment.",
       "eyebrow": "BUILD · BLUEPRINT",
       "group": "build",
@@ -434,16 +498,42 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Blueprint canvas",
     },
     {
-      "adminOnly": false,
-      "description": "Extensions declare their form schema, resources, security rules and executor.",
+      "description": "Raw building blocks for engineers: extensions declare their form schema, resources, security rules and executor.",
       "eyebrow": "BUILD · CATALOGUE",
       "group": "build",
       "id": "catalogue",
-      "label": "Catalogue",
-      "title": "Extension catalogue",
+      "label": "Extension Catalog",
+      "title": "Extension Catalog",
     },
     {
-      "adminOnly": false,
+      "description": "Register artifact references and publish the service offerings customers can request.",
+      "eyebrow": "BUILD · SERVICE STUDIO",
+      "group": "build",
+      "id": "studio",
+      "label": "Engineer Studio",
+      "roles": [
+        "admin",
+        "operator",
+      ],
+      "title": "Engineer Studio",
+    },
+    {
+      "description": "Ready-made services. Requesting one opens a deployment that stays pending approval.",
+      "eyebrow": "SERVICES · CATALOGUE",
+      "group": "services",
+      "id": "offerings",
+      "label": "Service Catalog",
+      "title": "Service Catalog",
+    },
+    {
+      "description": "The services you requested, their approval state and a monthly estimate. Estimates are not bills.",
+      "eyebrow": "SERVICES · MY SERVICES",
+      "group": "services",
+      "id": "services",
+      "label": "My services",
+      "title": "My services",
+    },
+    {
       "description": "From approval to rollback: every step leaves an audit trail.",
       "eyebrow": "OPERATE · DEPLOYMENTS",
       "group": "operate",
@@ -452,7 +542,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Deployments",
     },
     {
-      "adminOnly": false,
       "description": "Desired state from your blueprints, compared with an optional live topology.",
       "eyebrow": "OPERATE · OBSERVED",
       "group": "operate",
@@ -461,7 +550,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Observed infrastructure",
     },
     {
-      "adminOnly": false,
       "description": "Connection references and explicit observations of your hypervisors.",
       "eyebrow": "OPERATE · CONNECTIONS",
       "group": "operate",
@@ -470,7 +558,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Hypervisor connections",
     },
     {
-      "adminOnly": false,
       "description": "Generate and manage Ed25519 keys for guest access.",
       "eyebrow": "OPERATE · SSH KEYS",
       "group": "operate",
@@ -479,7 +566,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "SSH keys",
     },
     {
-      "adminOnly": false,
       "description": "Budget, images, network exposure and targets: explicit rules enforced by the server.",
       "eyebrow": "GOVERN · POLICIES & PRICING",
       "group": "govern",
@@ -488,7 +574,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Approval policies",
     },
     {
-      "adminOnly": false,
       "description": "Estimates based on declared resources and configured rates.",
       "eyebrow": "GOVERN · COSTS",
       "group": "govern",
@@ -497,7 +582,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Cost visibility",
     },
     {
-      "adminOnly": false,
       "description": "Explained findings. No automatic remediation or infrastructure changes.",
       "eyebrow": "GOVERN · DIAGNOSTICS",
       "group": "govern",
@@ -506,7 +590,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Infrastructure diagnostics",
     },
     {
-      "adminOnly": false,
       "description": "Who did what, on which resource and when.",
       "eyebrow": "GOVERN · AUDIT",
       "group": "govern",
@@ -515,7 +598,6 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Audit log",
     },
     {
-      "adminOnly": false,
       "description": "One implementation per capability, and an explicit answer to which state is authoritative.",
       "eyebrow": "ADMINISTER · PROVIDERS",
       "group": "administer",
@@ -524,21 +606,25 @@ exports[`keeps the page registry stable 1`] = `
       "title": "Providers and source of truth",
     },
     {
-      "adminOnly": true,
       "description": "Actual capabilities, explicit configuration and controlled recovery.",
       "eyebrow": "ADMINISTER · OPERATIONS",
       "group": "administer",
       "id": "operations",
       "label": "Operations",
+      "roles": [
+        "admin",
+      ],
       "title": "Operations and integrations",
     },
     {
-      "adminOnly": true,
       "description": "Create and revoke scoped API and MCP access without sharing a human account.",
       "eyebrow": "ADMINISTER · AGENT ACCESS",
       "group": "administer",
       "id": "agents",
       "label": "Agent access",
+      "roles": [
+        "admin",
+      ],
       "title": "Agent access",
     },
   ],

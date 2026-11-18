@@ -117,6 +117,8 @@ def inspect_source(state_dir):
     state_dir = Path(state_dir)
     required = {'users', 'sessions', 'audit', 'jobs', 'blueprints', 'settings'}
     result = _read_database(state_dir / 'platform.sqlite3', required | {'agent_tokens', 'connections',
+                                                                        'studio_artifacts',
+                                                                        'studio_offerings',
                                                                         'environment_state',
                                                                         'environment_state_documents',
                                                                         'environment_state_claim',
