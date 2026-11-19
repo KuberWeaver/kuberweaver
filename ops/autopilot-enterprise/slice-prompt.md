@@ -9,7 +9,9 @@ context, you cannot ask questions — decide and continue.
    data/workloads/<job_id>/evidence.json; for full Ansible output run the brick playbook manually
    with the exported managed key (0600, delete after).
 4. Follow TDD for backend code (failing test first). For brick fixes, re-deploy via kw and confirm
-   succeeded, or capture the exact failure evidence.
+   succeeded, or capture the exact failure evidence. Load the pstack skill for coding discipline.
+   For a bounded decision when stalled (e.g. keep debugging vs alternative approach), use jev:
+   write a small state file and run `hermes jev evaluate --file <path>` (advisory only).
 5. Run the verify command from STATE.json verbatim; it must pass. Run `git diff --check`.
 6. Commit on feat/enterprise-services (discreet message), push the branch. NEVER merge to main,
    never force-push, never print secrets. Update STATE.json (status/attempts/note). Write evidence
