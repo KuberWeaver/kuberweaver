@@ -764,3 +764,294 @@ def test_resources_add_unavailable_and_help_gaps(env):
     assert h.exit_code == 0
     text = h.output.lower()
     assert "unavailable" in text and "default" in text and "add" in text
+
+
+def _destruction_world(app):
+    """Fake only the hypervisor read/write boundaries; the destruction service,
+    quarantine clock and routes are real (same substitution as test_destruction)."""
+    from test_destruction import Clock, inspector, recorder
+    clock = Clock()
+    destroyer = recorder()
+    app.state.vm_adoption.inspector = inspector()
+    app.state.vm_destruction.inspector = inspector()
+    app.state.vm_destruction.destroyer = destroyer
+    app.state.vm_destruction.clock = clock
+    return clock, destroyer
+
+
+def _adopt_stack(runner, stack, uuid, marker, environment="dev"):
+    import json
+    from test_destruction import CONNECTION
+    r = run(runner, "--json", "resources", "adopt",
+            "--environment", environment, "--stack", stack,
+            "--connection-id", CONNECTION, "--uuid", uuid, "--marker", marker)
+    assert r.exit_code == 0, r.output
+    return json.loads(r.output)["state"]
+
+
+def test_decommission_request_execute_flow(env):
+    app, runner = env
+    import json
+    from test_destruction import UUID, MARKER, CONNECTION
+    clock, destroyer = _destruction_world(app)
+    run(runner, "auth", "login", "--username", "admin")
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    request_args = ["decommission", "request", identity, "--connection-id", CONNECTION,
+                    "--uuid", UUID, "--marker", MARKER]
+    # Request: ownership proven, quarantine opened, the host is untouched.
+    r = run(runner, "--json", *request_args)
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["changed"] is True
+    destroy = payload["destroy"]
+    assert destroy["status"] == "quarantined"
+    assert destroy["uuid"] == UUID and destroy["marker"] == MARKER
+    assert destroy["connection_id"] == CONNECTION and destroy["name"] == "vm-owned"
+    assert destroy["requested_by"] == "admin"
+    assert destroy["not_before"] == "2026-11-17T12:15:00+00:00"
+    assert destroy["requires_manual_review"] is False
+    assert payload["state"]["generation"] == 1
+    assert destroyer.calls == []
+    # A repeat request keeps the same window, never a second quarantine.
+    again = json.loads(run(runner, "--json", *request_args).output)
+    assert again["changed"] is False
+    assert again["destroy"]["destroy_id"] == destroy["destroy_id"]
+    assert again["destroy"]["not_before"] == destroy["not_before"]
+    # Status shows the recorded destruction through the read route.
+    status = json.loads(run(runner, "--json", "decommission", "status", identity).output)
+    assert status["destroy"]["status"] == "quarantined"
+    # Execute before the window closes is refused; resolve is not a shortcut.
+    r = run(runner, "decommission", "execute", identity, "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 1, r.output
+    assert "window" in (r.output + r.stderr).lower()
+    r = run(runner, "decommission", "resolve", identity, "--destroy-id", destroy["destroy_id"],
+            "--outcome", "destroyed")
+    assert r.exit_code == 1 and "unverified" in r.output + r.stderr
+    assert destroyer.calls == []
+    # After the window: the API re-proves ownership and destroys exactly this VM.
+    clock.advance(minutes=16)
+    r = run(runner, "--json", "decommission", "execute", identity,
+            "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 0, r.output
+    done = json.loads(r.output)
+    assert done["destroyed"] is True and done["destroy"]["status"] == "destroyed"
+    emptied = done["state"]
+    assert emptied["generation"] == 2 and emptied["resources"] == []
+    assert emptied["source"] == "destroy" and emptied["adopted"] is None
+    assert emptied["destroyed"]["uuid"] == UUID and emptied["destroyed"]["by"] == "admin"
+    assert destroyer.calls == [(CONNECTION, UUID, MARKER)]
+    # The emptied stack is what the inventory now shows; table output renders too.
+    states = json.loads(run(runner, "--json", "inventory", "list").output)["states"]
+    assert [s["stack"] for s in states] == ["vm-owned"]
+    assert states[0]["resource_count"] == 0 and states[0]["source"] == "destroy"
+    r = run(runner, "decommission", "status", identity)
+    assert r.exit_code == 0 and "destroyed" in r.output
+    # A destroyed stack cannot be destroyed again: its resources are gone.
+    r = run(runner, *request_args)
+    assert r.exit_code == 1 and "not owned" in r.output + r.stderr
+    assert destroyer.calls == [(CONNECTION, UUID, MARKER)]
+
+
+def test_decommission_cancel(env):
+    app, runner = env
+    import json
+    from test_destruction import UUID, MARKER, CONNECTION
+    clock, destroyer = _destruction_world(app)
+    run(runner, "auth", "login", "--username", "admin")
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    destroy = json.loads(run(runner, "--json", "decommission", "request", identity,
+                               "--connection-id", CONNECTION, "--uuid", UUID,
+                               "--marker", MARKER).output)["destroy"]
+    # A stale destroy id is refused; the quarantine stands.
+    r = run(runner, "decommission", "cancel", identity, "--destroy-id", "e" * 32)
+    assert r.exit_code == 1 and "changed" in r.output + r.stderr
+    assert json.loads(run(runner, "--json", "decommission", "status", identity).output
+                      )["destroy"]["status"] == "quarantined"
+    # Cancel inside the window: no host call, the resources are kept.
+    r = run(runner, "--json", "decommission", "cancel", identity,
+            "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["cancelled"] is True and payload["destroy"]["status"] == "cancelled"
+    assert payload["state"]["generation"] == 1 and len(payload["state"]["resources"]) == 1
+    assert destroyer.calls == []
+    # A cancelled destruction can no longer be executed, even after the window.
+    clock.advance(minutes=16)
+    r = run(runner, "decommission", "execute", identity, "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 1, r.output
+    assert destroyer.calls == []
+
+
+def test_decommission_isolated_to_the_deployment_id(env):
+    app, runner = env
+    import json
+    from test_destruction import UUID, MARKER, OTHER_UUID, OTHER_MARKER, CONNECTION
+    clock, destroyer = _destruction_world(app)
+    run(runner, "auth", "login", "--username", "admin")
+    one = _adopt_stack(runner, "vm-one", UUID, MARKER)
+    two = _adopt_stack(runner, "vm-two", OTHER_UUID, OTHER_MARKER)
+    # Targeting stack one with stack two's VM is refused; nothing is recorded.
+    r = run(runner, "decommission", "request", one["id"],
+            "--connection-id", CONNECTION, "--uuid", OTHER_UUID, "--marker", OTHER_MARKER)
+    assert r.exit_code == 1, r.output
+    assert "not owned" in r.output + r.stderr
+    assert json.loads(run(runner, "--json", "decommission", "status", one["id"]).output
+                      )["destroy"] is None
+    # The full flow runs against stack two's id only.
+    destroy = json.loads(run(runner, "--json", "decommission", "request", two["id"],
+                               "--connection-id", CONNECTION, "--uuid", OTHER_UUID,
+                               "--marker", OTHER_MARKER).output)["destroy"]
+    clock.advance(minutes=16)
+    r = run(runner, "--json", "decommission", "execute", two["id"],
+            "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 0, r.output
+    assert destroyer.calls == [(CONNECTION, OTHER_UUID, OTHER_MARKER)]
+    # Stack one is untouched: same generation, resources and no destruction record.
+    untouched = json.loads(run(runner, "--json", "decommission", "status", one["id"]).output)
+    assert untouched["generation"] == 1 and untouched["destroy"] is None
+    assert [row["address"] for row in untouched["resources"]] == ["esxi_vm." + UUID]
+    emptied = json.loads(run(runner, "--json", "decommission", "status", two["id"]).output)
+    assert emptied["generation"] == 2 and emptied["resources"] == []
+
+
+def test_decommission_resolve_unverified(env):
+    app, runner = env
+    import json
+    from test_destruction import UUID, MARKER, CONNECTION
+    clock, _ = _destruction_world(app)
+    run(runner, "auth", "login", "--username", "admin")
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    request_args = ["decommission", "request", identity, "--connection-id", CONNECTION,
+                    "--uuid", UUID, "--marker", MARKER]
+    destroy_id = json.loads(run(runner, "--json", *request_args).output)["destroy"]["destroy_id"]
+
+    def failing(connection_id, uuid, marker):
+        raise RuntimeError("synthetic hypervisor text")
+
+    app.state.vm_destruction.destroyer = failing
+    clock.advance(minutes=16)
+    # The driver fails: the record is unverified, never assumed either way.
+    r = run(runner, "decommission", "execute", identity, "--destroy-id", destroy_id)
+    assert r.exit_code == 1, r.output
+    assert "synthetic hypervisor text" not in r.output + r.stderr
+    stored = json.loads(run(runner, "--json", "decommission", "status", identity).output)["destroy"]
+    assert stored["status"] == "rollback_failed" and stored["requires_manual_review"] is True
+    # An unverified destruction cannot be cancelled or re-requested; resolve only.
+    assert run(runner, "decommission", "cancel", identity,
+               "--destroy-id", destroy_id).exit_code == 1
+    assert run(runner, *request_args).exit_code == 1
+    # Observed intact: the API re-reads the live VM, then restores the retry path.
+    r = run(runner, "--json", "decommission", "resolve", identity,
+            "--destroy-id", destroy_id, "--outcome", "intact")
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["resolved"] == "intact" and payload["destroy"]["status"] == "failed"
+    assert payload["destroy"]["reason"] == "resolved_intact"
+    assert payload["state"]["generation"] == 1 and len(payload["state"]["resources"]) == 1
+    retry = json.loads(run(runner, "--json", *request_args).output)
+    assert retry["changed"] is True
+    # Second failure, then observed destroyed: the emptied generation is committed.
+    retry_id = retry["destroy"]["destroy_id"]
+    clock.advance(minutes=16)
+    assert run(runner, "decommission", "execute", identity,
+               "--destroy-id", retry_id).exit_code == 1
+    r = run(runner, "--json", "decommission", "resolve", identity,
+            "--destroy-id", retry_id, "--outcome", "destroyed")
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["resolved"] == "destroyed" and payload["destroy"]["status"] == "destroyed"
+    assert payload["state"]["generation"] == 2 and payload["state"]["resources"] == []
+    # Resolving twice is refused.
+    assert run(runner, "decommission", "resolve", identity, "--destroy-id", retry_id,
+               "--outcome", "destroyed").exit_code == 1
+
+
+def test_decommission_governance_boundaries(env, monkeypatch):
+    app, runner = env
+    import json
+    import os
+    import httpx
+    from test_destruction import UUID, MARKER, CONNECTION
+    clock, destroyer = _destruction_world(app)
+    creds = bootstrap(app.state.state_dir)
+    run(runner, "auth", "login", "--username", "admin")
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    request_args = ["decommission", "request", identity, "--connection-id", CONNECTION,
+                    "--uuid", UUID, "--marker", MARKER]
+    # Unauthenticated access is refused.
+    run(runner, "auth", "logout")
+    assert run(runner, *request_args).exit_code == 2
+    # Viewer and operator: every destruction step is a human-administrator mutation.
+    for role in ("viewer", "operator"):
+        monkeypatch.setenv("KW_PASSWORD", creds[role])
+        run(runner, "auth", "login", "--username", role)
+        assert run(runner, *request_args).exit_code == 3
+        assert run(runner, "decommission", "execute", identity,
+                   "--destroy-id", "a" * 32).exit_code == 3
+        assert run(runner, "decommission", "cancel", identity,
+                   "--destroy-id", "a" * 32).exit_code == 3
+        assert run(runner, "decommission", "resolve", identity, "--destroy-id", "a" * 32,
+                   "--outcome", "intact").exit_code == 3
+    assert destroyer.calls == []
+    assert json.loads(run(runner, "--json", "decommission", "status", identity).output
+                      )["destroy"] is None
+    # An admin-scoped agent token can read the state but never decommission.
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    run(runner, "auth", "login", "--username", "admin")
+    from kw import config
+    sess = config.load_session()
+    with httpx.Client(base_url=os.environ["KW_URL"], trust_env=False) as hc:
+        hc.cookies.set("kw_session", sess["cookie"])
+        hc.headers["X-CSRF-Token"] = sess["csrf"]
+        issued = hc.post("/api/agent-tokens",
+                         json={"label": "destroyer", "role": "admin",
+                               "scopes": ["submit", "configure", "read:infrastructure"],
+                               "expires_in_seconds": 3600})
+        assert issued.status_code == 201, issued.text
+        token = issued.json()["token"]
+    monkeypatch.setenv("KW_AGENT_TOKEN", token)
+    assert run(runner, *request_args).exit_code == 3
+    assert run(runner, "decommission", "execute", identity,
+               "--destroy-id", "a" * 32).exit_code == 3
+    assert run(runner, "decommission", "cancel", identity,
+               "--destroy-id", "a" * 32).exit_code == 3
+    assert run(runner, "decommission", "resolve", identity, "--destroy-id", "a" * 32,
+               "--outcome", "intact").exit_code == 3
+    r = run(runner, "--json", "decommission", "status", identity)
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["id"] == identity
+    assert destroyer.calls == []
+
+
+def test_decommission_validation_and_help(env):
+    app, runner = env
+    from test_destruction import UUID, MARKER, CONNECTION
+    _destruction_world(app)
+    run(runner, "auth", "login", "--username", "admin")
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    # Unknown state id: the API's 404 is surfaced, nothing recorded.
+    r = run(runner, "decommission", "request", "f" * 32, "--connection-id", CONNECTION,
+            "--uuid", UUID, "--marker", MARKER)
+    assert r.exit_code == 1 and "Unknown environment state" in r.output + r.stderr
+    # The API schema is the authority: an invalid uuid is refused (422).
+    r = run(runner, "decommission", "request", identity, "--connection-id", CONNECTION,
+            "--uuid", "not-a-uuid", "--marker", MARKER)
+    assert r.exit_code == 1, r.output
+    # Missing required flags and an unknown outcome are usage errors.
+    assert run(runner, "decommission", "request", identity).exit_code == 2
+    assert run(runner, "decommission", "execute", identity).exit_code == 2
+    assert run(runner, "decommission", "cancel", identity).exit_code == 2
+    assert run(runner, "decommission", "resolve", identity, "--destroy-id", "a" * 32,
+               "--outcome", "gone").exit_code == 2
+    # Help documents the governed flow and its gates.
+    h = run(runner, "decommission", "--help")
+    assert h.exit_code == 0
+    text = h.output.lower()
+    assert "quarantine" in text and "human" in text and "agent" in text
+    for sub in ("request", "execute", "cancel", "resolve", "status"):
+        assert run(runner, "decommission", sub, "--help").exit_code == 0

@@ -77,9 +77,9 @@
     },
     {
       "id": "decommission",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "request/cancel/execute/resolve/status wrap destruction.py's 4 routes + state detail GET (6 new tests, 37 green): quarantine->execute flow with server clock, in-window cancel, isolation by state id (other stack untouched), rollback_failed resolve intact/destroyed, human-admin gates (viewer/operator/agent 403, unauth 401), 404/422/usage refusals; no backend gap for the destroy flow (one owned VM per stack is the API's enforced scope; no bulk multi-resource destroy route exists).",
       "detail": "kw decommission: environment-states destroy flow by deployment id (POST /api/environment-states/{id}/destroy, then execute; cancel/resolve as needed). Read destruction.py + its tests. Must be isolated to the deployment id and a governed human mutation.",
       "acceptance": "decommission flow via CLI in a test, isolated by id; tests green; committed."
     },
