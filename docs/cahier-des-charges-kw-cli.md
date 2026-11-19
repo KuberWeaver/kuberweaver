@@ -1,7 +1,7 @@
 # Cahier des charges KuberWeaver, CLI kw
 
-Version 1.0, 19/11/2026. Statut : référence pour l'implémentation du CLI.
-Périmètre de cette version : le CLI `kw` complet, prêt à brancher sur les connecteurs via l'API. La GUI est gelée (brique de présentation), hors périmètre.
+Version 1.1, 19/11/2026. Statut : référence pour l'implémentation du CLI.
+Périmètre de cette version : le CLI `kw` complet, prêt à brancher sur les connecteurs via l'API, et le cœur (API) avec les services réels. L'ancienne GUI est retirée ; une GUI modulable viendra ensuite (voir §1).
 
 ## 1. Objet
 
@@ -10,6 +10,7 @@ KuberWeaver est une plateforme modulaire auto-hébergée qui centralise la gesti
 - L'API est le produit : un seul serveur, une seule porte. Le CLI, la GUI et les agents sont des clients équivalents.
 - Le CLI `kw` est le client de référence et la surface d'acceptation : s'il peut tout faire, l'API est complète.
 - Le noyau (kernel) est minimal ; toute capacité ajoutée est un plugin à contrat fermé, sans modifier le cœur.
+- GUI modulable (interface graphique) : la GUI est un client de l'API comme les autres ; chacun peut construire la sienne sans modifier le cœur. Une GUI sera réalisée pour les présentations. Pour l'instant, on se concentre sur le cœur, le CLI et les services réels.
 
 ## 2. Vocabulaire
 
@@ -90,12 +91,12 @@ Chaîne complète, de la clé SSH au décommissionnement. Chaque étape est une 
 
 ## 8. Hors périmètre (cette version)
 
-GUI (gelée, brique de présentation), multi-tenant, marketplace publique, paiement, cloud managé, remédiation drift automatique, ChatOps externe. Ces éléments ne sont pas implémentés par le CLI tant que le parcours de référence n'est pas prouvé.
+GUI modulable (une GUI de présentation sera réalisée ultérieurement ; chacun peut construire la sienne), multi-tenant, marketplace publique, paiement, cloud managé, remédiation drift automatique, ChatOps externe. Ces éléments ne sont pas implémentés dans cette version, centrée sur le cœur, le CLI et les services réels.
 
 ## 9. Critères d'acceptation
 
 1. Le parcours de la section 4 est jouable via `kw` contre l'API, avec preuve datée à chaque étape.
-2. Tests verts : unitaires et intégration in-process (httpx ASGITransport sur create_app(testing=True)), sans labo d'hyperviseur.
+2. Tests verts : unitaires et intégration in-process (vrai serveur uvicorn local sur create_app(testing=True), SQLite isolé, vault local chiffré), sans labo d'hyperviseur.
 3. Gouvernance respectée : approbation humaine, pins, propriété des ressources, décommissionnement isolé par ID.
 4. Aucun secret dans les plans, logs, réponses ou arguments de commande.
 5. Suivi d'avancement par versionning git (branche dédiée, commits par tranche, arbre propre).
