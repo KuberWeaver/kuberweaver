@@ -1,6 +1,6 @@
 # Cahier des charges KuberWeaver, CLI kw
 
-Version 1.1, 19/11/2026. Statut : référence pour l'implémentation du CLI.
+Version 1.2, 19/11/2026. Statut : référence pour l'implémentation du CLI.
 Périmètre de cette version : le CLI `kw` complet, prêt à brancher sur les connecteurs via l'API, et le cœur (API) avec les services réels. L'ancienne GUI est retirée ; une GUI modulable viendra ensuite (voir §1).
 
 ## 1. Objet
@@ -31,6 +31,7 @@ Terme anglais retenu, traduction française entre parenthèses.
 | Deployment ID (identifiant de déploiement) | Identifiant unique d'un déploiement de blueprint ; unité de décommissionnement isolée. |
 | Inventory (inventaire) | Ressources et services déployés, enregistrés dans la base de données. |
 | FinOps (optimisation des coûts) | Analyse des coûts à partir des données conservées ; agrégation par module, service, déploiement. |
+| IAM (Identity and Access Management, gestion des identités et des accès) | IAM/annuaire de l'entreprise (OIDC/OAuth2, LDAP/Active Directory, SAML) auquel on branche les utilisateurs, avec mapping des groupes vers les rôles KuberWeaver. |
 
 ## 3. Principes immuables (gouvernance)
 
@@ -40,7 +41,7 @@ Terme anglais retenu, traduction française entre parenthèses.
 4. Vérification indépendante après exécution ; retrait vérifié (ressources absentes, preuve).
 5. Worker sérialisé, non-rejeu au redémarrage.
 6. Secrets jamais dans les plans, logs ou réponses ; vault par références, résolution à l'exécution.
-7. PostgreSQL requis en production (pas de fallback SQLite).
+7. PostgreSQL est la base de production, obligatoire, sans fallback SQLite. SQLite n'est utilisé que pour les tests isolés et le dev local jetable, jamais en production.
 8. Propriété des ressources : on ne touche qu'à ce que le déploiement possède ; décommissionner par ID sans affecter d'autres éléments.
 9. Le rollback et le décommissionnement sont des mutations : approbation humaine requise ; un jeton agent ne peut ni approuver, ni rollback, ni décommissionner.
 
@@ -82,10 +83,11 @@ Chaîne complète, de la clé SSH au décommissionnement. Chaque étape est une 
 - Clés SSH : génération, stockage vault, injection OpenTofu, gestion et révocation. Pas d'export de clé privée en clair hors opération explicite autorisée.
 - Import OpenTofu : le noyau épingle source et plan et vérifie la provenance, mais ne valide pas le code utilisateur ; la sécurité et la configuration sont à la charge de l'utilisateur.
 - Moindre privilège, cibles autorisées, aucun secret dans les logs ; sanitisation avant tout diagnostic externe.
+- IAM (Identity and Access Management, gestion des identités et des accès) : brancher les utilisateurs sur l'IAM existant de l'entreprise plutôt que des comptes locaux en silo. SSO via OIDC/OAuth2 (déjà supporté par le backend, voir docs/OIDC.md), à terme LDAP/Active Directory et SAML. Mapping des groupes de l'annuaire vers les rôles KuberWeaver (admin, operator, viewer) ; provisioning et révocation centralisés par l'IAM de l'entreprise. Les comptes locaux bootstrap restent réservés au dev/labo, pas à la production.
 
 ## 7. Données et FinOps
 
-- Inventaire des ressources et services en base (PostgreSQL), avec attribution par deployment ID.
+- Base de production : PostgreSQL (obligatoire, aucun fallback SQLite). Inventaire des ressources et services en base, avec attribution par deployment ID. SQLite est réservé aux tests isolés, pas à la production.
 - Coût par mois par module (champ libre ou plugin) ; agrégation FinOps par module, service, déploiement.
 - Conservation des données et des logs (avec rotation) pour analyse par des outils externes ; intégration libre par les équipes IT.
 
@@ -96,7 +98,7 @@ GUI modulable (une GUI de présentation sera réalisée ultérieurement ; chacun
 ## 9. Critères d'acceptation
 
 1. Le parcours de la section 4 est jouable via `kw` contre l'API, avec preuve datée à chaque étape.
-2. Tests verts : unitaires et intégration in-process (vrai serveur uvicorn local sur create_app(testing=True), SQLite isolé, vault local chiffré), sans labo d'hyperviseur.
+2. Tests verts : unitaires et intégration in-process (vrai serveur uvicorn local sur create_app(testing=True), SQLite isolé pour les tests uniquement, vault local chiffré), sans labo d'hyperviseur. La production, elle, tourne sur PostgreSQL.
 3. Gouvernance respectée : approbation humaine, pins, propriété des ressources, décommissionnement isolé par ID.
 4. Aucun secret dans les plans, logs, réponses ou arguments de commande.
 5. Suivi d'avancement par versionning git (branche dédiée, commits par tranche, arbre propre).
