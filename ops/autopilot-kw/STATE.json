@@ -69,9 +69,9 @@
     },
     {
       "id": "rollback",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "kw rollback <job-id> wraps POST /api/jobs/{id}/rollback (2 new tests, 31 green): succeeded job rolled_back via CLI with recording executor, admin-only (viewer/operator 403, unauth 401), 409 on pending/already-rolled-back, 404 unknown job, table+JSON output; no backend gaps.",
       "detail": "kw rollback <job-id> (POST /api/jobs/{id}/rollback). Governed human mutation. Read api.py + tests/test_core_jobs.py explicit rollback test.",
       "acceptance": "rollback of a succeeded job observed via CLI in a test; tests green; committed."
     },

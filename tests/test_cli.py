@@ -686,6 +686,73 @@ def test_resources_adopt_idempotent_and_list(env):
     assert [s["stack"] for s in states] == ["vm-adopted"]
 
 
+def test_rollback_succeeded_job(env, tmp_path):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    executor = install_executor(app, RecordingExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    job = json.loads(run(runner, "--json", "deploy", "request", "--graph-file", _graph_file(tmp_path)).output)
+    run(runner, "deploy", "approve", job["id"])
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"], "--timeout", "30").output)
+    assert done["status"] == "succeeded" and done["can_rollback"] is True
+    # Governed mutation: the API queues the restore under the pinned provider.
+    r = run(runner, "--json", "rollback", job["id"])
+    assert r.exit_code == 0, r.output
+    queued = json.loads(r.output)
+    assert queued["operation"] == "rollback" and queued["rollback_requested_by"] == "admin"
+    assert queued["status"] in {"queued", "rolling_back", "rolled_back"}
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"], "--timeout", "30").output)
+    assert done["status"] == "rolled_back", done
+    assert done["result"]["targets"][0]["restored"] is True
+    assert executor.calls == [("execute", job["id"]), ("rollback", job["id"])]
+    # A rolled-back job is not rollback-able again: the API refuses, nothing runs.
+    r = run(runner, "rollback", job["id"])
+    assert r.exit_code == 1, r.output
+    assert "Rollback requires a successful job" in r.output + r.stderr
+    assert json.loads(run(runner, "--json", "deploy", "get", job["id"]).output)["can_rollback"] is False
+    assert executor.calls == [("execute", job["id"]), ("rollback", job["id"])]
+
+
+def test_rollback_governance_boundaries(env, tmp_path, monkeypatch):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    executor = install_executor(app, RecordingExecutor())
+    creds = bootstrap(app.state.state_dir)
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    job = json.loads(run(runner, "--json", "deploy", "request", "--graph-file", _graph_file(tmp_path)).output)
+    job_id = job["id"]
+    # Unauthenticated access is refused.
+    run(runner, "auth", "logout")
+    assert run(runner, "rollback", job_id).exit_code == 2
+    # Rollback is a human administrator mutation: viewer and operator are denied.
+    for role in ("viewer", "operator"):
+        monkeypatch.setenv("KW_PASSWORD", creds[role])
+        run(runner, "auth", "login", "--username", role)
+        assert run(runner, "rollback", job_id).exit_code == 3
+    # Admin: a never-approved job has nothing to roll back; state untouched.
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    run(runner, "auth", "login", "--username", "admin")
+    r = run(runner, "rollback", job_id)
+    assert r.exit_code == 1, r.output
+    assert "Rollback requires a successful job" in r.output + r.stderr
+    assert json.loads(run(runner, "--json", "deploy", "get", job_id).output)["status"] == "pending_approval"
+    r = run(runner, "rollback", "0" * 32)
+    assert r.exit_code == 1 and "Unknown job" in r.output + r.stderr
+    assert executor.calls == []
+    # Once succeeded, the default table output renders the queued restore too.
+    run(runner, "deploy", "approve", job_id)
+    done = json.loads(run(runner, "--json", "deploy", "watch", job_id, "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    r = run(runner, "rollback", job_id)
+    assert r.exit_code == 0, r.output
+    assert "STATUS" in r.output and "OPERATION" in r.output and "rollback" in r.output
+    done = json.loads(run(runner, "--json", "deploy", "watch", job_id, "--timeout", "30").output)
+    assert done["status"] == "rolled_back"
+    assert executor.calls == [("execute", job_id), ("rollback", job_id)]
+
+
 def test_resources_add_unavailable_and_help_gaps(env):
     app, runner = env
     run(runner, "auth", "login", "--username", "admin")
