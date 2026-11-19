@@ -260,3 +260,134 @@ def test_inventory_finops_overview_audit_logs(env, tmp_path):
     assert isinstance(audit, list) and audit
     logs = json.loads(run(runner, "--json", "logs", job["id"]).output)
     assert isinstance(logs, list)
+
+
+def test_modules_artifacts_create_list(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    pin = "sha256:" + "a" * 64
+    r = run(runner, "--json", "modules", "artifacts", "create",
+            "--kind", "oci", "--reference", "registry.lab.example/kuberweaver/web:1.4.0",
+            "--pin", pin)
+    assert r.exit_code == 0, r.output
+    art = json.loads(r.output)
+    assert set(art) == {"id", "kind", "reference", "pin"}
+    assert art["kind"] == "oci" and art["pin"] == pin
+    # Unpinned artifact: explicit null; registration is metadata only, no job.
+    r = run(runner, "--json", "modules", "artifacts", "create",
+            "--kind", "vm-image", "--reference", "vmdk.lab.example/ubuntu-2404-base")
+    assert r.exit_code == 0, r.output
+    unpinned = json.loads(r.output)
+    assert unpinned["pin"] is None
+    listing = json.loads(run(runner, "--json", "modules", "artifacts", "list").output)
+    assert [row["id"] for row in listing] == [unpinned["id"], art["id"]]  # newest first
+    assert all(set(row) == {"id", "kind", "reference", "pin"} for row in listing)
+    assert json.loads(run(runner, "--json", "deploy", "list").output) == []
+    # Default table output renders the register too.
+    r = run(runner, "modules", "artifacts", "list")
+    assert r.exit_code == 0 and "REFERENCE" in r.output
+
+
+def test_modules_artifacts_get_unavailable(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    art = json.loads(run(runner, "--json", "modules", "artifacts", "create",
+                         "--kind", "oci", "--reference", "registry.lab.example/x:1").output)
+    # No GET /api/studio/artifacts/{id} backend route: the CLI must say so,
+    # not stub a client-side lookup.
+    r = run(runner, "modules", "artifacts", "get", art["id"])
+    assert r.exit_code != 0
+    text = r.output + r.stderr
+    assert "unavailable" in text.lower() and "/api/studio/artifacts" in text
+    h = run(runner, "modules", "artifacts", "get", "--help")
+    assert h.exit_code == 0 and "unavailable" in h.output.lower()
+
+
+def test_modules_offerings_create_list(env, tmp_path):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    bp = json.loads(run(runner, "--json", "blueprints", "create",
+                        "--name", "Web", "--graph-file", _graph_file(tmp_path)).output)
+    r = run(runner, "--json", "modules", "offerings", "create",
+            "--title", "Web stack", "--blueprint-id", bp["id"])
+    assert r.exit_code == 0, r.output
+    off = json.loads(r.output)
+    assert set(off) == {"id", "title", "version"}
+    assert off["title"] == "Web stack" and off["version"] == 1
+    # The studio API exposes no cost field: the CLI must not invent one.
+    assert "cost" not in r.output.lower()
+    # Same title republished: a new immutable version, never a rewrite.
+    r = run(runner, "--json", "modules", "offerings", "create",
+            "--title", "Web stack", "--blueprint-id", bp["id"])
+    assert r.exit_code == 0, r.output
+    off2 = json.loads(r.output)
+    assert off2["id"] != off["id"] and off2["version"] == 2
+    listing = json.loads(run(runner, "--json", "modules", "offerings", "list").output)
+    assert [row["id"] for row in listing] == [off2["id"], off["id"]]
+    assert all(set(row) == {"id", "title", "version"} for row in listing)
+
+
+def test_modules_offerings_get_unavailable(env, tmp_path):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    bp = json.loads(run(runner, "--json", "blueprints", "create",
+                        "--name", "Web", "--graph-file", _graph_file(tmp_path)).output)
+    off = json.loads(run(runner, "--json", "modules", "offerings", "create",
+                         "--title", "Web stack", "--blueprint-id", bp["id"]).output)
+    # No GET /api/studio/offerings/{id} backend route: explicit unavailability.
+    r = run(runner, "modules", "offerings", "get", off["id"])
+    assert r.exit_code != 0
+    text = r.output + r.stderr
+    assert "unavailable" in text.lower() and "/api/studio/offerings" in text
+    h = run(runner, "modules", "offerings", "get", "--help")
+    assert h.exit_code == 0 and "unavailable" in h.output.lower()
+
+
+def test_modules_offerings_create_unknown_blueprint(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    r = run(runner, "--json", "modules", "offerings", "create",
+            "--title", "Ghost", "--blueprint-id", "does-not-exist")
+    assert r.exit_code == 1, r.output
+    assert "Unknown blueprint" in r.output + r.stderr
+
+
+def test_modules_role_boundaries(env, monkeypatch, tmp_path):
+    app, runner = env
+    creds = bootstrap(app.state.state_dir)
+    import json
+    # viewer: no artifact registration, but offerings list is open to any user.
+    monkeypatch.setenv("KW_PASSWORD", creds["viewer"])
+    run(runner, "auth", "login", "--username", "viewer")
+    r = run(runner, "modules", "artifacts", "create",
+            "--kind", "oci", "--reference", "registry.lab.example/x:1")
+    assert r.exit_code == 3, r.output  # permission denied
+    r = run(runner, "--json", "modules", "offerings", "list")
+    assert r.exit_code == 0 and json.loads(r.output) == []
+    # operator: artifact registration allowed, offering publication admin-only.
+    monkeypatch.setenv("KW_PASSWORD", creds["operator"])
+    run(runner, "auth", "login", "--username", "operator")
+    r = run(runner, "--json", "modules", "artifacts", "create",
+            "--kind", "ansible-role", "--reference", "galaxy.lab.example/nginx/1.0")
+    assert r.exit_code == 0, r.output
+    bp = json.loads(run(runner, "--json", "blueprints", "create",
+                        "--name", "Op", "--graph-file", _graph_file(tmp_path)).output)
+    r = run(runner, "modules", "offerings", "create",
+            "--title", "Op stack", "--blueprint-id", bp["id"])
+    assert r.exit_code == 3, r.output  # publish requires admin
+
+
+def test_modules_help_marks_backend_gaps(env):
+    app, runner = env
+    r = run(runner, "modules", "--help")
+    assert r.exit_code == 0
+    text = r.output.lower()
+    assert "unavailable" in text and "cost" in text and "get-by-id" in text
+    for group in ("artifacts", "offerings"):
+        h = run(runner, "modules", group, "create", "--help")
+        assert h.exit_code == 0
+        assert "cost/month: unavailable" in h.output.lower()

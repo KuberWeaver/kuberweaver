@@ -45,9 +45,9 @@
     },
     {
       "id": "modules",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "blocked",
+      "attempts": 1,
+      "note": "artifacts+offerings list/create wrapped+tested (7 new tests, 19 green; roles, versioning, metadata-only); get-by-id + cost/month marked unavailable in CLI: no GET /api/studio/artifacts/{id} or /api/studio/offerings/{id} route, and no studio route exposes a cost field (offering stores an internal estimate at publish but never returns it); needs backend routes, no client stub.",
       "detail": "kw modules: map to studio artifacts+offerings. list/create/get artifacts (POST /api/studio/artifacts {kind,reference,pin}), offerings (POST /api/studio/offerings {title,blueprint_id}). Cost/month: check whether the offering/artifact schema has a cost field; if not, mark cost unavailable and note the backend gap (do not invent a field).",
       "acceptance": "artifact+offering create/list/get via CLI in a test; cost handled honestly; tests green; committed."
     },
