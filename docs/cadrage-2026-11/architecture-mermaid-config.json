@@ -1,0 +1,5 @@
+{
+  "theme": "base",
+  "themeVariables": { "fontSize": "16px", "fontFamily": "arial, sans-serif" },
+  "flowchart": { "nodeSpacing": 22, "rankSpacing": 38, "padding": 8, "useMaxWidth": true }
+}
