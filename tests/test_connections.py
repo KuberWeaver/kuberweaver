@@ -462,6 +462,20 @@ def test_discovery_accepts_required_empty_collections_and_nullable_unknowns(plat
     assert response.json()['inventory'] == payload
 
 
+def test_discovery_accepts_vm_ownership_digest(platform):
+    app, client = platform
+    driver, _ = boundaries(app)
+    payload = inventory()
+    digest = 'a' * 64
+    payload['virtual_machines'][0]['ownership_sha256'] = digest
+    driver.payload = payload
+    connection = client.post('/api/connections', json=spec()).json()
+    response = client.post('/api/connections/' + connection['id'] + '/discover')
+    assert response.status_code == 200, response.text
+    assert response.json()['status'] == 'reachable'
+    assert response.json()['inventory']['virtual_machines'][0]['ownership_sha256'] == digest
+
+
 def test_discovery_single_flight_is_per_connection_and_does_not_hold_store_lock(platform):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event

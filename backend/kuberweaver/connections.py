@@ -130,6 +130,7 @@ class _VirtualMachine(_Named):
     power_state: _Text
     cpu: _Positive | None
     memory_mb: _Positive | None
+    ownership_sha256: Annotated[str, Field(pattern=r'^[0-9a-f]{64}$')] | None = None
 
 
 class _Inventory(_Closed):

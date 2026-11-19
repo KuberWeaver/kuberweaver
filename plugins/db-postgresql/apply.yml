@@ -51,6 +51,8 @@
             value: 127.0.0.1
           - option: port
             value: "{{ kw_config.listen_port }}"
+          - option: log_directory
+            value: 'log'
         postgresql_hba_entries:
           - {type: local, database: all, user: postgres, auth_method: peer}
           - {type: local, database: all, user: all, auth_method: peer}
