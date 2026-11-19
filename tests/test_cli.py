@@ -391,3 +391,132 @@ def test_modules_help_marks_backend_gaps(env):
         h = run(runner, "modules", group, "create", "--help")
         assert h.exit_code == 0
         assert "cost/month: unavailable" in h.output.lower()
+
+
+def _published_offering(runner, tmp_path, title="Web stack"):
+    """Blueprint + immutable offering via the CLI; returns the offering row."""
+    import json
+    bp = json.loads(run(runner, "--json", "blueprints", "create",
+                        "--name", title, "--graph-file", _graph_file(tmp_path)).output)
+    return json.loads(run(runner, "--json", "modules", "offerings", "create",
+                          "--title", title, "--blueprint-id", bp["id"]).output)
+
+
+def test_services_request_list_decommission(env, tmp_path):
+    app, runner = env
+    from test_core_jobs import install_executor
+    from test_service_decommission import RetiringExecutor
+    executor = install_executor(app, RetiringExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    off = _published_offering(runner, tmp_path)
+    r = run(runner, "--json", "services", "request", off["id"])
+    assert r.exit_code == 0, r.output
+    req = json.loads(r.output)
+    assert set(req) == {"job_id", "status"}
+    assert req["status"] == "pending_approval"  # no approval bypass
+    job_id = req["job_id"]
+    # Ownership-scoped list with the API's exact row shape.
+    rows = json.loads(run(runner, "--json", "services", "list").output)
+    assert [row["job_id"] for row in rows] == [job_id]
+    assert set(rows[0]) == {"job_id", "title", "status", "monthly_estimate"}
+    assert rows[0]["title"] == "Web stack" and rows[0]["status"] == "pending_approval"
+    job = json.loads(run(runner, "--json", "deploy", "get", job_id).output)
+    assert rows[0]["monthly_estimate"] == pytest.approx(job["cost"]["monthly"])
+    # Default table output renders the register too.
+    r = run(runner, "services", "list")
+    assert r.exit_code == 0 and "JOB_ID" in r.output
+    # Approval stays an explicit administrator decision, then the job succeeds.
+    assert run(runner, "deploy", "approve", job_id).exit_code == 0
+    done = json.loads(run(runner, "--json", "deploy", "watch", job_id, "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    assert json.loads(run(runner, "--json", "services", "list").output)[0]["status"] == "succeeded"
+    # Governed retirement: queued by the API, verified by the pinned provider.
+    r = run(runner, "--json", "services", "decommission", job_id)
+    assert r.exit_code == 0, r.output
+    queued = json.loads(r.output)
+    assert queued["status"] == "decommission_queued" and queued["operation"] == "decommission"
+    done = json.loads(run(runner, "--json", "deploy", "watch", job_id, "--timeout", "30").output)
+    assert done["status"] == "decommissioned"
+    assert json.loads(run(runner, "--json", "services", "list").output)[0]["status"] == "decommissioned"
+    # Retirement is never rewritten into a rollback.
+    assert executor.calls == [("execute", job_id), ("decommission", job_id)]
+
+
+def test_services_list_is_ownership_scoped(env, tmp_path, monkeypatch):
+    app, runner = env
+    creds = bootstrap(app.state.state_dir)
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    off = _published_offering(runner, tmp_path)
+    # The operator requests the offering; the row belongs to the operator only.
+    monkeypatch.setenv("KW_PASSWORD", creds["operator"])
+    run(runner, "auth", "login", "--username", "operator")
+    req = json.loads(run(runner, "--json", "services", "request", off["id"]).output)
+    rows = json.loads(run(runner, "--json", "services", "list").output)
+    assert [row["job_id"] for row in rows] == [req["job_id"]]
+    # The administrator does not inherit another principal's service requests.
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    run(runner, "auth", "login", "--username", "admin")
+    assert json.loads(run(runner, "--json", "services", "list").output) == []
+    # Listing is open to any user, but a viewer sees only its own (none).
+    monkeypatch.setenv("KW_PASSWORD", creds["viewer"])
+    run(runner, "auth", "login", "--username", "viewer")
+    assert json.loads(run(runner, "--json", "services", "list").output) == []
+
+
+def test_services_role_boundaries_and_governance(env, tmp_path, monkeypatch):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    install_executor(app, RecordingExecutor())
+    creds = bootstrap(app.state.state_dir)
+    import json
+    run(runner, "auth", "login", "--username", "admin")
+    off = _published_offering(runner, tmp_path)
+    # Unauthenticated access is refused.
+    run(runner, "auth", "logout")
+    assert run(runner, "services", "list").exit_code == 2
+    # A viewer cannot request an offering.
+    monkeypatch.setenv("KW_PASSWORD", creds["viewer"])
+    run(runner, "auth", "login", "--username", "viewer")
+    assert run(runner, "services", "request", off["id"]).exit_code == 3
+    # An operator can request but never retire.
+    monkeypatch.setenv("KW_PASSWORD", creds["operator"])
+    run(runner, "auth", "login", "--username", "operator")
+    job_id = json.loads(run(runner, "--json", "services", "request", off["id"]).output)["job_id"]
+    assert run(runner, "services", "decommission", job_id).exit_code == 3
+    # Admin: a never-approved request has nothing to retire; state untouched.
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    run(runner, "auth", "login", "--username", "admin")
+    r = run(runner, "services", "decommission", job_id)
+    assert r.exit_code == 1, r.output
+    assert "succeeded" in (r.output + r.stderr).lower()
+    assert json.loads(run(runner, "--json", "deploy", "get", job_id).output)["status"] == "pending_approval"
+    # A plain deployment job is not a service request: retirement is 404.
+    plain = json.loads(run(runner, "--json", "deploy", "request",
+                           "--graph-file", _graph_file(tmp_path)).output)
+    r = run(runner, "services", "decommission", plain["id"])
+    assert r.exit_code == 1 and "Unknown service request" in r.output + r.stderr
+    r = run(runner, "services", "decommission", "0" * 32)
+    assert r.exit_code == 1 and "Unknown job" in r.output + r.stderr
+
+
+def test_services_decommission_requires_provider_capability(env, tmp_path):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    executor = install_executor(app, RecordingExecutor())  # rollback only
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    off = _published_offering(runner, tmp_path)
+    job_id = json.loads(run(runner, "--json", "services", "request", off["id"]).output)["job_id"]
+    run(runner, "deploy", "approve", job_id)
+    done = json.loads(run(runner, "--json", "deploy", "watch", job_id, "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    job = json.loads(run(runner, "--json", "deploy", "get", job_id).output)
+    assert job["can_rollback"] is True and job["can_decommission"] is False
+    # Rollback capability never implies retirement: refused, nothing runs.
+    r = run(runner, "services", "decommission", job_id)
+    assert r.exit_code == 1, r.output
+    assert "decommission" in (r.output + r.stderr).lower()
+    assert json.loads(run(runner, "--json", "deploy", "get", job_id).output)["status"] == "succeeded"
+    assert executor.calls == [("execute", job_id)]

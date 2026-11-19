@@ -53,9 +53,9 @@
     },
     {
       "id": "services",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "list/request/decommission wrapped+tested (4 new tests, 23 green); ownership-scoped list, request lands pending_approval (no bypass), decommission is admin-only queued retirement verified to decommissioned via CLI; role/404/409/provider-capability boundaries proven; no backend gaps.",
       "detail": "kw services: list (GET /api/studio/services), request (POST /api/studio/offerings/{id}/request), decommission (POST /api/studio/services/{id}/decommission). Read studio.py schemas + tests/test_studio.py.",
       "acceptance": "list/request/decommission via CLI in a test; decommission is a governed mutation; tests green; committed."
     },
