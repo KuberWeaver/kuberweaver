@@ -28,7 +28,21 @@ def env(tmp_path, monkeypatch):
     import time
     import uvicorn
 
-    app = make_app(tmp_path, monkeypatch)
+    # Isolate BEFORE importing kuberweaver.app (it builds a module-level app on
+    # first import): point it at a scratch state dir and force SQLite, so we never
+    # touch data/ or share the PostgreSQL test database / advisory lock.
+    monkeypatch.setenv("KUBERWEAVER_STATE_DIR", str(tmp_path / "module-app"))
+    monkeypatch.delenv("KUBERWEAVER_DATABASE_URL", raising=False)
+    monkeypatch.delenv("KUBERWEAVER_DATABASE_URL_FILE", raising=False)
+
+    from test_core_graph import manifest as sample_manifest
+    from kuberweaver.app import create_app
+    from kuberweaver.connections import install_connections_api
+    plugins = tmp_path / "plugins"
+    sample_manifest(plugins)
+    app = create_app(state_dir=tmp_path / "state", plugins_dir=plugins, testing=True)
+    if not hasattr(app.state, "connections"):
+        install_connections_api(app)
     boundaries(app)
     # Real encrypted local vault, writable, bound as the default secrets source.
     from kuberweaver.local_vault import initialize, LocalVaultProvider
@@ -176,3 +190,73 @@ def test_ssh_key_export_reauth_and_file(env, monkeypatch, tmp_path):
     assert dest.exists() and os.stat(dest).st_mode & 0o777 == 0o600
     assert b"PRIVATE KEY" in dest.read_bytes()      # real key material in the file
     assert "PRIVATE KEY" not in r.output            # never printed to the terminal
+
+
+def _graph_file(tmp_path):
+    import json
+    from test_core_graph import graph
+    path = tmp_path / "graph.json"
+    path.write_text(json.dumps(graph()))
+    return str(path)
+
+
+def test_blueprints_create_get_copy_list(env, tmp_path):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    gf = _graph_file(tmp_path)
+    bp = json.loads(run(runner, "--json", "blueprints", "create", "--name", "Web", "--graph-file", gf).output)
+    assert bp["name"] == "Web"
+    got = json.loads(run(runner, "--json", "blueprints", "get", bp["id"]).output)
+    assert got["id"] == bp["id"]
+    copy = json.loads(run(runner, "--json", "blueprints", "copy", bp["id"], "--name", "Web copy").output)
+    assert copy["id"] != bp["id"] and copy["graph"] == bp["graph"]
+    listing = json.loads(run(runner, "--json", "blueprints", "list").output)
+    assert len(listing) == 2
+
+
+def test_deploy_request_approve_watch(env, tmp_path):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    install_executor(app, RecordingExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    job = json.loads(run(runner, "--json", "deploy", "request", "--graph-file", _graph_file(tmp_path)).output)
+    assert job["status"] == "pending_approval"
+    r = run(runner, "--json", "deploy", "approve", job["id"])
+    assert r.exit_code == 0, r.output
+    r = run(runner, "--json", "deploy", "watch", job["id"], "--timeout", "30")
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["status"] == "succeeded"
+
+
+def test_deploy_validate_dry_run_creates_no_job(env, tmp_path):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    before = len(json.loads(run(runner, "--json", "deploy", "list").output))
+    r = run(runner, "--json", "deploy", "validate", "--graph-file", _graph_file(tmp_path))
+    assert r.exit_code == 0, r.output
+    assert "allowed" in json.loads(r.output)
+    after = len(json.loads(run(runner, "--json", "deploy", "list").output))
+    assert before == after
+
+
+def test_inventory_finops_overview_audit_logs(env, tmp_path):
+    app, runner = env
+    from test_core_jobs import RecordingExecutor, install_executor
+    install_executor(app, RecordingExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    job = json.loads(run(runner, "--json", "deploy", "request", "--graph-file", _graph_file(tmp_path)).output)
+    run(runner, "deploy", "approve", job["id"])
+    run(runner, "deploy", "watch", job["id"], "--timeout", "30")
+    assert run(runner, "--json", "inventory", "list").exit_code == 0
+    fin = json.loads(run(runner, "--json", "finops").output)
+    assert "monthly_total" in fin
+    ov = json.loads(run(runner, "--json", "finops", "overview").output)
+    assert "counts" in ov
+    audit = json.loads(run(runner, "--json", "audit").output)
+    assert isinstance(audit, list) and audit
+    logs = json.loads(run(runner, "--json", "logs", job["id"]).output)
+    assert isinstance(logs, list)

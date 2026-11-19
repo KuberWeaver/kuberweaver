@@ -17,10 +17,16 @@ def cli(ctx, url, as_json, verbose):
 
 
 def _register():
-    from kw.commands import auth, connectors, keys
+    from kw.commands import auth, connectors, keys, blueprints, deploy, inventory, finops, logs
     cli.add_command(auth.auth)
     cli.add_command(connectors.connectors)
     cli.add_command(keys.keys)
+    cli.add_command(blueprints.blueprints)
+    cli.add_command(deploy.deploy)
+    cli.add_command(inventory.inventory)
+    cli.add_command(finops.finops)
+    cli.add_command(logs.logs_cmd)
+    cli.add_command(logs.audit_cmd)
 
 
 _register()
