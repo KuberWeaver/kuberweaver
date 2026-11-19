@@ -755,7 +755,7 @@ def test_dependency_is_optional_at_registration(monkeypatch):
         driver.discover({}, b"{}")
 
 
-def test_extension_registers_read_only_hypervisor_through_real_sdk():
+def test_extension_registers_esxi_hypervisor_with_discovery_and_destruction():
     from kuberweaver.extensions import ExtensionRegistry
 
     registry = ExtensionRegistry()
@@ -763,9 +763,69 @@ def test_extension_registers_read_only_hypervisor_through_real_sdk():
     assert any(r.get("id") == "esxi-runtime" and r["status"] == "loaded" for r in reports)
     assert registry.list("hypervisor") == [{
         "kind": "hypervisor", "name": "esxi", "label": "VMware ESXi",
-        "read_only": True, "available": True,
+        "read_only": False, "available": True,
     }]
     driver = registry.get("hypervisor", "esxi")
     assert callable(driver.discover)
+    assert callable(driver.destroy_resource)
     for mutation in ("execute", "rollback", "create", "delete", "update", "power_on"):
         assert not hasattr(driver, mutation)
+
+
+class DestroyInventoryStub(InventoryStub):
+    """Adds the destroy method boundary on top of the read-only transport stub."""
+
+    def __init__(self, power="poweredOff"):
+        super().__init__()
+        self.destroyed = []
+        self.powered_off = []
+        self.task = self.object(vim.Task, "task-1", info=vim.TaskInfo(state="success"))
+        self.properties[("vm-2", "summary")].runtime.powerState = power
+        self.vm_view = vim.view.ContainerView("vm-view", self)
+        self.properties[("vm-view", "view")] = [
+            entity for entity in self.entities if isinstance(entity, vim.VirtualMachine)]
+
+    def InvokeMethod(self, obj, info, args):
+        if info.name == "CreateContainerView" and set(args[1]) == {vim.VirtualMachine}:
+            return self.vm_view
+        if isinstance(obj, vim.VirtualMachine) and info.name == "PowerOff":
+            self.powered_off.append(obj._GetMoId())
+            self.properties[(obj._GetMoId(), "summary")].runtime.powerState = "poweredOff"
+            return self.task
+        if isinstance(obj, vim.VirtualMachine) and info.name == "Destroy":
+            self.destroyed.append(obj._GetMoId())
+            self.properties[("vm-view", "view")] = [
+                entity for entity in self.properties[("vm-view", "view")]
+                if entity._GetMoId() != obj._GetMoId()]
+            return self.task
+        return super().InvokeMethod(obj, info, args)
+
+
+def test_destroy_resource_powers_off_destroys_and_confirms_absence():
+    module = load_driver()
+    inventory = DestroyInventoryStub(power="poweredOn")
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    assert driver.destroy_resource(CONNECTION, CREDENTIALS, UUID, MARKER) is True
+    assert inventory.powered_off == ["vm-2"]
+    assert inventory.destroyed == ["vm-2"]
+    assert inventory.disconnected == [inventory.si]
+
+
+def test_destroy_resource_refuses_a_foreign_marker_without_touching_the_vm():
+    module = load_driver()
+    inventory = DestroyInventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    with pytest.raises(module.ESXiError):
+        driver.destroy_resource(CONNECTION, CREDENTIALS, UUID, "kuberweaver-job:" + "b" * 32)
+    assert inventory.destroyed == []
+    assert inventory.powered_off == []
+
+
+def test_destroy_resource_refuses_an_unknown_uuid():
+    module = load_driver()
+    inventory = DestroyInventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    with pytest.raises(module.ESXiError):
+        driver.destroy_resource(CONNECTION, CREDENTIALS,
+                                "99999999-9999-4999-8999-999999999999", MARKER)
+    assert inventory.destroyed == []
