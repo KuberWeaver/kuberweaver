@@ -93,9 +93,9 @@
     },
     {
       "id": "e2e-journey",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "tests/test_cli_journey.py reuses the env fixture (real uvicorn, isolated SQLite, sample-service plugin, local vault): 2 journey tests green, 45 total with test_cli.py. Chain 1: keys generate -> connectors add+credentials(vault, secret never in output/DB/audit) -> test/discover -> modules artifacts+offerings -> blueprints create -> deploy request --offering-id (operator, pending_approval, self-approve 403) -> admin approve -> watch succeeded -> services inventory + logs -> services decommission by job id (queued->decommissioned, execute+decommission calls only) -> finops/audit. Chain 2: adopt two proven VMs -> inventory list/get -> decommission request (quarantine, early execute refused) -> window advance -> execute destroyed -> inventory emptied, other stack untouched. Skipped steps asserted unavailable, no stubs: modules get-by-id + cost/month, resources create --default (no backend routes). Boundary noted: recording executor commits no environment state (OpenTofu-only), so resource inventory is proven via the adopt leg.",
       "detail": "Add tests/test_cli_journey.py chaining the full spec journey via CLI: keys generate -> connectors add+credentials -> modules -> blueprints -> deploy request -> approve -> inventory -> decommission, using the recording executor + local vault. Skip steps whose backend route is genuinely absent (note them).",
       "acceptance": "one end-to-end CLI journey test green against the in-process server; committed."
     }
