@@ -41,3 +41,12 @@ htmlcov/
 # Generated document review images, final PDFs remain publishable
 docs/note-cadrage/apercu-page-*.png
 docs/note-cadrage/cahier-apercu-*.png
+
+*.egg-info/
+build/
+dist/
+
+# kw autopilot runtime state
+ops/autopilot-kw/.lock
+ops/autopilot-kw/runner.log
+ops/autopilot-kw/STOP
