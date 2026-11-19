@@ -1598,3 +1598,19 @@ def test_admin_agent_broad_scopes_still_human_gated(env, tmp_path, monkeypatch):
     monkeypatch.setenv("KW_PASSWORD", bootstrap(app.state.state_dir)["admin"])
     assert json.loads(run(runner, "--json", "keys", "revoke", key["id"]).output
                       )["enabled"] is False
+
+
+def test_providers_list_and_bind(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    import json
+    r = run(runner, "--json", "providers", "list")
+    assert r.exit_code == 0, r.output
+    listing = json.loads(r.output)
+    assert "bindings" in listing and "available" in listing
+    # Bind a builtin capability; the server validates and persists the binding.
+    r = run(runner, "--json", "providers", "bind", "--kind", "diagnostics", "--name", "rules")
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["bindings"]["diagnostics"] == "rules"
+    # Readback through the API confirms the persisted binding.
+    assert app.state.provider_bindings["diagnostics"] == "rules"
