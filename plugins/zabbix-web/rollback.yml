@@ -26,6 +26,22 @@
         state: absent
       when: not (kw_snapshot.config_existed | bool)
 
+    - name: Re-enable the stock default site when the brick disabled it
+      ansible.builtin.command:
+        argv: ['/usr/sbin/a2ensite', '000-default']
+      args:
+        creates: /etc/apache2/sites-enabled/000-default.conf
+      when: kw_snapshot.default_site_enabled | default(false) | bool
+      register: kw_default_site_restored
+
+    - name: Restart Apache after restoring the default site
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
+      when:
+        - kw_default_site_restored is changed
+        - kw_snapshot.unit_active | bool
+
     - name: Stop Apache when it was not running before this brick
       ansible.builtin.service:
         name: apache2
@@ -44,7 +60,8 @@
         content: "{{ {
             'brick': 'zabbix-web',
             'files_restored': (kw_snapshot.files | default({})) | length,
-            'package_removed': not (kw_snapshot.package_installed | bool)
+            'package_removed': not (kw_snapshot.package_installed | bool),
+            'default_site_restored': kw_default_site_restored is changed
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"
         mode: "0600"

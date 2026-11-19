@@ -29,7 +29,11 @@
     - role: community.zabbix.zabbix_web
       vars:
         zabbix_web_version: "{{ kw_config.zabbix_version }}"
+        zabbix_server_version: "{{ kw_config.zabbix_version }}"
         zabbix_web_http_server: apache
+        # Debian Apache serves PHP through libapache2-mod-php (installed by the
+        # role); php-fpm is absent, so its pool config must not be written.
+        zabbix_web_create_php_fpm: false
         zabbix_server_hostname: "{{ kw_config.server_host }}"
         zabbix_server_listenport: "{{ kw_config.server_port }}"
         zabbix_web_vhost_port: "{{ kw_config.listen_port }}"
@@ -43,6 +47,28 @@
         zabbix_server_dbpassword: "{{ kw_db_password }}"
 
   tasks:
+    # The role's vhost uses RewriteEngine but never enables mod_rewrite
+    # (upstream examples assume a separate apache role did it). Runs after the
+    # role so apache2 is installed, before the role's restart handler flushes.
+    # Plain a2enmod: apache2_module would run apache2ctl, which rejects the
+    # vhost while rewrite is still missing.
+    - name: Enable the Apache rewrite module used by the Zabbix vhost
+      ansible.builtin.command:
+        argv: ['/usr/sbin/a2enmod', 'rewrite']
+      args:
+        creates: /etc/apache2/mods-enabled/rewrite.load
+      notify: restart apache
+
+    # The stock 000-default vhost sorts first and answers every request whose
+    # Host does not match ServerName. This guest serves only the Zabbix
+    # frontend, so its vhost must be the default. Tracked by snapshot/rollback.
+    - name: Disable the stock default site so the Zabbix vhost answers
+      ansible.builtin.command:
+        argv: ['/usr/sbin/a2dissite', '000-default']
+      args:
+        removes: /etc/apache2/sites-enabled/000-default.conf
+      notify: restart apache
+
     - name: Persist the apply report
       ansible.builtin.copy:
         content: "{{ {

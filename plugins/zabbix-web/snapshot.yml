@@ -18,6 +18,11 @@
       changed_when: false
       failed_when: false
 
+    - name: Inspect the stock default site
+      ansible.builtin.stat:
+        path: /etc/apache2/sites-enabled/000-default.conf
+      register: kw_default_site
+
     - name: Inspect the vhost and the frontend configuration
       ansible.builtin.stat:
         path: "{{ item }}"
@@ -28,14 +33,14 @@
 
     - name: Read the existing vhost and frontend configuration
       ansible.builtin.slurp:
-        src: "{{ item.path }}"
+        src: "{{ item.stat.path }}"
       loop: "{{ kw_paths.results | selectattr('stat.exists') | list }}"
       register: kw_bodies
       no_log: true
 
     - name: Record the existing file content
       ansible.builtin.set_fact:
-        kw_files: "{{ (kw_files | default({})) | combine({item.item.path: (item.content | b64decode)}) }}"
+        kw_files: "{{ (kw_files | default({})) | combine({item.item.stat.path: (item.content | b64decode)}) }}"
       loop: "{{ kw_bodies.results | default([]) }}"
       no_log: true
 
@@ -47,6 +52,7 @@
             'unit_active': (kw_unit.stdout | default('') | trim) == 'active',
             'vhost_existed': kw_paths.results[0].stat.exists,
             'config_existed': kw_paths.results[1].stat.exists,
+            'default_site_enabled': kw_default_site.stat.exists,
             'files': kw_files | default({})
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"
