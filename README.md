@@ -1,6 +1,6 @@
 # KuberWeaver
 
-Self-hosted infrastructure management with a visual service catalogue, governed requests, explicit approvals and verifiable execution. KuberWeaver connects a React/TypeScript portal and an API/MCP interface to replaceable inventory, execution, secrets, notification and diagnostic providers. It does not require an embedded AI model or Kubernetes.
+Self-hosted infrastructure management with a service catalogue, governed requests, explicit approvals and verifiable execution. KuberWeaver exposes one API (plus an MCP interface) to replaceable inventory, execution, secrets, notification and diagnostic providers; the `kw` CLI is the reference client. A modular GUI can be built by anyone on the same API (one will be made for presentations); this version focuses on the core, the CLI and real services, and the legacy GUI was removed. It does not require an embedded AI model or Kubernetes.
 
 ## Documentation
 
@@ -10,6 +10,7 @@ Self-hosted infrastructure management with a visual service catalogue, governed 
 - [PostgreSQL](docs/POSTGRESQL.md) and [local encrypted vault](examples/extensions/local-vault/README.md): durable state, backup requirements and threat model.
 - [Execution](docs/EXECUTION.md), [configuration](docs/CONFIGURATION.md), [extensions](docs/EXTENSIONS.md) and [secrets](docs/SECRETS.md): provider contracts, environment settings and operating limits.
 - [Agent access](docs/AGENT_ACCESS.md) and [MCP](docs/MCP.md): scoped, revocable machine access.
+- [kw CLI](docs/kw-cli-usage.md): the reference CLI client, the full journey, auth modes and testing.
 - [Navigation and page states](docs/NAVIGATION.md): the page registry, grouped sidebar, role gating, loading and empty states.
 - [External dashboards](docs/DASHBOARDS.md): the registry for Grafana, Uptime Kuma, Prometheus and Netdata links, probe paths, the periodic read-only health and drift column, the embed allowlist and the embed page.
 - [Environment and stack state](docs/ENVIRONMENT_STATE.md): one encrypted, generation-numbered record per environment and stack, the exclusive apply claim, the resource list, adoption of an existing VM by UUID and ownership marker, destruction behind the same proof and a 15-minute cancellation window, and the administrator lease release.
@@ -75,7 +76,8 @@ backend/kuberweaver/
   providers.py                 built-in providers
   execution.py                 lab Ansible executor
   secrets.py                   replaceable secret sources
-frontend/                      React, TypeScript, React Flow
+frontend/                      removed (legacy GUI); a modular GUI can be built on the API
+kw/                            thin CLI client, the reference client over the API
 plugins/                       manifests, schemas and Ansible assets
 examples/extensions/           independently installable Python examples
 scripts/                       lifecycle and acceptance commands
@@ -158,9 +160,7 @@ Lab targets must be running for deployments and remote OpenBao access. The porta
 ```sh
 uv venv .venv
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt -r requirements-infrastructure.txt -r requirements-postgresql.txt -r requirements-local-vault.txt
-npm --prefix frontend ci
-npm --prefix frontend test
-npm --prefix frontend run build
+uv pip install --python .venv/bin/python -e . --no-deps   # installs the `kw` CLI
 ```
 
 Run backend tests against disposable state, not the live database:
@@ -170,9 +170,9 @@ state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests -q
 ```
 
-FastAPI serves the frontend build on the same origin. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory, as described in [health and readiness](docs/HEALTH.md). Metrics describe the process and jobs, not a proven remote monitoring deployment.
+FastAPI serves the API on one origin; the legacy GUI was removed and a modular GUI can be built on the same API. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory, as described in [health and readiness](docs/HEALTH.md). Metrics describe the process and jobs, not a proven remote monitoring deployment.
 
-`scripts/browser_acceptance.py` and `scripts/api_acceptance.py` have real effects on example resources. Prepare target state and ports before running them; they are not unit tests. Playwright is an optional, separately installed acceptance dependency. Historical evidence is indexed by [verification](docs/VERIFICATION.md); old test counts are not fresh results and passing tests do not establish production maturity.
+`scripts/api_acceptance.py` has real effects on example resources. Prepare target state and ports before running it; it is not a unit test. Historical evidence is indexed by [verification](docs/VERIFICATION.md); old test counts are not fresh results and passing tests do not establish production maturity.
 
 ## Security limits
 
