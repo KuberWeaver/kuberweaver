@@ -1,6 +1,6 @@
 {
   "branch": "feat/kw-cli",
-  "deadline": "2026-11-19T18:38:29+01:00",
+  "deadline": "2026-11-19T19:00:00+01:00",
   "verify": ".venv/bin/python -m pytest tests/test_cli.py -q -p no:cacheprovider",
   "tasks": [
     {
