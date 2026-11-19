@@ -98,6 +98,22 @@
       "note": "tests/test_cli_journey.py reuses the env fixture (real uvicorn, isolated SQLite, sample-service plugin, local vault): 2 journey tests green, 45 total with test_cli.py. Chain 1: keys generate -> connectors add+credentials(vault, secret never in output/DB/audit) -> test/discover -> modules artifacts+offerings -> blueprints create -> deploy request --offering-id (operator, pending_approval, self-approve 403) -> admin approve -> watch succeeded -> services inventory + logs -> services decommission by job id (queued->decommissioned, execute+decommission calls only) -> finops/audit. Chain 2: adopt two proven VMs -> inventory list/get -> decommission request (quarantine, early execute refused) -> window advance -> execute destroyed -> inventory emptied, other stack untouched. Skipped steps asserted unavailable, no stubs: modules get-by-id + cost/month, resources create --default (no backend routes). Boundary noted: recording executor commits no environment state (OpenTofu-only), so resource inventory is proven via the adopt leg.",
       "detail": "Add tests/test_cli_journey.py chaining the full spec journey via CLI: keys generate -> connectors add+credentials -> modules -> blueprints -> deploy request -> approve -> inventory -> decommission, using the recording executor + local vault. Skip steps whose backend route is genuinely absent (note them).",
       "acceptance": "one end-to-end CLI journey test green against the in-process server; committed."
+    },
+    {
+      "id": "error-paths",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "Add consistent error handling + integration tests for unknown-id (404), invalid input (422), and a clean message when the API is unreachable, across command groups. Clean stderr + nonzero exit codes; no business logic, no behavior change to happy paths.",
+      "acceptance": "new error-path tests green; existing tests still green; tree clean; committed."
+    },
+    {
+      "id": "destructive-gating-tests",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "Add tests proving agent tokens (KW_AGENT_TOKEN) are denied for every destructive/human-gated op: deploy approve/reject/rollback, services decommission, decommission request/execute, keys generate/revoke/export, connectors add/credentials. Do NOT change command behavior or add confirmation flags that would break existing tests.",
+      "acceptance": "agent-denial tests green for each destructive op; existing tests still green; tree clean; committed."
     }
   ]
 }
