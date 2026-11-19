@@ -101,9 +101,9 @@
     },
     {
       "id": "error-paths",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "consistent error handling + 4 new tests (47 green in test_cli.py, journey 2 green): unknown-id 404 proven across 18 commands in 11 groups (one 'error:' stderr line, exit 1, empty stdout, no traceback); 422 validation rendered as 'field: message' instead of raw dict repr (graphs + token scope/expiry), no side effects; unreachable API now a clean one-line message naming the URL with exit 4 (was a raw httpx traceback) via UnreachableError in the client + @api, covering login/whoami/list/watch/logs and both --url and KW_URL; malformed --graph-file JSON is a clean usage error (exit 2). Exit codes documented in kw/output.py (1 API refusal, 2 auth/usage, 3 permission, 4 unreachable); happy paths unchanged, no backend gaps.",
       "detail": "Add consistent error handling + integration tests for unknown-id (404), invalid input (422), and a clean message when the API is unreachable, across command groups. Clean stderr + nonzero exit codes; no business logic, no behavior change to happy paths.",
       "acceptance": "new error-path tests green; existing tests still green; tree clean; committed."
     },

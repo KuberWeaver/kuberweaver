@@ -1309,3 +1309,121 @@ def test_tokens_help_documents_automation_mode(env):
     h = run(runner, "tokens", "create", "--help")
     assert "KW_AGENT_TOKEN" in h.output and "0600" in h.output
     assert "read" in h.output and "plan" in h.output and "submit" in h.output
+
+
+# --- error-paths: consistent 404 / 422 / unreachable handling across groups ---
+
+
+def test_unknown_id_is_clean_404_across_groups(env, tmp_path):
+    """Every group surfaces the API's 404 as one stderr line, exit 1, no traceback."""
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    missing = "0" * 32
+    cases = [
+        (["blueprints", "get", missing], "Unknown blueprint"),
+        (["blueprints", "copy", missing, "--name", "x"], "Unknown blueprint"),
+        (["deploy", "get", missing], "Unknown job"),
+        (["deploy", "approve", missing], "Unknown job"),
+        (["deploy", "reject", missing], "Unknown job"),
+        (["rollback", missing], "Unknown job"),
+        (["logs", missing], "Unknown job"),
+        (["inventory", "get", missing], "Unknown environment state"),
+        (["connectors", "get", missing], "Unknown connection"),
+        (["connectors", "test", missing], "Unknown connection"),
+        (["keys", "get", missing], "Unknown SSH key"),
+        (["keys", "revoke", missing], "Unknown SSH key"),
+        (["services", "decommission", missing], "Unknown job"),
+        (["services", "request", missing], "Unknown offering"),
+        (["modules", "offerings", "create", "--title", "t",
+          "--blueprint-id", missing], "Unknown blueprint"),
+        (["tokens", "revoke", missing], "Unknown agent token"),
+        (["tokens", "rotate", missing,
+          "--token-file", str(tmp_path / "r.token")], "Unknown agent token"),
+        (["decommission", "status", missing], "Unknown environment state"),
+    ]
+    for args, needle in cases:
+        r = run(runner, *args)
+        assert r.exit_code == 1, (args, r.exit_code, r.output, r.stderr)
+        assert r.stderr.startswith("error:"), (args, r.stderr)
+        assert needle in r.stderr, (args, r.stderr)
+        assert "Traceback" not in r.stderr and r.stdout == ""
+    assert not (tmp_path / "r.token").exists()  # no secret file on a refused rotate
+
+
+def test_invalid_input_is_clean_422_across_groups(env, tmp_path):
+    """API schema validation (422) is surfaced readably; nothing is created."""
+    app, runner = env
+    import json
+    run(runner, "auth", "login", "--username", "admin")
+    bad = tmp_path / "bad-graph.json"
+    bad.write_text(json.dumps({"name": "bad", "nodes": []}))  # nodes min_length=1
+    cases = [
+        (["blueprints", "create", "--name", "bad", "--graph-file", str(bad)],
+         "graph.nodes"),
+        (["deploy", "request", "--graph-file", str(bad)], "graph.nodes"),
+        (["deploy", "validate", "--graph-file", str(bad)], "nodes:"),
+    ]
+    for args, needle in cases:
+        r = run(runner, *args)
+        assert r.exit_code == 1, (args, r.exit_code, r.output, r.stderr)
+        assert r.stderr.startswith("error:"), (args, r.stderr)
+        assert needle in r.stderr, (args, r.stderr)  # field path, not raw dict repr
+        assert "Traceback" not in r.stderr and r.stdout == ""
+    # Several validation errors at once are all rendered, still one clean line.
+    bad2 = tmp_path / "bad-env.json"
+    bad2.write_text(json.dumps({"name": "bad", "environment": "prod", "nodes": []}))
+    r = run(runner, "deploy", "request", "--graph-file", str(bad2))
+    assert r.exit_code == 1
+    assert "graph.environment" in r.stderr and "graph.nodes" in r.stderr
+    # Token issuance: the API schema is the authority (scope/role, expiry bounds).
+    dest = tmp_path / "x.token"
+    r = run(runner, "tokens", "create", "--label", "x", "--role", "viewer",
+            "--scopes", "approve", "--expires-in", "3600", "--token-file", str(dest))
+    assert r.exit_code == 1 and "Scopes are not permitted" in r.stderr
+    r = run(runner, "tokens", "create", "--label", "x", "--role", "viewer",
+            "--expires-in", "59", "--token-file", str(dest))
+    assert r.exit_code == 1 and "expires_in_seconds" in r.stderr
+    assert not dest.exists()
+    # No side effects from any refused input.
+    assert json.loads(run(runner, "--json", "blueprints", "list").output) == []
+    assert json.loads(run(runner, "--json", "deploy", "list").output) == []
+
+
+def test_unreachable_api_is_clean_error(env, monkeypatch):
+    """No server on the URL: one stderr line naming the URL, exit 4, no traceback."""
+    app, runner = env
+    import socket
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    dead_port = sock.getsockname()[1]
+    sock.close()  # nothing is listening on this port now
+    dead = f"http://127.0.0.1:{dead_port}"
+    run(runner, "auth", "login", "--username", "admin")
+    for args in (["deploy", "list"], ["blueprints", "list"], ["inventory", "list"],
+                 ["finops"], ["keys", "list"], ["auth", "whoami"],
+                 ["auth", "login", "--username", "admin"],
+                 ["deploy", "watch", "0" * 32, "--timeout", "5"],
+                 ["logs", "0" * 32]):
+        r = run(runner, "--url", dead, *args)
+        assert r.exit_code == 4, (args, r.exit_code, r.output, r.stderr)
+        assert "cannot reach" in r.stderr and dead in r.stderr, (args, r.stderr)
+        assert "Traceback" not in r.stderr and r.stdout == ""
+    # Same behavior when the URL comes from KW_URL instead of --url.
+    monkeypatch.setenv("KW_URL", dead)
+    r = run(runner, "deploy", "list")
+    assert r.exit_code == 4 and "cannot reach" in r.stderr and dead in r.stderr
+
+
+def test_invalid_graph_file_is_clean_usage_error(env, tmp_path):
+    """Malformed JSON in --graph-file: clean usage error, not a traceback."""
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    bad = tmp_path / "broken.json"
+    bad.write_text("{not valid json")
+    for args in (["blueprints", "create", "--name", "x", "--graph-file", str(bad)],
+                 ["deploy", "request", "--graph-file", str(bad)],
+                 ["deploy", "validate", "--graph-file", str(bad)]):
+        r = run(runner, *args)
+        assert r.exit_code == 2, (args, r.exit_code, r.output, r.stderr)
+        assert "invalid JSON" in r.stderr, (args, r.stderr)
+        assert "Traceback" not in r.stderr and r.stdout == ""

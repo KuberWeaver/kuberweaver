@@ -1,4 +1,9 @@
-"""Output rendering: table by default, --json for automation, nonzero exit on error."""
+"""Output rendering: table by default, --json for automation, nonzero exit on error.
+
+Exit codes: 0 success, 1 API refusal (404/422/409/...), 2 authentication
+required or bad usage, 3 permission denied, 4 API unreachable. Errors go to
+stderr as a single 'error: ...' line, never a traceback.
+"""
 from __future__ import annotations
 import json
 import sys
@@ -59,3 +64,8 @@ def handle_api_error(err) -> None:
             fail(f"permission denied (role or CSRF): {err.detail}", 3)
         fail(err.detail, 1)
     raise err
+
+
+def handle_unreachable(err) -> None:
+    """Clean one-line message when the API cannot be reached (no traceback)."""
+    fail(f"{err}; check --url / KW_URL and that the server is running", 4)

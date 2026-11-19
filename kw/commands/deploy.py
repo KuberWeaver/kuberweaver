@@ -13,7 +13,10 @@ TERMINAL = {"succeeded", "failed", "rolled_back", "rollback_failed", "rejected",
 
 
 def _load_graph(path: str) -> dict:
-    return json.loads(Path(path).read_text())
+    try:
+        return json.loads(Path(path).read_text())
+    except json.JSONDecodeError as err:
+        raise click.UsageError(f"invalid JSON in {path}: {err}") from None
 
 
 @click.group()

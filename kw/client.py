@@ -22,6 +22,14 @@ class ApiError(Exception):
         super().__init__(f"HTTP {status}: {detail}")
 
 
+class UnreachableError(Exception):
+    """Transport failure (connection refused, timeout, DNS): no HTTP status."""
+    def __init__(self, url: str, cause: Exception):
+        self.url = url
+        self.cause = cause
+        super().__init__(f"cannot reach the API at {url}: {cause}")
+
+
 def set_test_transport(transport) -> None:
     global _TEST_TRANSPORT
     _TEST_TRANSPORT = transport
@@ -48,8 +56,14 @@ class Client:
     def close(self):
         self._http.close()
 
+    def _send(self, method: str, path: str, **kw):
+        try:
+            return self._http.request(method, path, **kw)
+        except httpx.TransportError as err:
+            raise UnreachableError(self.base_url, err) from err
+
     def request(self, method: str, path: str, **kw):
-        response = self._http.request(method, path, **kw)
+        response = self._send(method, path, **kw)
         if response.status_code >= 400:
             detail = _detail(response)
             raise ApiError(response.status_code, detail)
@@ -77,8 +91,8 @@ class Client:
         return self.json("DELETE", path, **kw)
 
     def login(self, username: str, password: str) -> dict:
-        response = self._http.request("POST", "/api/auth/login",
-                                      json={"username": username, "password": password})
+        response = self._send("POST", "/api/auth/login",
+                              json={"username": username, "password": password})
         if response.status_code >= 400:
             raise ApiError(response.status_code, _detail(response))
         data = response.json()
@@ -98,12 +112,28 @@ class Client:
 def _detail(response: httpx.Response) -> str:
     try:
         body = response.json()
-        if isinstance(body, dict) and "detail" in body:
-            detail = body["detail"]
-            return detail if isinstance(detail, str) else str(detail)
-        return str(body)
     except Exception:
         return response.text or response.reason_phrase
+    if isinstance(body, dict) and "detail" in body:
+        return _format_detail(body["detail"])
+    return str(body)
+
+
+def _format_detail(detail) -> str:
+    """Render FastAPI error detail readably: plain strings as-is, validation
+    lists (422) as 'field: message' entries instead of raw dict reprs."""
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list) and detail:
+        parts = []
+        for item in detail:
+            if isinstance(item, dict) and "msg" in item:
+                loc = ".".join(str(p) for p in item.get("loc", ()) if p != "body")
+                parts.append(f"{loc}: {item['msg']}" if loc else str(item["msg"]))
+            else:
+                parts.append(str(item))
+        return "; ".join(parts)
+    return str(detail)
 
 
 def build_client(url_option: str | None = None, *, use_session: bool = True) -> Client:
