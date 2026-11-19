@@ -109,9 +109,9 @@
     },
     {
       "id": "destructive-gating-tests",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "2 new tests (49 green in test_cli.py, journey 2 green), no command changes: automation token (operator read/plan/submit) denied exit 3 for all 13 destructive ops against real objects (pending job approve/reject/rollback, services decommission, quarantined stack request/cancel/resolve + execute after the window closed, keys generate/revoke/export with no file written, connectors add/credentials with sentinel never persisted); zero executor/destroyer calls, human path then completes every refused op. Admin-role token with approve/rollback/configure still denied keys generate/revoke/export + connectors credentials (no machine scope mapping, human-admin gate); nuance proven: connectors add is the API's 'configure' machine write (metadata only), refused without the explicit human grant, permitted with it, and never opens secret ingestion; token management stays human-only.",
       "detail": "Add tests proving agent tokens (KW_AGENT_TOKEN) are denied for every destructive/human-gated op: deploy approve/reject/rollback, services decommission, decommission request/execute, keys generate/revoke/export, connectors add/credentials. Do NOT change command behavior or add confirmation flags that would break existing tests.",
       "acceptance": "agent-denial tests green for each destructive op; existing tests still green; tree clean; committed."
     }

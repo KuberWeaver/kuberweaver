@@ -1427,3 +1427,174 @@ def test_invalid_graph_file_is_clean_usage_error(env, tmp_path):
         assert r.exit_code == 2, (args, r.exit_code, r.output, r.stderr)
         assert "invalid JSON" in r.stderr, (args, r.stderr)
         assert "Traceback" not in r.stderr and r.stdout == ""
+
+
+# --- destructive-gating-tests: KW_AGENT_TOKEN denied for every human-gated mutation ---
+
+
+def test_agent_denied_for_every_destructive_op(env, tmp_path, monkeypatch):
+    """The documented automation token (operator, read/plan/submit) is refused for
+    every destructive/human-gated op, against real objects: a pending job, a live
+    key, a registered connector and a quarantined stack whose window has closed.
+    Nothing moves; the human path afterwards completes every refused operation."""
+    app, runner = env
+    import json
+    from test_core_jobs import RecordingExecutor, install_executor
+    from test_destruction import UUID, MARKER, CONNECTION
+    executor = install_executor(app, RecordingExecutor())
+    clock, destroyer = _destruction_world(app)
+    creds = bootstrap(app.state.state_dir)
+    run(runner, "auth", "login", "--username", "admin")
+    # Real objects, created through the human CLI path.
+    job = json.loads(run(runner, "--json", "deploy", "request",
+                         "--graph-file", _graph_file(tmp_path)).output)
+    assert job["status"] == "pending_approval"
+    key = json.loads(run(runner, "--json", "keys", "generate", "--name", "human-key").output)
+    conn = json.loads(run(runner, "--json", "connectors", "add",
+                          "--label", "Human", "--driver", "recording",
+                          "--endpoint", "https://192.0.2.10", "--secret-ref", "hypervisors/human",
+                          "--secrets-provider", "test-vault").output)
+    state = _adopt_stack(runner, "vm-owned", UUID, MARKER)
+    identity = state["id"]
+    request_args = ["decommission", "request", identity, "--connection-id", CONNECTION,
+                    "--uuid", UUID, "--marker", MARKER]
+    destroy = json.loads(run(runner, "--json", *request_args).output)["destroy"]
+    assert destroy["status"] == "quarantined"
+    # Automation mode: a human-issued operator token, no session, no CSRF.
+    secret_file = tmp_path / "auto.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "ci", "--role", "operator",
+            "--scopes", "read", "--scopes", "plan", "--scopes", "submit",
+            "--expires-in", "3600", "--token-file", str(secret_file))
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret_file.read_text())
+    who = json.loads(run(runner, "--json", "auth", "whoami").output)
+    assert who["principal_type"] == "agent"
+    sentinel = "agent-ingest-sentinel"
+    monkeypatch.setenv("KW_PASSWORD", sentinel)
+    export_dest = tmp_path / "agent-export.key"
+    refused = [
+        ["deploy", "approve", job["id"]],
+        ["deploy", "reject", job["id"]],
+        ["rollback", job["id"]],
+        ["services", "decommission", job["id"]],
+        request_args,
+        ["decommission", "cancel", identity, "--destroy-id", destroy["destroy_id"]],
+        ["decommission", "resolve", identity, "--destroy-id", destroy["destroy_id"],
+         "--outcome", "intact"],
+        ["keys", "generate", "--name", "agent-key"],
+        ["keys", "revoke", key["id"]],
+        ["keys", "export", key["id"], "--output", str(export_dest)],
+        ["connectors", "add", "--label", "Agent", "--driver", "recording",
+         "--endpoint", "https://192.0.2.11", "--secret-ref", "hypervisors/agent",
+         "--secrets-provider", "test-vault"],
+        ["connectors", "credentials", conn["id"], "--username", "agent-user"],
+    ]
+    for args in refused:
+        r = run(runner, *args)
+        assert r.exit_code == 3, (args, r.exit_code, r.output, r.stderr)
+        assert "Traceback" not in r.stderr
+    # The window closes: execute is now refused by the human gate alone, not the clock.
+    clock.advance(minutes=16)
+    r = run(runner, "decommission", "execute", identity, "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 3, (r.exit_code, r.output, r.stderr)
+    assert not export_dest.exists()
+    assert executor.calls == [] and destroyer.calls == []
+    # No side effects: reads (permitted for the agent) show everything untouched.
+    assert json.loads(run(runner, "--json", "deploy", "get", job["id"]).output
+                      )["status"] == "pending_approval"
+    keys = json.loads(run(runner, "--json", "keys", "list").output)
+    assert len(keys) == 1 and keys[0]["id"] == key["id"] and keys[0]["enabled"] is True
+    conns = json.loads(run(runner, "--json", "connectors", "list").output)
+    assert len(conns) == 1 and conns[0]["id"] == conn["id"]
+    assert json.loads(run(runner, "--json", "decommission", "status", identity).output
+                      )["destroy"]["status"] == "quarantined"
+    persisted = json.dumps(app.state.store.all("SELECT * FROM connections"))
+    assert sentinel not in persisted and "agent-user" not in persisted
+    # The human path still completes every operation the agent was refused.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    assert run(runner, "--json", "deploy", "approve", job["id"]).exit_code == 0
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"],
+                          "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    assert executor.calls == [("execute", job["id"])]
+    assert json.loads(run(runner, "--json", "keys", "revoke", key["id"]).output
+                      )["enabled"] is False
+    monkeypatch.setenv("KW_PASSWORD", "human-secret-value")
+    r = run(runner, "--json", "connectors", "credentials", conn["id"], "--username", "test-user")
+    assert r.exit_code == 0, r.output
+    assert "human-secret-value" not in r.output
+    assert "human-secret-value" not in json.dumps(app.state.store.all("SELECT * FROM connections"))
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    r = run(runner, "--json", "decommission", "execute", identity,
+            "--destroy-id", destroy["destroy_id"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["destroy"]["status"] == "destroyed"
+    assert destroyer.calls == [(CONNECTION, UUID, MARKER)]
+
+
+def test_admin_agent_broad_scopes_still_human_gated(env, tmp_path, monkeypatch):
+    """Even an admin-role agent token holding approve/rollback/configure cannot
+    generate/revoke/export SSH keys or ingest connector credentials: those routes
+    have no machine scope mapping and require a human administrator session.
+    Connector registration is the API's one 'configure' machine write (metadata
+    only): refused without the explicit human grant, permitted with it, and it
+    never opens a path to secrets. The CLI adds no policy of its own."""
+    app, runner = env
+    import json
+    run(runner, "auth", "login", "--username", "admin")
+    key = json.loads(run(runner, "--json", "keys", "generate", "--name", "human-key").output)
+    conn = json.loads(run(runner, "--json", "connectors", "add",
+                          "--label", "Human", "--driver", "recording",
+                          "--endpoint", "https://192.0.2.10", "--secret-ref", "hypervisors/human",
+                          "--secrets-provider", "test-vault").output)
+    broad_file = tmp_path / "broad.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "broad", "--role", "admin",
+            "--scopes", "read", "--scopes", "submit", "--scopes", "approve",
+            "--scopes", "rollback", "--scopes", "configure",
+            "--expires-in", "3600", "--token-file", str(broad_file))
+    assert r.exit_code == 0, r.output
+    # Token management is human-only: issue the second token before switching.
+    noconfig_file = tmp_path / "noconfig.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "no-config", "--role", "admin",
+            "--scopes", "read", "--scopes", "submit", "--scopes", "approve",
+            "--scopes", "rollback", "--expires-in", "3600", "--token-file", str(noconfig_file))
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", broad_file.read_text())
+    sentinel = "broad-ingest-sentinel"
+    monkeypatch.setenv("KW_PASSWORD", sentinel)
+    export_dest = tmp_path / "broad-export.key"
+    for args in (["keys", "generate", "--name", "agent-key"],
+                 ["keys", "revoke", key["id"]],
+                 ["keys", "export", key["id"], "--output", str(export_dest)],
+                 ["connectors", "credentials", conn["id"], "--username", "agent-user"]):
+        r = run(runner, *args)
+        assert r.exit_code == 3, (args, r.exit_code, r.output, r.stderr)
+    assert not export_dest.exists()
+    assert json.loads(run(runner, "--json", "keys", "list").output)[0]["enabled"] is True
+    assert sentinel not in json.dumps(app.state.store.all("SELECT * FROM connections"))
+    # Explicit human 'configure' grant: registration (metadata) is a machine path...
+    r = run(runner, "--json", "connectors", "add",
+            "--label", "Configured", "--driver", "recording",
+            "--endpoint", "https://192.0.2.11", "--secret-ref", "hypervisors/configured",
+            "--secrets-provider", "test-vault")
+    assert r.exit_code == 0, r.output
+    configured = json.loads(r.output)
+    assert len(json.loads(run(runner, "--json", "connectors", "list").output)) == 2
+    # ...but secret ingestion stays human-only even on the connector it created.
+    assert run(runner, "connectors", "credentials", configured["id"],
+               "--username", "agent-user").exit_code == 3
+    assert sentinel not in json.dumps(app.state.store.all("SELECT * FROM connections"))
+    # Without the configure grant, even an admin-role token cannot register.
+    monkeypatch.setenv("KW_AGENT_TOKEN", noconfig_file.read_text())
+    r = run(runner, "connectors", "add", "--label", "Denied", "--driver", "recording",
+            "--endpoint", "https://192.0.2.12", "--secret-ref", "hypervisors/denied",
+            "--secrets-provider", "test-vault")
+    assert r.exit_code == 3, (r.exit_code, r.output, r.stderr)
+    assert run(runner, "keys", "generate", "--name", "still-no").exit_code == 3
+    assert len(json.loads(run(runner, "--json", "connectors", "list").output)) == 2
+    # Human path intact.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    monkeypatch.setenv("KW_PASSWORD", bootstrap(app.state.state_dir)["admin"])
+    assert json.loads(run(runner, "--json", "keys", "revoke", key["id"]).output
+                      )["enabled"] is False
