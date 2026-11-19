@@ -1,0 +1,103 @@
+{
+  "branch": "feat/kw-cli",
+  "deadline": "2026-11-19T18:38:29+01:00",
+  "verify": ".venv/bin/python -m pytest tests/test_cli.py -q -p no:cacheprovider",
+  "tasks": [
+    {
+      "id": "blueprints",
+      "status": "done",
+      "attempts": 0,
+      "note": "built + tested in main session",
+      "detail": "kw blueprints: list, create (--name --graph-file or --from offering), get, copy (duplicate an existing blueprint by id into a new name). Routes: GET/POST /api/blueprints, GET /api/blueprints/{id} in api.py. Read the POST schema first.",
+      "acceptance": "create+get+list+copy work via CLI against the in-process server; tests added and green; tree clean; committed."
+    },
+    {
+      "id": "deploy",
+      "status": "done",
+      "attempts": 0,
+      "note": "built + tested in main session",
+      "detail": "kw deploy: request (POST /api/jobs with a graph, or POST /api/studio/offerings/{id}/request), list (GET /api/jobs), get, approve, reject, watch (poll GET /api/jobs/{id} until terminal, stream events). Read api.py job schemas + tests/test_core_jobs.py RecordingExecutor for tests.",
+      "acceptance": "request->pending_approval->approve->terminal observed via CLI in a test with a recording executor; approve requires admin; tests green; committed."
+    },
+    {
+      "id": "inventory",
+      "status": "done",
+      "attempts": 0,
+      "note": "built + tested in main session",
+      "detail": "kw inventory: list environment-states (GET /api/environment-states), get one, and kw infrastructure (GET /api/infrastructure). Read environment_state.py + api.py.",
+      "acceptance": "list/get return real rows via CLI in a test; tests green; committed."
+    },
+    {
+      "id": "finops",
+      "status": "done",
+      "attempts": 0,
+      "note": "built + tested in main session",
+      "detail": "kw finops (GET /api/finops), kw reporting (GET /api/reporting), kw overview (GET /api/overview). Read api.py handlers for shape.",
+      "acceptance": "commands return the API payloads via CLI in a test; tests green; committed."
+    },
+    {
+      "id": "logs",
+      "status": "done",
+      "attempts": 0,
+      "note": "built + tested in main session",
+      "detail": "kw logs <job-id> (GET /api/jobs/{id}/events) with --follow and verbosity; kw audit (GET /api/audit). Honor global -v. Read api.py events/audit handlers.",
+      "acceptance": "logs+audit return events via CLI in a test; tests green; committed."
+    },
+    {
+      "id": "modules",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw modules: map to studio artifacts+offerings. list/create/get artifacts (POST /api/studio/artifacts {kind,reference,pin}), offerings (POST /api/studio/offerings {title,blueprint_id}). Cost/month: check whether the offering/artifact schema has a cost field; if not, mark cost unavailable and note the backend gap (do not invent a field).",
+      "acceptance": "artifact+offering create/list/get via CLI in a test; cost handled honestly; tests green; committed."
+    },
+    {
+      "id": "services",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw services: list (GET /api/studio/services), request (POST /api/studio/offerings/{id}/request), decommission (POST /api/studio/services/{id}/decommission). Read studio.py schemas + tests/test_studio.py.",
+      "acceptance": "list/request/decommission via CLI in a test; decommission is a governed mutation; tests green; committed."
+    },
+    {
+      "id": "resources",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw resources: create default vs import. Investigate declarations.py (/api/declarations/verify, /execute) and environment_state.py for the real creation path. If no clean route exists for default-form creation, expose what exists, mark the rest unavailable, and note the gap. SSH key injection is OpenTofu's job, not the CLI's.",
+      "acceptance": "whatever creation/import path exists is wrapped and tested; gaps recorded honestly; tests green; committed."
+    },
+    {
+      "id": "rollback",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw rollback <job-id> (POST /api/jobs/{id}/rollback). Governed human mutation. Read api.py + tests/test_core_jobs.py explicit rollback test.",
+      "acceptance": "rollback of a succeeded job observed via CLI in a test; tests green; committed."
+    },
+    {
+      "id": "decommission",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw decommission: environment-states destroy flow by deployment id (POST /api/environment-states/{id}/destroy, then execute; cancel/resolve as needed). Read destruction.py + its tests. Must be isolated to the deployment id and a governed human mutation.",
+      "acceptance": "decommission flow via CLI in a test, isolated by id; tests green; committed."
+    },
+    {
+      "id": "agent-tokens",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "kw tokens: list/create/rotate/revoke agent tokens (agent_auth.py /api/agent-tokens). Document KW_AGENT_TOKEN automation mode; verify an agent token cannot approve/rollback/decommission.",
+      "acceptance": "token lifecycle via CLI in a test; agent forbidden from approve proven; tests green; committed."
+    },
+    {
+      "id": "e2e-journey",
+      "status": "pending",
+      "attempts": 0,
+      "note": "",
+      "detail": "Add tests/test_cli_journey.py chaining the full spec journey via CLI: keys generate -> connectors add+credentials -> modules -> blueprints -> deploy request -> approve -> inventory -> decommission, using the recording executor + local vault. Skip steps whose backend route is genuinely absent (note them).",
+      "acceptance": "one end-to-end CLI journey test green against the in-process server; committed."
+    }
+  ]
+}
