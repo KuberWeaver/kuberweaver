@@ -50,3 +50,10 @@ dist/
 ops/autopilot-kw/.lock
 ops/autopilot-kw/runner.log
 ops/autopilot-kw/STOP
+
+# enterprise autopilot runtime
+ops/autopilot-enterprise/.lock
+ops/autopilot-enterprise/runner.log
+ops/autopilot-enterprise/watchdog.log
+ops/autopilot-enterprise/STOP
+ops/autopilot-enterprise/reports/
