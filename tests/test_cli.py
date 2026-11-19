@@ -520,3 +520,180 @@ def test_services_decommission_requires_provider_capability(env, tmp_path):
     assert "decommission" in (r.output + r.stderr).lower()
     assert json.loads(run(runner, "--json", "deploy", "get", job_id).output)["status"] == "succeeded"
     assert executor.calls == [("execute", job_id)]
+
+
+def _declaration_world(app, tmp_path):
+    """Pin one bundle in a scratch Git repository and wire it into the running
+    app; only the OpenTofu boundary is faked (Recorder), the service path is real.
+    Same boundary substitution as tests/test_declarations.py."""
+    from test_declarations import make_repository, write_bundle, commit, Recorder
+    from kuberweaver.declarations import GitRepository
+    repo = make_repository(tmp_path / "git")
+    bundle = write_bundle(repo)
+    revision = commit(repo)
+    applier = Recorder()
+    app.state.declarations.repository = GitRepository(repo)
+    app.state.declarations.applier = applier
+    return revision, bundle, applier
+
+
+def _import_pins(revision, bundle):
+    return ["--environment", "dev", "--stack", "vm-app", "--revision", revision,
+            "--bundle-path", bundle["path"], "--bundle-sha256", bundle["sha256"]]
+
+
+def test_resources_create_default_unavailable(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    # No default-form creation route exists: the CLI must say so, not stub it.
+    r = run(runner, "resources", "create", "--default")
+    assert r.exit_code != 0
+    text = (r.output + r.stderr).lower()
+    assert "unavailable" in text and "default" in text and "deploy" in text
+    h = run(runner, "resources", "create", "--help")
+    assert h.exit_code == 0 and "unavailable" in h.output.lower()
+    # SSH key injection belongs to OpenTofu, never to the CLI surface.
+    assert "opentofu" in h.output.lower() and "--ssh" not in h.output
+    # Flag discipline and schema-mirroring input validation.
+    assert run(runner, "resources", "create").exit_code == 2
+    assert run(runner, "resources", "create", "--default", "--import").exit_code == 2
+    r = run(runner, "resources", "create", "--import")
+    assert r.exit_code == 2 and "--import requires" in r.output + r.stderr
+    assert run(runner, "resources", "create", "--import",
+               "--environment", "prod").exit_code == 2
+
+
+def test_resources_import_verify_then_execute(env, tmp_path):
+    app, runner = env
+    import hashlib
+    import json
+    from test_declarations import PLAN
+    revision, bundle, applier = _declaration_world(app, tmp_path)
+    run(runner, "auth", "login", "--username", "admin")
+    pins = _import_pins(revision, bundle)
+    # Dry-run verifies the exact pins and writes nothing.
+    r = run(runner, "--json", "resources", "create", "--import", "--dry-run", *pins)
+    assert r.exit_code == 0, r.output
+    verified = json.loads(r.output)
+    assert verified["revision"] == revision and verified["environment"] == "dev"
+    assert verified["plan"]["sha256"] == hashlib.sha256(PLAN).hexdigest()
+    assert verified["base_generation"] == 0
+    assert "plan_bytes" not in verified          # artifact bytes never leave the API
+    assert str(tmp_path) not in r.output         # no private repository path either
+    assert applier.calls == []
+    status = json.loads(run(runner, "--json", "resources", "status").output)
+    assert status["repository"] == {"status": "configured"} and status["runs"] == []
+    assert json.loads(run(runner, "--json", "inventory", "list").output) == {"states": []}
+    # The import applies the exact pinned plan; the human admin session is the gate.
+    r = run(runner, "--json", "resources", "create", "--import", *pins)
+    assert r.exit_code == 0, r.output
+    executed = json.loads(r.output)
+    assert executed["executed"] is True and executed["generation"] == 1
+    assert executed["plan_sha256"] == hashlib.sha256(PLAN).hexdigest()
+    assert len(applier.calls) == 1 and applier.calls[0]["plan_bytes"] == PLAN
+    states = json.loads(run(runner, "--json", "inventory", "list").output)["states"]
+    assert [s["stack"] for s in states] == ["vm-app"]
+    assert states[0]["generation"] == 1 and states[0]["resource_count"] == 2
+    assert [row["address"] for row in states[0]["resources"]] == [
+        "libvirt_domain.vm", "libvirt_volume.disk"]
+    status = json.loads(run(runner, "--json", "resources", "status").output)
+    assert status["runs"][0]["status"] == "executed"
+    # The same base generation cannot be applied twice.
+    r = run(runner, "resources", "create", "--import", *pins)
+    assert r.exit_code == 1, r.output
+    assert "generation changed" in r.output + r.stderr
+    assert len(applier.calls) == 1
+
+
+def test_resources_import_pin_mismatch_refused(env, tmp_path):
+    app, runner = env
+    import json
+    revision, bundle, applier = _declaration_world(app, tmp_path)
+    run(runner, "auth", "login", "--username", "admin")
+    pins = _import_pins(revision, bundle)
+    pins[pins.index("--bundle-sha256") + 1] = "f" * 64
+    r = run(runner, "resources", "create", "--import", *pins)
+    assert r.exit_code == 1, r.output
+    assert "bundle digest" in r.output + r.stderr
+    assert applier.calls == []
+    assert json.loads(run(runner, "--json", "inventory", "list").output) == {"states": []}
+    assert json.loads(run(runner, "--json", "resources", "status").output)["runs"] == []
+
+
+def test_resources_role_boundaries(env, tmp_path, monkeypatch):
+    app, runner = env
+    import json
+    revision, bundle, applier = _declaration_world(app, tmp_path)
+    creds = bootstrap(app.state.state_dir)
+    pins = _import_pins(revision, bundle)
+    adopt_args = ["--environment", "dev", "--stack", "vm-adopted",
+                  "--connection-id", "c" * 32,
+                  "--uuid", "11111111-1111-4111-8111-111111111111",
+                  "--marker", "kuberweaver-job:" + "a" * 32]
+    # Unauthenticated access is refused.
+    assert run(runner, "resources", "status").exit_code == 2
+    assert run(runner, "resources", "create", "--import", *pins).exit_code == 2
+    for role in ("viewer", "operator"):
+        monkeypatch.setenv("KW_PASSWORD", creds[role])
+        run(runner, "auth", "login", "--username", role)
+        # Reads are open to any signed-in user.
+        assert run(runner, "--json", "resources", "status").exit_code == 0
+        assert run(runner, "--json", "resources", "adoptions").exit_code == 0
+        # Verify, execute and adopt are human-administrator mutations.
+        assert run(runner, "resources", "create", "--import", "--dry-run", *pins).exit_code == 3
+        assert run(runner, "resources", "create", "--import", *pins).exit_code == 3
+        assert run(runner, "resources", "adopt", *adopt_args).exit_code == 3
+    assert applier.calls == []
+    assert json.loads(run(runner, "--json", "inventory", "list").output) == {"states": []}
+
+
+def test_resources_adopt_idempotent_and_list(env):
+    app, runner = env
+    import json
+    from test_adoption import live, UUID, MARKER, OTHER_MARKER, CONNECTION
+    # Only the hypervisor read boundary is faked; the adoption service is real.
+    app.state.vm_adoption.inspector = lambda connection_id, uuid: live()
+    run(runner, "auth", "login", "--username", "admin")
+    args = ["--environment", "dev", "--stack", "vm-adopted",
+            "--connection-id", CONNECTION, "--uuid", UUID, "--marker", MARKER]
+    r = run(runner, "--json", "resources", "adopt", *args)
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["adopted"] is True and payload["unchanged"] is False
+    state = payload["state"]
+    assert state["generation"] == 1 and state["source"] == "adoption"
+    assert state["resources"] == [{"address": "esxi_vm." + UUID, "type": "esxi_vm",
+                                   "name": UUID, "mode": "managed"}]
+    # Re-importing the same proven VM is a no-op, never a second generation.
+    again = json.loads(run(runner, "--json", "resources", "adopt", *args).output)
+    assert again["adopted"] is False and again["unchanged"] is True
+    assert again["state"]["generation"] == 1
+    rows = json.loads(run(runner, "--json", "resources", "adoptions").output)["adoptions"]
+    assert len(rows) == 1 and rows[0]["uuid"] == UUID and rows[0]["stack"] == "vm-adopted"
+    r = run(runner, "resources", "adoptions")
+    assert r.exit_code == 0 and UUID in r.output
+    # The adopted stack is visible in the inventory with its ownership source.
+    states = json.loads(run(runner, "--json", "inventory", "list").output)["states"]
+    assert [s["stack"] for s in states] == ["vm-adopted"]
+    assert states[0]["source"] == "adoption" and states[0]["resource_count"] == 1
+    # A marker that does not match the live annotation is refused; nothing recorded.
+    foreign = ["--environment", "dev", "--stack", "other-stack",
+               "--connection-id", CONNECTION, "--uuid", UUID, "--marker", OTHER_MARKER]
+    r = run(runner, "resources", "adopt", *foreign)
+    assert r.exit_code == 1, r.output
+    assert "marker" in (r.output + r.stderr).lower()
+    states = json.loads(run(runner, "--json", "inventory", "list").output)["states"]
+    assert [s["stack"] for s in states] == ["vm-adopted"]
+
+
+def test_resources_add_unavailable_and_help_gaps(env):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    r = run(runner, "resources", "add")
+    assert r.exit_code != 0
+    text = (r.output + r.stderr).lower()
+    assert "unavailable" in text and "existing stack" in text
+    h = run(runner, "resources", "--help")
+    assert h.exit_code == 0
+    text = h.output.lower()
+    assert "unavailable" in text and "default" in text and "add" in text

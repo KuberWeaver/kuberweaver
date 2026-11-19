@@ -61,9 +61,9 @@
     },
     {
       "id": "resources",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "blocked",
+      "attempts": 1,
+      "note": "import paths wrapped+tested: declarations verify/execute/status + owned-VM adoption adopt/adoptions (6 new tests, 29 green; human-admin gates, pin/digest/generation refusals, idempotent adoption, role boundaries); blocked: no backend route for default-form creation (--default) nor 'add' to an existing stack, both marked unavailable in CLI help, no client stub; SSH key injection left to OpenTofu.",
       "detail": "kw resources: create default vs import. Investigate declarations.py (/api/declarations/verify, /execute) and environment_state.py for the real creation path. If no clean route exists for default-form creation, expose what exists, mark the rest unavailable, and note the gap. SSH key injection is OpenTofu's job, not the CLI's.",
       "acceptance": "whatever creation/import path exists is wrapped and tested; gaps recorded honestly; tests green; committed."
     },
