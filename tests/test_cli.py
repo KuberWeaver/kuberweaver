@@ -1055,3 +1055,257 @@ def test_decommission_validation_and_help(env):
     assert "quarantine" in text and "human" in text and "agent" in text
     for sub in ("request", "execute", "cancel", "resolve", "status"):
         assert run(runner, "decommission", sub, "--help").exit_code == 0
+
+
+def test_tokens_lifecycle_via_cli(env, tmp_path, monkeypatch):
+    app, runner = env
+    import hashlib
+    import json
+    import os
+    run(runner, "auth", "login", "--username", "admin")
+    assert json.loads(run(runner, "--json", "tokens", "list").output) == []
+    secret_file = tmp_path / "automation.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "automation-1",
+            "--role", "operator", "--scopes", "read", "--scopes", "plan",
+            "--scopes", "submit", "--expires-in", "3600",
+            "--token-file", str(secret_file))
+    assert r.exit_code == 0, r.output
+    meta = json.loads(r.output)
+    assert meta["label"] == "automation-1" and meta["role"] == "operator"
+    assert meta["scopes"] == ["read", "plan", "submit"]
+    assert meta["revoked_at"] is None and meta["token_file"] == str(secret_file)
+    secret = secret_file.read_text()
+    assert secret.startswith("kw_agent_") and len(secret) == len("kw_agent_") + 43
+    assert os.stat(secret_file).st_mode & 0o777 == 0o600
+    assert secret not in r.output  # the one-time secret is never printed
+    # The API stores only the hash; the secret never enters the audit trail.
+    row = app.state.store.one("SELECT * FROM agent_tokens WHERE id=?", (meta["id"],))
+    assert row["token_hash"] == hashlib.sha256(secret.encode()).hexdigest()
+    listing = json.loads(run(runner, "--json", "tokens", "list").output)
+    assert [t["id"] for t in listing] == [meta["id"]]
+    assert all("token" not in t and "token_hash" not in t for t in listing)
+    # KW_AGENT_TOKEN automation mode: Bearer identity, no login, no CSRF.
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret)
+    who = json.loads(run(runner, "--json", "auth", "whoami").output)
+    assert who["principal_type"] == "agent" and who["username"] == "agent:" + meta["id"]
+    assert who["role"] == "operator"
+    assert run(runner, "--json", "deploy", "list").exit_code == 0
+    # Rotation is a human-admin action: new secret only, identity/expiry kept.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    rotated_file = tmp_path / "rotated.token"
+    r = run(runner, "--json", "tokens", "rotate", meta["id"],
+            "--token-file", str(rotated_file))
+    assert r.exit_code == 0, r.output
+    rotated = json.loads(r.output)
+    assert rotated["id"] == meta["id"] and rotated["expires_at"] == meta["expires_at"]
+    assert rotated["scopes"] == meta["scopes"] and rotated["role"] == meta["role"]
+    secret2 = rotated_file.read_text()
+    assert secret2 != secret and secret2 not in r.output
+    assert os.stat(rotated_file).st_mode & 0o777 == 0o600
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret)
+    assert run(runner, "auth", "whoami").exit_code == 2  # old secret is dead
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret2)
+    assert run(runner, "auth", "whoami").exit_code == 0
+    # Revocation kills the secret immediately and is idempotent.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    r = run(runner, "--json", "tokens", "revoke", meta["id"])
+    assert r.exit_code == 0 and json.loads(r.output)["revoked_at"] is not None
+    assert run(runner, "--json", "tokens", "revoke", meta["id"]).exit_code == 0
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret2)
+    assert run(runner, "auth", "whoami").exit_code == 2
+    # A revoked token cannot be rotated back to life; unknown ids are 404.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    r = run(runner, "tokens", "rotate", meta["id"],
+            "--token-file", str(tmp_path / "x.token"))
+    assert r.exit_code == 1 and "Revoked" in r.output + r.stderr
+    r = run(runner, "tokens", "rotate", "0" * 32,
+            "--token-file", str(tmp_path / "x.token"))
+    assert r.exit_code == 1 and "Unknown agent token" in r.output + r.stderr
+    r = run(runner, "tokens", "revoke", "0" * 32)
+    assert r.exit_code == 1 and "Unknown agent token" in r.output + r.stderr
+    audit = json.dumps(app.state.store.all("SELECT * FROM audit"))
+    assert secret not in audit and secret2 not in audit
+    # Default table output renders the register too.
+    r = run(runner, "tokens", "list")
+    assert r.exit_code == 0 and "LABEL" in r.output
+
+
+def test_tokens_management_is_human_admin_only(env, tmp_path, monkeypatch):
+    app, runner = env
+    import json
+    creds = bootstrap(app.state.state_dir)
+    token_file = str(tmp_path / "t.token")
+    create_args = ["tokens", "create", "--label", "x", "--role", "viewer",
+                   "--expires-in", "3600", "--token-file", token_file]
+    # Unauthenticated access is refused.
+    assert run(runner, "tokens", "list").exit_code == 2
+    assert run(runner, *create_args).exit_code == 2
+    # Viewer and operator humans cannot manage tokens.
+    for role in ("viewer", "operator"):
+        monkeypatch.setenv("KW_PASSWORD", creds[role])
+        run(runner, "auth", "login", "--username", role)
+        assert run(runner, "tokens", "list").exit_code == 3
+        assert run(runner, *create_args).exit_code == 3
+        assert run(runner, "tokens", "rotate", "0" * 32,
+                   "--token-file", token_file).exit_code == 3
+        assert run(runner, "tokens", "revoke", "0" * 32).exit_code == 3
+    # Even an admin-role agent token with broad scopes cannot manage tokens.
+    monkeypatch.setenv("KW_PASSWORD", creds["admin"])
+    run(runner, "auth", "login", "--username", "admin")
+    r = run(runner, "--json", "tokens", "create", "--label", "manager",
+            "--role", "admin", "--scopes", "read", "--scopes", "submit",
+            "--scopes", "configure", "--scopes", "approve", "--scopes", "rollback",
+            "--expires-in", "3600", "--token-file", token_file)
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", (tmp_path / "t.token").read_text())
+    assert run(runner, "tokens", "list").exit_code == 3
+    assert run(runner, *create_args).exit_code == 3
+    assert run(runner, "tokens", "rotate", "0" * 32,
+               "--token-file", token_file).exit_code == 3
+    assert run(runner, "tokens", "revoke", "0" * 32).exit_code == 3
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    assert len(json.loads(run(runner, "--json", "tokens", "list").output)) == 1
+
+
+def test_tokens_create_validation_is_the_api(env, tmp_path):
+    app, runner = env
+    import json
+    run(runner, "auth", "login", "--username", "admin")
+    dest = tmp_path / "v.token"
+
+    def create(*extra):
+        return run(runner, "tokens", "create", "--label", "valid", "--role", "viewer",
+                   "--expires-in", "3600", "--token-file", str(dest), *extra)
+
+    # The API schema is the authority: role/scope mismatch, duplicates, unknown
+    # scopes, expiry bounds and the label pattern are all refused server-side.
+    for extra in (["--scopes", "approve"],
+                  ["--scopes", "read", "--scopes", "read"],
+                  ["--scopes", "root"],
+                  ["--expires-in", "59"],
+                  ["--expires-in", "2592001"],
+                  ["--label", "bad\nlabel"]):
+        r = create(*extra)
+        assert r.exit_code == 1, (extra, r.output)
+        assert not dest.exists()  # no secret file on a refused issuance
+    assert json.loads(run(runner, "--json", "tokens", "list").output) == []
+    # Omitted scopes: the API default applies, the CLI invents nothing.
+    r = run(runner, "--json", "tokens", "create", "--label", "dflt", "--role", "admin",
+            "--expires-in", "60", "--token-file", str(dest))
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["scopes"] == ["read"]
+    # The secret destination is mandatory: the secret is never printed.
+    r = run(runner, "tokens", "create", "--label", "x", "--role", "viewer",
+            "--expires-in", "3600")
+    assert r.exit_code == 2
+
+
+def test_agent_automation_cannot_approve_rollback_decommission(env, tmp_path, monkeypatch):
+    app, runner = env
+    import json
+    from test_core_jobs import RecordingExecutor, install_executor
+    executor = install_executor(app, RecordingExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    job = json.loads(run(runner, "--json", "deploy", "request",
+                         "--graph-file", _graph_file(tmp_path)).output)
+    assert job["status"] == "pending_approval"
+    secret_file = tmp_path / "auto.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "ci", "--role", "operator",
+            "--scopes", "read", "--scopes", "plan", "--scopes", "submit",
+            "--expires-in", "3600", "--token-file", str(secret_file))
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret_file.read_text())
+    # Automation mode works for read / validate / request / follow...
+    assert run(runner, "--json", "deploy", "validate",
+               "--graph-file", _graph_file(tmp_path)).exit_code == 0
+    submitted = json.loads(run(runner, "--json", "deploy", "request",
+                               "--graph-file", _graph_file(tmp_path)).output)
+    assert submitted["status"] == "pending_approval"  # no approval bypass
+    assert run(runner, "--json", "deploy", "get", job["id"]).exit_code == 0
+    assert run(runner, "--json", "logs", job["id"]).exit_code == 0
+    # ...but approve, reject, rollback and decommission are refused.
+    assert run(runner, "deploy", "approve", job["id"]).exit_code == 3
+    assert run(runner, "deploy", "reject", job["id"]).exit_code == 3
+    assert run(runner, "rollback", job["id"]).exit_code == 3
+    assert run(runner, "services", "decommission", job["id"]).exit_code == 3
+    assert run(runner, "decommission", "request", "f" * 32,
+               "--connection-id", "a" * 32, "--uuid", "b" * 32,
+               "--marker", "m").exit_code == 3
+    assert executor.calls == []
+    # An admin-role token without the approve/rollback scopes is refused too.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    admin_file = tmp_path / "admin.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "no-approve",
+            "--role", "admin", "--scopes", "read", "--scopes", "submit",
+            "--expires-in", "3600", "--token-file", str(admin_file))
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", admin_file.read_text())
+    assert run(runner, "deploy", "approve", job["id"]).exit_code == 3
+    assert run(runner, "rollback", job["id"]).exit_code == 3
+    assert run(runner, "services", "decommission", job["id"]).exit_code == 3
+    # Nothing moved: both jobs still await a human, and the human path works.
+    monkeypatch.delenv("KW_AGENT_TOKEN")
+    for ident in (job["id"], submitted["id"]):
+        assert json.loads(run(runner, "--json", "deploy", "get", ident).output
+                          )["status"] == "pending_approval"
+    assert run(runner, "--json", "deploy", "approve", job["id"]).exit_code == 0
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"],
+                          "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    assert executor.calls == [("execute", job["id"])]
+
+
+def test_agent_approve_needs_explicit_human_scope_grant(env, tmp_path, monkeypatch):
+    """Approve/rollback are scope-gated by the API, not principal-gated: only a
+    human admin can issue those scopes, and only to an admin-role token. The
+    CLI forwards the API's decision and adds no policy of its own. Decommission
+    has no machine scope path at all, so it stays human-only even for an
+    admin agent holding approve/rollback."""
+    app, runner = env
+    import json
+    from test_core_jobs import RecordingExecutor, install_executor
+    executor = install_executor(app, RecordingExecutor())
+    run(runner, "auth", "login", "--username", "admin")
+    # The API itself refuses to grant approve to non-admin roles.
+    r = run(runner, "tokens", "create", "--label", "op-approve", "--role", "operator",
+            "--scopes", "approve", "--expires-in", "3600",
+            "--token-file", str(tmp_path / "no.token"))
+    assert r.exit_code == 1 and not (tmp_path / "no.token").exists()
+    job = json.loads(run(runner, "--json", "deploy", "request",
+                         "--graph-file", _graph_file(tmp_path)).output)
+    secret_file = tmp_path / "granted.token"
+    r = run(runner, "--json", "tokens", "create", "--label", "explicit-grant",
+            "--role", "admin", "--scopes", "read", "--scopes", "approve",
+            "--scopes", "rollback", "--expires-in", "3600",
+            "--token-file", str(secret_file))
+    assert r.exit_code == 0, r.output
+    monkeypatch.setenv("KW_AGENT_TOKEN", secret_file.read_text())
+    # Explicit human grant: the API permits approve/rollback for this token.
+    assert run(runner, "--json", "deploy", "approve", job["id"]).exit_code == 0
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"],
+                          "--timeout", "30").output)
+    assert done["status"] == "succeeded"
+    assert run(runner, "--json", "rollback", job["id"]).exit_code == 0
+    done = json.loads(run(runner, "--json", "deploy", "watch", job["id"],
+                          "--timeout", "30").output)
+    assert done["status"] == "rolled_back"
+    # Decommission is never a machine path, even with approve/rollback granted.
+    assert run(runner, "services", "decommission", job["id"]).exit_code == 3
+    assert run(runner, "decommission", "request", "f" * 32,
+               "--connection-id", "a" * 32, "--uuid", "b" * 32,
+               "--marker", "m").exit_code == 3
+    assert executor.calls == [("execute", job["id"]), ("rollback", job["id"])]
+
+
+def test_tokens_help_documents_automation_mode(env):
+    app, runner = env
+    h = run(runner, "tokens", "--help")
+    assert h.exit_code == 0
+    assert "KW_AGENT_TOKEN" in h.output
+    text = h.output.lower()
+    assert "human" in text and "approve" in text and "decommission" in text
+    for sub in ("list", "create", "rotate", "revoke"):
+        assert run(runner, "tokens", sub, "--help").exit_code == 0
+    h = run(runner, "tokens", "create", "--help")
+    assert "KW_AGENT_TOKEN" in h.output and "0600" in h.output
+    assert "read" in h.output and "plan" in h.output and "submit" in h.output

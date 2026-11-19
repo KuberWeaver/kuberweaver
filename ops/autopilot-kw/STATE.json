@@ -85,9 +85,9 @@
     },
     {
       "id": "agent-tokens",
-      "status": "pending",
-      "attempts": 0,
-      "note": "",
+      "status": "done",
+      "attempts": 1,
+      "note": "kw tokens list/create/rotate/revoke wrap agent_auth.py's 4 routes (6 new tests, 43 green): one-time secret written 0600 to required --token-file, never printed/argv/audit; hash-only storage proven; KW_AGENT_TOKEN automation mode documented in help + tested (whoami agent principal, read/plan/submit works, requests land pending_approval); automation and ungranted admin tokens refused approve/reject/rollback/decommission (403), human path intact; management human-admin-only (viewer/operator/agent 403, unauth 401); API-side 422/404/409 boundaries pass through. Nuance recorded: backend gates approve/rollback by explicit scope grant (human admin can issue them to admin-role tokens, per its closed allowlist), not principal type; decommission/destroy have no machine scope path and stay human-only. CLI adds no policy; no backend gaps for the token lifecycle.",
       "detail": "kw tokens: list/create/rotate/revoke agent tokens (agent_auth.py /api/agent-tokens). Document KW_AGENT_TOKEN automation mode; verify an agent token cannot approve/rollback/decommission.",
       "acceptance": "token lifecycle via CLI in a test; agent forbidden from approve proven; tests green; committed."
     },
