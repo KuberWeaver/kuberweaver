@@ -1746,3 +1746,103 @@ def test_cloudflare_dns_cli_validation_is_the_api(env, tmp_path):
     r = run(runner, "cloudflare", "approve", "f" * 32)
     assert r.exit_code == 1 and "error:" in r.output
     assert fake.calls == []
+
+
+def _cloudflare_tunnel_setup(app, runner):
+    """Fixture setup through the API: a tunnel connector with a fixture token
+    in the real vault, and a mocked Cloudflare transport."""
+    import os
+    import httpx
+    from kw import config
+    from test_cloudflare_tunnel import (FakeCloudflareTunnel, SCANNABLE_ACCOUNT,
+                                        ACCOUNT_ID, ZONE_ID, TUNNEL_ID, INGRESS)
+    run(runner, "auth", "login", "--username", "admin")
+    sess = config.load_session()
+    with httpx.Client(base_url=os.environ["KW_URL"], trust_env=False) as hc:
+        hc.cookies.set("kw_session", sess["cookie"])
+        hc.headers["X-CSRF-Token"] = sess["csrf"]
+        response = hc.post("/api/cloudflare/connectors", json={
+            "label": "CLI tunnel", "purpose": "tunnel", "secret_ref": "cloudflare/cli-tunnel",
+            "secrets_provider": "test-vault", "account_id": ACCOUNT_ID, "enabled": True})
+        assert response.status_code == 201, response.text
+        connector = response.json()
+        stored = hc.put(f"/api/cloudflare/connectors/{connector['id']}/credentials",
+                        json={"api_token": SCANNABLE_ACCOUNT})
+        assert stored.status_code == 200, stored.text
+    fake = FakeCloudflareTunnel()
+    app.state.cloudflare_tunnel.transport = httpx.MockTransport(fake.handler)
+    return connector, fake, ZONE_ID, TUNNEL_ID, INGRESS
+
+
+def test_cloudflare_tunnel_cli_journey(env, tmp_path):
+    app, runner = env
+    import json
+    connector, fake, zone_id, tunnel_id, ingress = _cloudflare_tunnel_setup(app, runner)
+    # Request -> pending, no Cloudflare call yet.
+    r = run(runner, "--json", "cloudflare", "tunnel", "request",
+            "--connector-id", connector["id"], "--operation", "create",
+            "--name", "supervision-web", "--ingress-json", json.dumps(ingress),
+            "--zone-id", zone_id)
+    assert r.exit_code == 0, r.output
+    body = json.loads(r.output)
+    assert body["status"] == "pending_approval"
+    assert fake.calls == []
+    # Human approval executes against the mock.
+    r = run(runner, "--json", "cloudflare", "tunnel", "approve", body["id"])
+    assert r.exit_code == 0, r.output
+    done = json.loads(r.output)
+    assert done["status"] == "succeeded"
+    assert done["result"]["tunnel"]["id"] == tunnel_id
+    assert done["result"]["cloudflared"]["deb_sha256"]
+    # Remote reads show the tunnel and its ingress.
+    r = run(runner, "--json", "cloudflare", "tunnel", "list",
+            "--connector-id", connector["id"])
+    assert r.exit_code == 0, r.output
+    assert [item["id"] for item in json.loads(r.output)["items"]] == [tunnel_id]
+    r = run(runner, "--json", "cloudflare", "tunnel", "show",
+            "--connector-id", connector["id"], "--tunnel-id", tunnel_id)
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["ingress"][0]["hostname"] == ingress[0]["hostname"]
+    # Requests listing and get are thin reads; no credential in any output.
+    r = run(runner, "--json", "cloudflare", "tunnel", "requests")
+    assert r.exit_code == 0, r.output
+    assert [item["id"] for item in json.loads(r.output)] == [body["id"]]
+    r = run(runner, "--json", "cloudflare", "tunnel", "get", body["id"])
+    assert r.exit_code == 0, r.output
+    from test_cloudflare_tunnel import SCANNABLE_ACCOUNT, TUNNEL_TOKEN
+    assert SCANNABLE_ACCOUNT not in r.output
+    assert TUNNEL_TOKEN not in r.output
+    # Delete through the same governance path.
+    record_id = done["result"]["route"]["record"]["id"]
+    r = run(runner, "--json", "cloudflare", "tunnel", "request",
+            "--connector-id", connector["id"], "--operation", "delete",
+            "--tunnel-id", tunnel_id, "--zone-id", zone_id, "--record-id", record_id)
+    assert r.exit_code == 0, r.output
+    delete = json.loads(r.output)
+    r = run(runner, "--json", "cloudflare", "tunnel", "approve", delete["id"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["status"] == "succeeded"
+    assert fake.tunnels[tunnel_id]["deleted_at"] is not None
+
+
+def test_cloudflare_tunnel_cli_reject_and_validation(env, tmp_path):
+    app, runner = env
+    import json
+    connector, fake, zone_id, tunnel_id, ingress = _cloudflare_tunnel_setup(app, runner)
+    r = run(runner, "--json", "cloudflare", "tunnel", "request",
+            "--connector-id", connector["id"], "--operation", "create",
+            "--name", "rejected-tunnel", "--ingress-json", json.dumps(ingress))
+    assert r.exit_code == 0, r.output
+    body = json.loads(r.output)
+    r = run(runner, "--json", "cloudflare", "tunnel", "reject", body["id"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["status"] == "rejected"
+    assert fake.calls == []
+    # Validation refusals are clean API errors, not tracebacks.
+    r = run(runner, "cloudflare", "tunnel", "request",
+            "--connector-id", connector["id"], "--operation", "create",
+            "--name", "bad", "--ingress-json", json.dumps([{"service": "file:///etc/passwd"}]))
+    assert r.exit_code != 0 and "Traceback" not in r.output
+    r = run(runner, "cloudflare", "tunnel", "approve", "f" * 32)
+    assert r.exit_code == 1 and "error:" in r.output
+    assert fake.calls == []

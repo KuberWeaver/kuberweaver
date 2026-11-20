@@ -357,6 +357,8 @@ def install_cloudflare_api(app):
     connectors = app.state.cloudflare_connectors = CloudflareConnectors(app)
     from .cloudflare_dns import install_cloudflare_dns_api
     install_cloudflare_dns_api(app)
+    from .cloudflare_tunnel import install_cloudflare_tunnel_api
+    install_cloudflare_tunnel_api(app)
     original_count = len(app.router.routes)
 
     @app.get('/api/cloudflare/connectors')
