@@ -46,10 +46,33 @@ schema:
       - "7.2"
       - "7.4"
       default: "7.4"
+    vmware_collectors:
+      type: integer
+      minimum: 0
+      maximum: 20
+      default: 0
+    vmware_cache_size:
+      type: string
+      pattern: ^[0-9]+[KMGT]?$
+      default: 8M
+    vmware_frequency:
+      type: integer
+      minimum: 1
+      maximum: 3600
+      default: 60
+    vmware_perf_frequency:
+      type: integer
+      minimum: 1
+      maximum: 3600
+      default: 60
 defaults:
   server_port: 10051
   database_handoff: /etc/kuberweaver/postgresql/handoff.json
   zabbix_version: "7.4"
+  vmware_collectors: 0
+  vmware_cache_size: 8M
+  vmware_frequency: 60
+  vmware_perf_frequency: 60
 resources:
   cpu: 1
   memory_mb: 1024
@@ -70,6 +93,8 @@ verify:
     description: the installed server reports a Zabbix 7 version
   - id: database-schema
     description: the database holds a Zabbix schema version row
+  - id: vmware-collectors
+    description: the running configuration enables the requested number of VMware collectors
 teardown:
   description: Removing the brick stops the server and removes its package and configuration; the database and its history stay with the db-postgresql brick.
   removes:

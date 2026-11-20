@@ -37,6 +37,10 @@
         zabbix_server_database_creation: false
         zabbix_server_database_sqlload: true
         zabbix_server_manage_service: true
+        zabbix_server_startvmwarecollectors: "{{ kw_config.vmware_collectors }}"
+        zabbix_server_vmwarecachesize: "{{ kw_config.vmware_cache_size }}"
+        zabbix_server_vmwarefrequency: "{{ kw_config.vmware_frequency }}"
+        zabbix_server_vmwareperffrequency: "{{ kw_config.vmware_perf_frequency }}"
 
   tasks:
     - name: Persist the apply report
@@ -45,7 +49,8 @@
             'brick': 'zabbix-server',
             'version': kw_config.zabbix_version,
             'port': kw_config.server_port,
-            'database': kw_db.db_name
+            'database': kw_db.db_name,
+            'vmware_collectors': kw_config.vmware_collectors
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"
         mode: "0600"

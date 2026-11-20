@@ -70,6 +70,13 @@
       failed_when: false
       no_log: true
 
+    - name: Read the configured VMware collectors
+      ansible.builtin.command:
+        argv: ['grep', '-E', '^StartVMwareCollectors=', '/etc/zabbix/zabbix_server.conf']
+      register: kw_vmware
+      changed_when: false
+      failed_when: false
+
     - name: Record the assertions
       ansible.builtin.set_fact:
         kw_checks:
@@ -77,6 +84,7 @@
           port-listening: "{{ (kw_port.state | default('')) == 'started' }}"
           version-7: "{{ 'Zabbix) 7.' in (kw_version.stdout | default('')) }}"
           database-schema: "{{ (kw_schema.stdout | default('0') | trim | int) > 0 }}"
+          vmware-collectors: "{{ (kw_vmware.stdout | default('') | trim) == ('StartVMwareCollectors=' ~ kw_config.vmware_collectors) }}"
 
     - name: Fail when an assertion is not met
       ansible.builtin.assert:
@@ -85,6 +93,7 @@
           - kw_checks['port-listening'] | bool
           - kw_checks['version-7'] | bool
           - kw_checks['database-schema'] | bool
+          - kw_checks['vmware-collectors'] | bool
         fail_msg: "zabbix-server verification failed: {{ kw_checks }}"
         quiet: true
 
