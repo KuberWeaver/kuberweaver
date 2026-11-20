@@ -1,0 +1,79 @@
+id: grafana
+name: Grafana on a guest
+version: 1.0.0
+description: Grafana brick for an existing Ubuntu guest, wrapping the pinned grafana.grafana.grafana role from the official Grafana Labs collection. The admin password is generated on the guest (root 0600) and never enters a plan; the UI listens on the configured port.
+category: monitoring
+kind: workload
+capability: live
+engine: ansible
+executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
+requires: compute.vm
+data_class: config
+implementation:
+  role: grafana.grafana.grafana
+  version: 6.1.0
+  license: GPL-3.0-or-later
+  source: https://github.com/grafana/grafana-ansible-collection
+  reason: Official Grafana Labs collection role that installs the Grafana apt repository, the grafana package, the configuration and the systemd service.
+schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_uuid
+  - ssh_key_id
+  properties:
+    target_uuid:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
+    http_port:
+      type: integer
+      minimum: 1025
+      maximum: 65535
+      default: 3000
+    admin_user:
+      type: string
+      pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+      default: admin
+    grafana_version:
+      type: string
+      pattern: ^(latest|[0-9]+\.[0-9]+\.[0-9]+)$
+      default: latest
+defaults:
+  http_port: 3000
+  admin_user: admin
+  grafana_version: latest
+resources:
+  cpu: 1
+  memory_mb: 1024
+  disk_gb: 10
+lifecycle:
+  snapshot: snapshot.yml
+  apply: apply.yml
+  verify: verify.yml
+  rollback: rollback.yml
+  remove: remove.yml
+verify:
+  assertions:
+  - id: service-active
+    description: the grafana-server unit is active
+  - id: port-listening
+    description: the server accepts TCP connections on the configured port
+  - id: login-page
+    description: GET /login on the configured port returns the Grafana login page
+  - id: config-present
+    description: grafana.ini carries the configured http_port
+  - id: password-protected
+    description: the generated admin password file exists, root-owned, mode 0600
+teardown:
+  description: Removing the brick stops Grafana and removes the package, configuration, apt repository and generated admin secret; the Grafana data directory stays on the guest.
+  removes:
+  - the grafana package when the brick installed it
+  - /etc/grafana (configuration and provisioning tree)
+  - the Grafana apt repository and its keyring
+  - /etc/kuberweaver/grafana (generated admin password)
+  keeps:
+  - /var/lib/grafana (dashboards and the internal database) and /var/log/grafana

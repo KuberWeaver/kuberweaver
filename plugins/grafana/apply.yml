@@ -1,0 +1,72 @@
+---
+- name: Apply the grafana brick
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    kw_password_file: /etc/kuberweaver/grafana/admin.password
+  pre_tasks:
+    - name: Ensure the brick secret directory exists
+      ansible.builtin.file:
+        path: /etc/kuberweaver/grafana
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Inspect the existing admin credential file
+      ansible.builtin.stat:
+        path: "{{ kw_password_file }}"
+      register: kw_password_stat
+
+    - name: Generate the Grafana admin password on the guest
+      ansible.builtin.copy:
+        content: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+        dest: "{{ kw_password_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      when: not kw_password_stat.stat.exists
+      no_log: true
+
+    - name: Read the Grafana admin password
+      ansible.builtin.slurp:
+        src: "{{ kw_password_file }}"
+      register: kw_password_body
+      no_log: true
+
+    - name: Set the Grafana admin password fact
+      ansible.builtin.set_fact:
+        kw_grafana_password: "{{ kw_password_body.content | b64decode | trim }}"
+      no_log: true
+
+  roles:
+    - role: grafana.grafana.grafana
+      vars:
+        grafana_version: "{{ kw_config.grafana_version }}"
+        grafana_ini:
+          server:
+            http_addr: "0.0.0.0"
+            http_port: "{{ kw_config.http_port }}"
+          security:
+            admin_user: "{{ kw_config.admin_user }}"
+            admin_password: "{{ kw_grafana_password }}"
+        grafana_datasources: []
+        grafana_api_keys: []
+        grafana_dashboards: []
+        grafana_plugins: []
+
+  tasks:
+    - name: Persist the apply report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'grafana',
+            'version': kw_config.grafana_version,
+            'port': kw_config.http_port,
+            'admin_user': kw_config.admin_user,
+            'password_file': kw_password_file
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

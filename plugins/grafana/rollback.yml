@@ -1,0 +1,60 @@
+---
+- name: Roll back the grafana brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Restore the previous configuration
+      ansible.builtin.copy:
+        dest: /etc/grafana/grafana.ini
+        content: "{{ kw_snapshot.config_content }}"
+        owner: root
+        group: grafana
+        mode: "0640"
+      when: kw_snapshot.config_existed | bool
+      no_log: true
+
+    - name: Remove a configuration that did not exist before
+      ansible.builtin.file:
+        path: /etc/grafana/grafana.ini
+        state: absent
+      when: not (kw_snapshot.config_existed | bool)
+
+    - name: Stop the server when it was not running before this brick
+      ansible.builtin.service:
+        name: grafana-server
+        state: stopped
+      when: not (kw_snapshot.unit_active | bool)
+
+    - name: Remove the package when the brick installed it
+      ansible.builtin.apt:
+        name: grafana
+        state: absent
+        purge: true
+      when: not (kw_snapshot.package_installed | bool)
+
+    - name: Remove the repository the brick added
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/grafana.sources
+        state: absent
+      when: not (kw_snapshot.repo_existed | bool)
+
+    - name: Remove the admin secret the brick generated
+      ansible.builtin.file:
+        path: /etc/kuberweaver/grafana/admin.password
+        state: absent
+      when: not (kw_snapshot.secret_existed | bool)
+
+    - name: Persist the rollback report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'grafana',
+            'config_restored': kw_snapshot.config_existed | bool,
+            'package_removed': not (kw_snapshot.package_installed | bool),
+            'repository_removed': not (kw_snapshot.repo_existed | bool),
+            'secret_removed': not (kw_snapshot.secret_existed | bool)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

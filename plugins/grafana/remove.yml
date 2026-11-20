@@ -1,0 +1,49 @@
+---
+- name: Remove the grafana brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop and disable the server
+      ansible.builtin.service:
+        name: grafana-server
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove the package
+      ansible.builtin.apt:
+        name: grafana
+        state: absent
+        purge: true
+
+    - name: Remove the configuration and provisioning tree
+      ansible.builtin.file:
+        path: /etc/grafana
+        state: absent
+
+    - name: Remove the apt repository and keyrings
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/grafana.sources
+        - /etc/apt/keyrings/grafana.asc
+        - /usr/share/keyrings/grafana.asc
+
+    - name: Remove the generated admin secret
+      ansible.builtin.file:
+        path: /etc/kuberweaver/grafana
+        state: absent
+
+    - name: Persist the removal report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'grafana',
+            'package_removed': true,
+            'data_retained': true
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

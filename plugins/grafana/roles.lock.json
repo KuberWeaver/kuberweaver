@@ -1,0 +1,7 @@
+{
+  "grafana.grafana.grafana": {
+    "version": "6.1.0",
+    "sha256": "7c7c5bd02d323bd8ab02801d5f164d53d71c0b2fe6789ad5d00876fc7cb3c7f7",
+    "license": "GPL-3.0-or-later"
+  }
+}

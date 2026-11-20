@@ -1,0 +1,70 @@
+---
+- name: Verify the grafana brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'grafana-server']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Probe the HTTP port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ kw_config.http_port }}"
+        timeout: 5
+        state: started
+      register: kw_port
+      failed_when: false
+
+    - name: Fetch the login page
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/login"
+        return_content: true
+        status_code: 200
+        timeout: 10
+      register: kw_login
+      failed_when: false
+
+    - name: Read the configured port
+      ansible.builtin.command:
+        argv: ['grep', '-E', '^http_port', '/etc/grafana/grafana.ini']
+      register: kw_port_conf
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect the admin password file
+      ansible.builtin.stat:
+        path: /etc/kuberweaver/grafana/admin.password
+      register: kw_secret_stat
+
+    - name: Record the assertions
+      ansible.builtin.set_fact:
+        kw_checks:
+          service-active: "{{ kw_unit.stdout | default('') | trim == 'active' }}"
+          port-listening: "{{ (kw_port.state | default('')) == 'started' }}"
+          login-page: "{{ (kw_login.status | default(0)) == 200 and 'Grafana' in (kw_login.content | default('')) }}"
+          config-present: "{{ (kw_port_conf.stdout | default('') | trim) == ('http_port = ' ~ kw_config.http_port) }}"
+          password-protected: "{{ kw_secret_stat.stat.exists and kw_secret_stat.stat.mode == '0600' and kw_secret_stat.stat.pw_name == 'root' }}"
+
+    - name: Fail when an assertion is not met
+      ansible.builtin.assert:
+        that:
+          - kw_checks['service-active'] | bool
+          - kw_checks['port-listening'] | bool
+          - kw_checks['login-page'] | bool
+          - kw_checks['config-present'] | bool
+          - kw_checks['password-protected'] | bool
+        fail_msg: "grafana verification failed: {{ kw_checks }}"
+        quiet: true
+
+    - name: Persist the verification report
+      ansible.builtin.copy:
+        content: "{{ {'brick': 'grafana', 'assertions': kw_checks} | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
