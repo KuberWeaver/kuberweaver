@@ -45,6 +45,31 @@
         state: absent
       when: not (kw_snapshot.secret_existed | bool)
 
+    - name: Remove the reporting password the brick staged
+      ansible.builtin.file:
+        path: /etc/kuberweaver/grafana/kw-dashboard.password
+        state: absent
+      when: not (kw_snapshot.reporting_secret_existed | bool)
+      no_log: true
+
+    - name: Remove the datasource provisioning the brick added
+      ansible.builtin.file:
+        path: /etc/grafana/provisioning/datasources/ansible.yml
+        state: absent
+      when: not (kw_snapshot.datasource_provisioning_existed | bool)
+
+    - name: Remove the dashboard provisioning the brick added
+      ansible.builtin.file:
+        path: /etc/grafana/provisioning/dashboards/ansible.yml
+        state: absent
+      when: not (kw_snapshot.dashboard_provisioning_existed | bool)
+
+    - name: Remove the reporting dashboard the brick provisioned
+      ansible.builtin.file:
+        path: /var/lib/grafana/dashboards/kw-reporting.json
+        state: absent
+      when: not (kw_snapshot.reporting_dashboard_existed | bool)
+
     - name: Persist the rollback report
       ansible.builtin.copy:
         content: "{{ {
@@ -52,7 +77,10 @@
             'config_restored': kw_snapshot.config_existed | bool,
             'package_removed': not (kw_snapshot.package_installed | bool),
             'repository_removed': not (kw_snapshot.repo_existed | bool),
-            'secret_removed': not (kw_snapshot.secret_existed | bool)
+            'secret_removed': not (kw_snapshot.secret_existed | bool),
+            'reporting_secret_removed': not (kw_snapshot.reporting_secret_existed | bool),
+            'datasource_provisioning_removed': not (kw_snapshot.datasource_provisioning_existed | bool),
+            'dashboard_provisioning_removed': not (kw_snapshot.dashboard_provisioning_existed | bool)
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"
         mode: "0600"

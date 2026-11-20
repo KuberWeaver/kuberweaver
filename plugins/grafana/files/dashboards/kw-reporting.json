@@ -1,0 +1,392 @@
+{
+  "uid": "kw-reporting",
+  "title": "KuberWeaver Reporting",
+  "description": "Live services, FinOps costs and resource usage from the KuberWeaver PostgreSQL reporting views via the read-only kw_dashboard role.",
+  "tags": [
+    "kuberweaver",
+    "reporting",
+    "finops"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 0,
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "weekStart": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active deployments",
+      "description": "Latest succeeded deployment per service (reporting.deployments).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT count(*) AS value FROM reporting.deployments",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Declared monthly cost",
+      "description": "Sum of declared monthly estimates, mirrors kw finops (reporting.costs).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT sum(monthly) AS value FROM reporting.costs",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Jobs by status",
+      "description": "All platform jobs grouped by status (reporting.jobs).",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT status, count(*) AS n FROM reporting.jobs GROUP BY status ORDER BY n DESC",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Recent jobs",
+      "description": "Most recent jobs with their declared monthly cost.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT name, environment, operation, status, cost_monthly, finished_at FROM reporting.jobs ORDER BY finished_at DESC NULLS LAST LIMIT 25",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Deployed services",
+      "description": "Live services, filterable by the environment variable.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT environment, name, plugin, job_id, deployed_at, deployed_by FROM reporting.deployments WHERE environment IN ($environment) ORDER BY deployed_at DESC",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Deployments over time",
+      "description": "Deployment activity per day.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT date_trunc('day', deployed_at) AS time, count(*) AS deployments FROM reporting.deployments GROUP BY 1 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Monthly cost by plugin",
+      "description": "Declared monthly cost grouped by plugin.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT plugin_id, sum(monthly) AS monthly FROM reporting.costs GROUP BY plugin_id ORDER BY monthly DESC",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Declared resources by environment",
+      "description": "Declared cpu / memory / disk estimates from the cost breakdown.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT environment, sum(cpu) AS cpu, sum(memory_mb) AS memory_mb, sum(disk_gb) AS disk_gb FROM reporting.costs GROUP BY environment ORDER BY environment",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "piechart",
+      "title": "Inventory by resource type",
+      "description": "Live (non-destroyed) resources counted by type.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "kw-reporting"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "kw-reporting"
+          },
+          "rawSql": "SELECT type, count(*) AS n FROM reporting.resources GROUP BY type ORDER BY n DESC",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "kw-reporting"
+        },
+        "definition": "SELECT DISTINCT environment FROM reporting.deployments ORDER BY 1",
+        "query": "SELECT DISTINCT environment FROM reporting.deployments ORDER BY 1",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "sort": 1
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": []
+}

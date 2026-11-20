@@ -1,7 +1,7 @@
 id: grafana
 name: Grafana on a guest
-version: 1.0.0
-description: Grafana brick for an existing Ubuntu guest, wrapping the pinned grafana.grafana.grafana role from the official Grafana Labs collection. The admin password is generated on the guest (root 0600) and never enters a plan; the UI listens on the configured port.
+version: 1.1.0
+description: Grafana brick for an existing Ubuntu guest, wrapping the pinned grafana.grafana.grafana role from the official Grafana Labs collection. The admin password is generated on the guest (root 0600) and never enters a plan; the UI listens on the configured port. A read-only PostgreSQL reporting datasource (kw_dashboard) and a live services/costs/resources dashboard are provisioned as code; the reporting password is slurped from a private host file and referenced only through Grafana's $__file macro.
 category: monitoring
 kind: workload
 capability: live
@@ -22,6 +22,7 @@ schema:
   required:
   - target_uuid
   - ssh_key_id
+  - reporting
   properties:
     target_uuid:
       type: string
@@ -42,6 +43,32 @@ schema:
       type: string
       pattern: ^(latest|[0-9]+\.[0-9]+\.[0-9]+)$
       default: latest
+    reporting:
+      type: object
+      additionalProperties: false
+      required:
+      - db_host
+      - db_port
+      - db_name
+      - db_user
+      - password_file
+      properties:
+        db_host:
+          type: string
+          pattern: '^(localhost|([0-9]{1,3}\.){3}[0-9]{1,3})\Z'
+        db_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        db_name:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,62}\Z'
+        db_user:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,62}\Z'
+        password_file:
+          type: string
+          pattern: '^/[A-Za-z0-9._/-]{1,200}\Z'
 defaults:
   http_port: 3000
   admin_user: admin
@@ -68,12 +95,20 @@ verify:
     description: grafana.ini carries the configured http_port
   - id: password-protected
     description: the generated admin password file exists, root-owned, mode 0600
+  - id: reporting-datasource
+    description: the kw-reporting datasource exists, type postgres, user kw_dashboard, readOnly
+  - id: reporting-rows
+    description: the reporting datasource returns live rows for jobs, costs and resources
+  - id: reporting-readonly
+    description: the reporting datasource role is denied writes and base-table reads
+  - id: reporting-dashboard
+    description: the kw-reporting dashboard is provisioned with at least six panels
 teardown:
-  description: Removing the brick stops Grafana and removes the package, configuration, apt repository and generated admin secret; the Grafana data directory stays on the guest.
+  description: Removing the brick stops Grafana and removes the package, configuration, provisioning tree (reporting datasource and dashboard), apt repository and generated secrets; the Grafana data directory stays on the guest.
   removes:
   - the grafana package when the brick installed it
-  - /etc/grafana (configuration and provisioning tree)
+  - /etc/grafana (configuration and provisioning tree, including the reporting datasource and dashboard)
   - the Grafana apt repository and its keyring
-  - /etc/kuberweaver/grafana (generated admin password)
+  - /etc/kuberweaver/grafana (generated admin password and read-only reporting password)
   keeps:
   - /var/lib/grafana (dashboards and the internal database) and /var/log/grafana

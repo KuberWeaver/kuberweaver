@@ -41,6 +41,101 @@
         path: /etc/kuberweaver/grafana/admin.password
       register: kw_secret_stat
 
+    - name: Read the Grafana admin password for API checks
+      ansible.builtin.slurp:
+        src: /etc/kuberweaver/grafana/admin.password
+      register: kw_verify_password_body
+      no_log: true
+
+    - name: Set the Grafana admin password fact
+      ansible.builtin.set_fact:
+        kw_grafana_password: "{{ kw_verify_password_body.content | b64decode | trim }}"
+      no_log: true
+
+    - name: Read the reporting datasource
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/datasources/uid/kw-reporting"
+        url_username: "{{ kw_config.admin_user }}"
+        url_password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        status_code: 200
+        return_content: true
+        timeout: 10
+      register: kw_ds
+      failed_when: false
+      no_log: true
+
+    - name: Query live row counts through the reporting datasource
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/ds/query"
+        method: POST
+        url_username: "{{ kw_config.admin_user }}"
+        url_password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          from: "now-1h"
+          to: "now"
+          queries:
+            - refId: A
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "SELECT count(*) AS n FROM reporting.jobs"
+              format: table
+            - refId: B
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "SELECT count(*) AS n FROM reporting.costs"
+              format: table
+            - refId: C
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "SELECT count(*) AS n FROM reporting.resources"
+              format: table
+        status_code: 200
+        return_content: true
+        timeout: 20
+      register: kw_rows
+      failed_when: false
+      no_log: true
+
+    - name: Probe the read-only boundary through the reporting datasource
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/ds/query"
+        method: POST
+        url_username: "{{ kw_config.admin_user }}"
+        url_password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          from: "now-1h"
+          to: "now"
+          queries:
+            - refId: W
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "CREATE TABLE public.kw_dashboard_verify_probe(x int)"
+              format: table
+            - refId: S
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "SELECT id FROM public.jobs LIMIT 1"
+              format: table
+        status_code: 200
+        return_content: true
+        timeout: 20
+      register: kw_ro
+      failed_when: false
+      no_log: true
+
+    - name: Read the provisioned reporting dashboard
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/dashboards/uid/kw-reporting"
+        url_username: "{{ kw_config.admin_user }}"
+        url_password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        status_code: 200
+        return_content: true
+        timeout: 10
+      register: kw_dashboard
+      failed_when: false
+      no_log: true
+
     - name: Record the assertions
       ansible.builtin.set_fact:
         kw_checks:
@@ -49,6 +144,17 @@
           login-page: "{{ (kw_login.status | default(0)) == 200 and 'Grafana' in (kw_login.content | default('')) }}"
           config-present: "{{ (kw_port_conf.stdout | default('') | trim) == ('http_port = ' ~ kw_config.http_port) }}"
           password-protected: "{{ kw_secret_stat.stat.exists and kw_secret_stat.stat.mode == '0600' and kw_secret_stat.stat.pw_name == 'root' }}"
+          reporting-datasource: "{{ (kw_ds.status | default(0)) == 200
+            and (kw_ds.json.type | default('')) == 'postgres'
+            and (kw_ds.json.user | default('')) == kw_config.reporting.db_user
+            and (kw_ds.json.readOnly | default(false)) | bool }}"
+          reporting-rows: "{{ (kw_rows.json.results.A.frames[0].data.values[0][0] | default(0)) | int > 0
+            and (kw_rows.json.results.B.frames[0].data.values[0][0] | default(0)) | int > 0
+            and (kw_rows.json.results.C.frames[0].data.values[0][0] | default(0)) | int > 0 }}"
+          reporting-readonly: "{{ 'permission denied' in (kw_ro.json.results.W.error | default('') | lower)
+            and 'permission denied' in (kw_ro.json.results.S.error | default('') | lower) }}"
+          reporting-dashboard: "{{ (kw_dashboard.status | default(0)) == 200
+            and (kw_dashboard.json.dashboard.panels | default([]) | length) >= 6 }}"
 
     - name: Fail when an assertion is not met
       ansible.builtin.assert:
@@ -58,6 +164,10 @@
           - kw_checks['login-page'] | bool
           - kw_checks['config-present'] | bool
           - kw_checks['password-protected'] | bool
+          - kw_checks['reporting-datasource'] | bool
+          - kw_checks['reporting-rows'] | bool
+          - kw_checks['reporting-readonly'] | bool
+          - kw_checks['reporting-dashboard'] | bool
         fail_msg: "grafana verification failed: {{ kw_checks }}"
         quiet: true
 

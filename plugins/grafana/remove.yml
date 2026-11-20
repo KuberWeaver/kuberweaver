@@ -41,6 +41,7 @@
         content: "{{ {
             'brick': 'grafana',
             'package_removed': true,
+            'reporting_provisioning_removed': true,
             'data_retained': true
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"

@@ -18,13 +18,17 @@
       changed_when: false
       failed_when: false
 
-    - name: Inspect the configuration, the secret and the repository
+    - name: Inspect the configuration, the secrets, the repository and provisioning
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
         - /etc/grafana/grafana.ini
         - /etc/kuberweaver/grafana/admin.password
         - /etc/apt/sources.list.d/grafana.sources
+        - /etc/kuberweaver/grafana/kw-dashboard.password
+        - /etc/grafana/provisioning/datasources/ansible.yml
+        - /etc/grafana/provisioning/dashboards/ansible.yml
+        - /var/lib/grafana/dashboards/kw-reporting.json
       register: kw_paths
 
     - name: Read the current configuration
@@ -43,6 +47,10 @@
             'config_existed': kw_paths.results[0].stat.exists,
             'secret_existed': kw_paths.results[1].stat.exists,
             'repo_existed': kw_paths.results[2].stat.exists,
+            'reporting_secret_existed': kw_paths.results[3].stat.exists,
+            'datasource_provisioning_existed': kw_paths.results[4].stat.exists,
+            'dashboard_provisioning_existed': kw_paths.results[5].stat.exists,
+            'reporting_dashboard_existed': kw_paths.results[6].stat.exists,
             'config_content': (kw_config_body.content | default('') | b64decode)
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"

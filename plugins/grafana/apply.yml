@@ -6,13 +6,33 @@
   vars:
     kw_password_file: /etc/kuberweaver/grafana/admin.password
   pre_tasks:
+    # The pinned role flushes handlers (restarts Grafana) inside tasks/main.yml
+    # before it writes datasource provisioning, so the reporting password must
+    # already be grafana-readable here. Pre-create the group the package uses.
+    - name: Ensure the grafana system group exists
+      ansible.builtin.group:
+        name: grafana
+        system: true
+        state: present
+
+    # /etc/kuberweaver is root 0700; give the grafana group traverse-only so it
+    # can reach the reporting password. Every secret file stays root 0600 and
+    # the postgresql subdirectory stays root 0700, so nothing else is exposed.
+    - name: Ensure the brick secret root is traversable by grafana
+      ansible.builtin.file:
+        path: /etc/kuberweaver
+        state: directory
+        owner: root
+        group: grafana
+        mode: "0710"
+
     - name: Ensure the brick secret directory exists
       ansible.builtin.file:
         path: /etc/kuberweaver/grafana
         state: directory
         owner: root
-        group: root
-        mode: "0700"
+        group: grafana
+        mode: "0710"
 
     - name: Inspect the existing admin credential file
       ansible.builtin.stat:
@@ -40,6 +60,38 @@
         kw_grafana_password: "{{ kw_password_body.content | b64decode | trim }}"
       no_log: true
 
+    # The read-only reporting password lives in a private host file (written by
+    # scripts/reporting_role.py, also stored in the vault). Slurp it on the
+    # controller; it never enters the plan, the report or a log line.
+    - name: Slurp the reporting dashboard password from the host
+      ansible.builtin.slurp:
+        src: "{{ kw_config.reporting.password_file }}"
+      register: kw_reporting_password_body
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: Set the reporting dashboard password fact
+      ansible.builtin.set_fact:
+        kw_reporting_password: "{{ kw_reporting_password_body.content | b64decode }}"
+      no_log: true
+
+    - name: Precheck the reporting database is reachable from the guest
+      ansible.builtin.wait_for:
+        host: "{{ kw_config.reporting.db_host }}"
+        port: "{{ kw_config.reporting.db_port }}"
+        timeout: 10
+        state: started
+
+    - name: Copy the reporting dashboard password for Grafana
+      ansible.builtin.copy:
+        content: "{{ kw_reporting_password }}"
+        dest: /etc/kuberweaver/grafana/kw-dashboard.password
+        owner: root
+        group: grafana
+        mode: "0640"
+      no_log: true
+
   roles:
     - role: grafana.grafana.grafana
       vars:
@@ -51,7 +103,24 @@
           security:
             admin_user: "{{ kw_config.admin_user }}"
             admin_password: "{{ kw_grafana_password }}"
-        grafana_datasources: []
+        grafana_use_provisioning: true
+        # The role's datasources copy task is not no_log, so the password must
+        # be a $__file reference, never an inline value (--diff would leak it).
+        grafana_datasources:
+          - name: kw-reporting
+            uid: kw-reporting
+            type: postgres
+            access: proxy
+            url: "{{ kw_config.reporting.db_host }}:{{ kw_config.reporting.db_port }}"
+            user: "{{ kw_config.reporting.db_user }}"
+            readOnly: true
+            jsonData:
+              database: "{{ kw_config.reporting.db_name }}"
+              sslmode: disable
+              postgresVersion: 1500
+            secureJsonData:
+              password: "$__file{/etc/kuberweaver/grafana/kw-dashboard.password}"
+        grafana_dashboards_dir: "{{ playbook_dir }}/files/dashboards"
         grafana_api_keys: []
         grafana_dashboards: []
         grafana_plugins: []
@@ -64,7 +133,10 @@
             'version': kw_config.grafana_version,
             'port': kw_config.http_port,
             'admin_user': kw_config.admin_user,
-            'password_file': kw_password_file
+            'password_file': kw_password_file,
+            'reporting_datasource': 'kw-reporting',
+            'reporting_db_user': kw_config.reporting.db_user,
+            'reporting_password_file': '/etc/kuberweaver/grafana/kw-dashboard.password'
           } | to_nice_json }}"
         dest: "{{ kw_result_path }}"
         mode: "0600"
