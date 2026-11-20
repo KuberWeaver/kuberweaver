@@ -8,6 +8,12 @@ the database.
 Only PostgreSQL gets the schema: SQLite deployments keep the application tables
 and the API. Every view is created independently, so one malformed legacy row
 does not take the whole surface down.
+
+``costs`` mirrors /api/finops: the latest successful graph per (environment,
+graph name), last write wins by store rowid, expanded into per-node declared
+cost. ``resources`` mirrors the live inventory index: one row per resource of
+every stack that has not been destroyed. Both report declared estimates and
+recorded facts, not metered billing or live hypervisor truth.
 """
 from __future__ import annotations
 
@@ -29,7 +35,7 @@ VIEWS: dict[str, str] = {
                NULLIF(body::jsonb ->> 'approved_at', '')::timestamptz AS approved_at,
                NULLIF(body::jsonb ->> 'finished_at', '')::timestamptz AS finished_at,
                COALESCE(jsonb_array_length(body::jsonb -> 'graph' -> 'nodes'), 0) AS nodes,
-               (body::jsonb -> 'cost' ->> 'total_monthly') AS cost_monthly
+               NULLIF(body::jsonb -> 'cost' ->> 'monthly', '')::numeric AS cost_monthly
         FROM jobs
     """,
     'deployments': """
@@ -77,6 +83,50 @@ VIEWS: dict[str, str] = {
                jsonb_array_length(COALESCE(body::jsonb -> 'differences', '[]'::jsonb)) AS differences
         FROM environment_state_drift
     """,
+    'costs': """
+        CREATE OR REPLACE VIEW {schema}.costs AS
+        SELECT latest.environment,
+               latest.graph_name,
+               latest.job_id,
+               latest.job_name,
+               latest.currency,
+               latest.finished_at,
+               item ->> 'node_id' AS node_id,
+               item ->> 'plugin_id' AS plugin_id,
+               NULLIF(item ->> 'targets', '')::int AS targets,
+               NULLIF(item ->> 'monthly', '')::numeric AS monthly,
+               NULLIF(item -> 'resources' ->> 'cpu', '')::numeric AS cpu,
+               NULLIF(item -> 'resources' ->> 'memory_mb', '')::numeric AS memory_mb,
+               NULLIF(item -> 'resources' ->> 'disk_gb', '')::numeric AS disk_gb
+        FROM (
+            SELECT DISTINCT ON (body::jsonb ->> 'environment', body::jsonb -> 'graph' ->> 'name')
+                   body::jsonb ->> 'environment' AS environment,
+                   body::jsonb -> 'graph' ->> 'name' AS graph_name,
+                   jobs.id AS job_id,
+                   body::jsonb ->> 'name' AS job_name,
+                   COALESCE(body::jsonb -> 'cost' ->> 'currency', 'EUR') AS currency,
+                   NULLIF(body::jsonb ->> 'finished_at', '')::timestamptz AS finished_at,
+                   COALESCE(body::jsonb -> 'cost' -> 'breakdown', '[]'::jsonb) AS breakdown
+            FROM jobs
+            WHERE body::jsonb ->> 'status' = 'succeeded'
+            ORDER BY body::jsonb ->> 'environment', body::jsonb -> 'graph' ->> 'name', _kw_rowid DESC
+        ) AS latest
+        CROSS JOIN LATERAL jsonb_array_elements(latest.breakdown) AS item
+    """,
+    'resources': """
+        CREATE OR REPLACE VIEW {schema}.resources AS
+        SELECT body::jsonb ->> 'environment' AS environment,
+               body::jsonb ->> 'stack' AS stack,
+               body::jsonb ->> 'source' AS source,
+               NULLIF(body::jsonb ->> 'updated_at', '')::timestamptz AS updated_at,
+               resource ->> 'type' AS type,
+               resource ->> 'name' AS name,
+               resource ->> 'mode' AS mode
+        FROM environment_state
+        CROSS JOIN LATERAL jsonb_array_elements(
+            COALESCE(body::jsonb -> 'resources', '[]'::jsonb)) AS resource
+        WHERE body::jsonb ->> 'destroyed' IS NULL
+    """,
 }
 
 
@@ -93,8 +143,16 @@ def ensure_reporting(store) -> dict:
         try:
             store.execute(statement.format(schema=SCHEMA))
             created.append(name)
-        except Exception as error:  # noqa: BLE001 - one legacy table must not stop the rest
-            failed.append({'view': name, 'error': str(error).splitlines()[0]})
+        except Exception:  # noqa: BLE001 - one legacy table must not stop the rest
+            # CREATE OR REPLACE cannot change a column type or drop columns.
+            # When a legacy shape is in place, rebuild the view so startup
+            # converges without a manual migration step.
+            try:
+                store.execute(f'DROP VIEW IF EXISTS {SCHEMA}.{name}')
+                store.execute(statement.format(schema=SCHEMA))
+                created.append(name)
+            except Exception as error:  # noqa: BLE001 - reported, never fatal
+                failed.append({'view': name, 'error': str(error).splitlines()[0]})
     return {'available': True, 'views': created, 'failed': failed}
 
 

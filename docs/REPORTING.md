@@ -18,6 +18,10 @@ surface as unavailable.
     reporting.deployments  one row per resource, latest successful apply
     reporting.dashboards   the registered external dashboards
     reporting.drift        the last drift comparison per environment
+    reporting.costs        declared monthly cost per node of the latest
+                           successful graph per environment (mirrors /api/finops)
+    reporting.resources    one row per resource of every live (not destroyed)
+                           stack in the inventory index
 
 Columns:
 
@@ -27,10 +31,24 @@ Columns:
 | `deployments` | `environment`, `name`, `plugin`, `job_id`, `deployed_at`, `finished_at`, `deployed_by` |
 | `dashboards` | `id`, `label`, `kind`, `url`, `enabled`, `embed`, `created_at` |
 | `drift` | `id`, `environment`, `status`, `checked_at`, `differences` |
+| `costs` | `environment`, `graph_name`, `job_id`, `job_name`, `currency`, `finished_at`, `node_id`, `plugin_id`, `targets`, `monthly`, `cpu`, `memory_mb`, `disk_gb` |
+| `resources` | `environment`, `stack`, `source`, `updated_at`, `type`, `name`, `mode` |
 
 `deployments` keeps one row per `(environment, name)`, the most recent successful
 apply, so a chart never double counts a resource deployed five times. A failed
 job never appears there: it exists in `jobs` with `status = 'failed'`.
+
+`costs` keeps the latest successful job per `(environment, graph name)`, last
+write wins by store rowid exactly like `/api/finops`, then expands its stored
+cost breakdown into one row per node. A failed re-apply never displaces a
+succeeded graph; a succeeded job without a breakdown contributes no rows.
+`sum(monthly)` equals the FinOps monthly total. These are declared estimates,
+not metered billing, and a since-destroyed stack keeps its last declared cost
+until a newer successful graph replaces it (FinOps parity).
+
+`resources` expands the inventory index of every environment state whose
+`destroyed` marker is absent or null. It says what KuberWeaver recorded, not
+whether the hypervisor still runs it.
 
     -- what is deployed, by environment
     SELECT environment, count(*) AS resources
@@ -49,17 +67,24 @@ job never appears there: it exists in `jobs` with `status = 'failed'`.
 
 ## Read-only access
 
-Do not point a dashboard at the application role. Create a role that can only
-read the reporting schema, run once as the database owner:
+Do not point a dashboard at the application role. `scripts/reporting_role.py`
+provisions the `kw_dashboard` login idempotently (admin connection from
+`data/postgresql/bootstrap.json`, password generated without `$`, stored in the
+local vault as `grafana/kw-dashboard` and in `data/postgresql/dashboard-password`
+0600 for the grafana brick). The statement set it runs as the database admin:
 
-    CREATE ROLE kw_dashboard LOGIN PASSWORD '<choose one>';
+    CREATE ROLE kw_dashboard LOGIN PASSWORD '<generated, never printed>';
     GRANT USAGE ON SCHEMA reporting TO kw_dashboard;
     GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO kw_dashboard;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA reporting
+    ALTER DEFAULT PRIVILEGES FOR ROLE kuberweaver IN SCHEMA reporting
         GRANT SELECT ON TABLES TO kw_dashboard;
 
-Views run with the privileges of their owner, so this role reaches the
-application tables only through the published columns.
+`FOR ROLE kuberweaver` matters: the views are (re)created by the application
+role at startup, not by the admin running the script, so the default privileges
+must attach to the application role. Views run with the privileges of their
+owner, so this role reaches the application tables only through the published
+columns. The script proves the boundary: SELECT on `reporting.jobs` works,
+SELECT on `public.jobs` and CREATE TABLE are denied.
 
 ## Grafana
 
