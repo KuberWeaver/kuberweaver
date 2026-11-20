@@ -96,10 +96,11 @@
     },
     {
       "id": "cloudflare-tunnel",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "detail": "Implement Cloudflare tunnel (cloudflared) deployment to expose a website (e.g. the Zabbix/Grafana UI or a sample site) via a named tunnel, using vault-stored credentials. Tests with mocks; live use requires a real token+account from the user.",
-      "acceptance": "Tunnel deploy capability implemented+tested (mock); a sample website can be exposed once real credentials are provided; credentials stay in the vault."
+      "acceptance": "Tunnel deploy capability implemented+tested (mock); a sample website can be exposed once real credentials are provided; credentials stay in the vault.",
+      "note": "Done attempt 1. New backend/kuberweaver/cloudflare_tunnel.py: named-tunnel create/configure/delete + ingress + proxied CNAME route behind the DNS approval/audit model (durable request -> pending_approval -> human/scope-granted approve -> connector fingerprint + payload digest re-verify -> live token verify gate -> execute; durable executing claim; upstream_tunnel_id persisted right after creation for crash cleanup). Tunnel token shape-checked fail-closed (base64 closed {a,t,s} bound to account+tunnel), vault-stored via provider write path in closed {tunnel_token} envelope with readback, reference-conflict fail-closed, private 0600 staging handoff file (grafana precedent), wiped on delete; vault delete when provider supports it, honest retention report otherwise. Result carries pinned secret-free cloudflared bundle (2026.11.1, official amd64.deb sha256 744ce90b...c9b6 cross-checked release checksums + GitHub asset digest, systemd unit with 0600 EnvironmentFile, install runbook). cloudflare_tunnel_requests in PostgreSQL COLUMNS/DDL/ORDERED; agent scopes read:infrastructure/submit/approve; kw cloudflare tunnel list/show/request/requests/get/approve/reject. TDD RED-first tests/test_cloudflare_tunnel.py 28 passed (httpx.MockTransport fake, real LocalVaultProvider, leakage scans of rows/audit/responses/tracebacks, roles/CSRF, restart + PostgreSQL isolated-schema lifecycle); 2 CLI journeys added to test_cli.py. Verify verbatim 291 passed; git diff --check clean. No real token used; no Cloudflare network call. Docs docs/CLOUDFLARE_TUNNEL.md. Commit 5e574de pushed. Report: reports/cloudflare-tunnel.md"
     }
   ]
 }
