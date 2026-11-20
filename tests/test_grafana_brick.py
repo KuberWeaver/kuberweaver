@@ -32,8 +32,16 @@ ASSERTIONS = {'service-active', 'port-listening', 'login-page',
 # A full reporting block: prepare() merges defaults shallowly, so the brick
 # declares no nested defaults and the blueprint must carry the whole object.
 REPORTING = {'db_host': '127.0.0.1', 'db_port': 15433, 'db_name': 'kuberweaver',
-             'db_user': 'kw_dashboard', 'password_file': '/run/kw/dashboard-password'}
+             'db_user': 'kw_dashboard', 'password_file_ref': '/run/kw/dashboard-password'}
 BASE = {'target_uuid': UUID, 'ssh_key_id': KEY, 'reporting': REPORTING}
+
+
+def test_reporting_config_passes_admission_unsafe_fields():
+    # Regression: the reporting password is a host-file REFERENCE, not an inline
+    # secret. The non-bypassable admission gate (policy.unsafe_fields) must accept
+    # the whole grafana config; a *_ref file reference is exempt by design.
+    from kuberweaver.policy import unsafe_fields
+    assert list(unsafe_fields(BASE)) == []
 REPORTING_PASSWORD_GUEST = '/etc/kuberweaver/grafana/kw-dashboard.password'
 DASHBOARD_UID = 'kw-reporting'
 
@@ -132,7 +140,7 @@ def test_reporting_schema_is_bounded_and_secret_free(brick):
     schema = brick['schema']['properties']['reporting']
     assert schema['additionalProperties'] is False
     assert set(schema['required']) == {'db_host', 'db_port', 'db_name',
-                                       'db_user', 'password_file'}
+                                       'db_user', 'password_file_ref'}
     # No inline secret may ever be accepted in the reporting block.
     for secret_field in ('password', 'db_password', 'admin_password', 'secret'):
         assert secret_field not in schema['properties']
@@ -143,8 +151,8 @@ def test_reporting_schema_is_bounded_and_secret_free(brick):
         {**REPORTING, 'db_host': '127.0.0.1; rm -rf'},
         {**REPORTING, 'db_name': 'kuberweaver; drop'},
         {**REPORTING, 'db_user': 'kw_dashboard$$'},
-        {**REPORTING, 'password_file': 'relative/path'},
-        {**REPORTING, 'password_file': '/etc/passwd\n'},
+        {**REPORTING, 'password_file_ref': 'relative/path'},
+        {**REPORTING, 'password_file_ref': '/etc/passwd\n'},
         {**REPORTING, 'password': 'inline-secret'},
         {k: v for k, v in REPORTING.items() if k != 'db_user'},
     ]
@@ -197,7 +205,7 @@ def test_apply_stages_the_reporting_password_without_leaking_it():
     pre = play.get('pre_tasks', [])
     # The host password file is slurped on the controller, never echoed.
     slurps = [t for t in pre if 'ansible.builtin.slurp' in t
-              and 'kw_config.reporting.password_file' in json.dumps(t)]
+              and 'kw_config.reporting.password_file_ref' in json.dumps(t)]
     assert slurps, 'apply must slurp the host reporting password file'
     for task in slurps:
         assert task.get('no_log') is True

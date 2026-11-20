@@ -65,7 +65,7 @@
     # controller; it never enters the plan, the report or a log line.
     - name: Slurp the reporting dashboard password from the host
       ansible.builtin.slurp:
-        src: "{{ kw_config.reporting.password_file }}"
+        src: "{{ kw_config.reporting.password_file_ref }}"
       register: kw_reporting_password_body
       delegate_to: localhost
       become: false
@@ -126,6 +126,56 @@
         grafana_plugins: []
 
   tasks:
+    # The pinned role writes datasource/dashboard provisioning AFTER its own
+    # restart, and only notifies restart_grafana. Flush that handler here, then
+    # wait until Grafana has actually loaded the reporting datasource, so the
+    # separate verify playbook never races the provisioning reload.
+    - name: Flush the provisioning restart handler
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for Grafana to load the reporting datasource
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/datasources/uid/kw-reporting"
+        user: "{{ kw_config.admin_user }}"
+        password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        status_code: 200
+        timeout: 8
+      register: kw_ds_ready
+      until: kw_ds_ready.status == 200
+      retries: 18
+      delay: 3
+      no_log: true
+
+    # The datasource can exist before its PostgreSQL connection pool is warm
+    # (the reporting tunnel). The first /api/ds/query right after provisioning
+    # can fail cold, so probe a real reporting query until it returns rows. This
+    # guarantees the separate verify playbook never races the connection.
+    - name: Wait for the reporting query connection to be healthy
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ kw_config.http_port }}/api/ds/query"
+        method: POST
+        user: "{{ kw_config.admin_user }}"
+        password: "{{ kw_grafana_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          from: "now-1h"
+          to: "now"
+          queries:
+            - refId: A
+              datasource: {type: postgres, uid: kw-reporting}
+              rawSql: "SELECT count(*) AS n FROM reporting.jobs"
+              format: table
+        status_code: 200
+        timeout: 10
+      register: kw_q_ready
+      until: (kw_q_ready.json.results.A.frames[0].data['values'][0][0] | default(0)) | int > 0
+      retries: 18
+      delay: 3
+      failed_when: false
+      no_log: true
+
     - name: Persist the apply report
       ansible.builtin.copy:
         content: "{{ {

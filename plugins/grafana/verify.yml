@@ -93,6 +93,9 @@
         return_content: true
         timeout: 20
       register: kw_rows
+      until: (kw_rows.json.results.A.frames[0].data['values'][0][0] | default(0)) | int > 0
+      retries: 15
+      delay: 3
       failed_when: false
       no_log: true
 
@@ -145,12 +148,12 @@
           config-present: "{{ (kw_port_conf.stdout | default('') | trim) == ('http_port = ' ~ kw_config.http_port) }}"
           password-protected: "{{ kw_secret_stat.stat.exists and kw_secret_stat.stat.mode == '0600' and kw_secret_stat.stat.pw_name == 'root' }}"
           reporting-datasource: "{{ (kw_ds.status | default(0)) == 200
-            and (kw_ds.json.type | default('')) == 'postgres'
+            and (kw_ds.json.type | default('')) in ('postgres', 'grafana-postgresql-datasource')
             and (kw_ds.json.user | default('')) == kw_config.reporting.db_user
             and (kw_ds.json.readOnly | default(false)) | bool }}"
-          reporting-rows: "{{ (kw_rows.json.results.A.frames[0].data.values[0][0] | default(0)) | int > 0
-            and (kw_rows.json.results.B.frames[0].data.values[0][0] | default(0)) | int > 0
-            and (kw_rows.json.results.C.frames[0].data.values[0][0] | default(0)) | int > 0 }}"
+          reporting-rows: "{{ (kw_rows.json.results.A.frames[0].data['values'][0][0] | default(0)) | int > 0
+            and (kw_rows.json.results.B.frames[0].data['values'][0][0] | default(0)) | int > 0
+            and (kw_rows.json.results.C.frames[0].data['values'][0][0] | default(0)) | int > 0 }}"
           reporting-readonly: "{{ 'permission denied' in (kw_ro.json.results.W.error | default('') | lower)
             and 'permission denied' in (kw_ro.json.results.S.error | default('') | lower) }}"
           reporting-dashboard: "{{ (kw_dashboard.status | default(0)) == 200

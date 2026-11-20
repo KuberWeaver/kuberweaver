@@ -51,7 +51,7 @@ schema:
       - db_port
       - db_name
       - db_user
-      - password_file
+      - password_file_ref
       properties:
         db_host:
           type: string
@@ -66,7 +66,7 @@ schema:
         db_user:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,62}\Z'
-        password_file:
+        password_file_ref:
           type: string
           pattern: '^/[A-Za-z0-9._/-]{1,200}\Z'
 defaults:
