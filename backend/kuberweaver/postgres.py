@@ -23,6 +23,7 @@ COLUMNS = {
     'jobs': ('id', 'body'), 'blueprints': ('id', 'body'),
     'settings': ('key', 'body'), 'connections': ('id', 'body'), 'ssh_keys': ('id', 'body'),
     'cloudflare_connectors': ('id', 'body'),
+    'cloudflare_dns_requests': ('id', 'body'),
     'agent_tokens': ('id', 'token_hash', 'label', 'role', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'issued_by'),
     'oidc_identities': ('id', 'issuer', 'subject', 'user_id', 'created_at', 'last_login'),
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
@@ -38,6 +39,7 @@ COLUMNS = {
     'declaration_run': ('id', 'body'),
 }
 ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'cloudflare_connectors',
+           'cloudflare_dns_requests',
            'notification_deliveries', 'dashboards',
            'studio_artifacts', 'studio_offerings', 'environment_state'}
 DDL = {
@@ -51,7 +53,8 @@ DDL = {
     'dashboard_health': 'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL',
 }
 KEY_COLUMNS = {'settings': 'key', 'environment_state_adoption': 'uuid'}
-for _table in ('jobs', 'blueprints', 'settings', 'connections', 'cloudflare_connectors', 'dashboards',
+for _table in ('jobs', 'blueprints', 'settings', 'connections', 'cloudflare_connectors',
+               'cloudflare_dns_requests', 'dashboards',
                'studio_artifacts', 'studio_offerings',
                'environment_state', 'environment_state_documents', 'environment_state_claim',
                'environment_state_adoption', 'environment_state_destroy',

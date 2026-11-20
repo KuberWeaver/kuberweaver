@@ -183,6 +183,18 @@ def required_scope(method, path):
     if (method == 'POST' and path == '/api/cloudflare/connectors') or (
             method == 'PATCH' and re.fullmatch(cloudflare, path)):
         return 'configure'
+    # Cloudflare DNS reads are infrastructure evidence; mutations follow the
+    # deployment governance: submit to propose, approve/reject only with the
+    # explicit human-granted approve scope.
+    dns_request = r'/api/cloudflare/dns/requests/[0-9a-f]{32}'
+    if method == 'GET' and (path in {'/api/cloudflare/dns/zones', '/api/cloudflare/dns/records',
+                                     '/api/cloudflare/dns/requests'}
+                            or re.fullmatch(dns_request, path)):
+        return 'read:infrastructure'
+    if method == 'POST' and path == '/api/cloudflare/dns/requests':
+        return 'submit'
+    if method == 'POST' and re.fullmatch(dns_request + r'/(approve|reject)', path):
+        return 'approve'
     # A dashboard record is a link and a probe path, never a credential store.
     dashboard = r'/api/dashboards/[0-9a-f]{32}'
     if method == 'GET' and (path == '/api/dashboards'

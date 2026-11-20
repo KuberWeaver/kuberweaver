@@ -88,10 +88,11 @@
     },
     {
       "id": "cloudflare-dns",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "detail": "Implement a Cloudflare DNS management capability (list/create/update/delete DNS records) using the stored scoped API token, behind the same approval/audit model. Tests with a mocked Cloudflare API; live use requires a real token from the user.",
-      "acceptance": "DNS record CRUD implemented+tested against a mock; live path gated on a real vault-stored token; no token in logs."
+      "acceptance": "DNS record CRUD implemented+tested against a mock; live path gated on a real vault-stored token; no token in logs.",
+      "note": "Done attempt 1. New backend/kuberweaver/cloudflare_dns.py: DNS CRUD via vault-scoped tokens behind the deployment approval/audit model (durable request -> pending_approval -> human/scope-granted approve -> execute; pins connector fingerprint + payload digest re-verified at approval, fail-closed on drift/rotation; durable executing claim; live token verify gate /user/tokens/verify or /accounts/{id}/tokens/verify before writes). Reads zones/records authenticated+audited, paginated, allowlisted. cloudflare_dns_requests registered in PostgreSQL COLUMNS/DDL/ORDERED. Agent scopes: reads read:infrastructure, request submit, approve/reject approve (explicit human grant, like jobs). kw cloudflare CLI group zones/records/request/requests/get/approve/reject. TDD RED-first tests/test_cloudflare_dns.py 49 passed (httpx.MockTransport fake, leakage scans of rows/audit/responses/tracebacks/logs, PostgreSQL isolated-schema lifecycle); 3 CLI tests added to test_cli.py. Verify verbatim 289 passed; git diff --check clean. No real token used; no Cloudflare network call. Docs docs/CLOUDFLARE_DNS.md. Report: reports/cloudflare-dns.md"
     },
     {
       "id": "cloudflare-tunnel",

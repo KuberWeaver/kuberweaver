@@ -17,9 +17,10 @@ def cli(ctx, url, as_json, verbose):
 
 
 def _register():
-    from kw.commands import auth, connectors, keys, blueprints, deploy, inventory, finops, logs, modules, services, resources, rollback, decommission, tokens, providers
+    from kw.commands import auth, connectors, keys, blueprints, deploy, inventory, finops, logs, modules, services, resources, rollback, decommission, tokens, providers, cloudflare
     cli.add_command(auth.auth)
     cli.add_command(connectors.connectors)
+    cli.add_command(cloudflare.cloudflare)
     cli.add_command(keys.keys)
     cli.add_command(blueprints.blueprints)
     cli.add_command(deploy.deploy)
