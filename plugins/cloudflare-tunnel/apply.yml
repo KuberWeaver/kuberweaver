@@ -1,0 +1,51 @@
+---
+- name: Apply the cloudflare-tunnel brick
+  hosts: all
+  become: true
+  gather_facts: false
+  pre_tasks:
+    # The tunnel token lives in a private host file resolved from the vault (a
+    # reference, never an inline secret). Slurp it on the controller and write it
+    # to a root 0600 env file the hardened unit reads; it never enters argv, the
+    # plan, the report or a log line.
+    - name: Ensure the connector secret directory exists
+      ansible.builtin.file:
+        path: /etc/kuberweaver/cloudflared
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Slurp the tunnel token from the host
+      ansible.builtin.slurp:
+        src: "{{ kw_config.tunnel_token_file_ref }}"
+      register: kw_tunnel_token_body
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: Write the connector env file
+      ansible.builtin.copy:
+        content: "TUNNEL_TOKEN={{ kw_tunnel_token_body.content | b64decode | trim }}\n"
+        dest: /etc/kuberweaver/cloudflared/tunnel.env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+  roles:
+    - role: cloudflared
+
+  tasks:
+    - name: Persist the apply report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'cloudflare-tunnel',
+            'version': '1.0.0',
+            'env_file': '/etc/kuberweaver/cloudflared/tunnel.env',
+            'unit_file': '/etc/systemd/system/kw-cloudflared.service'
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

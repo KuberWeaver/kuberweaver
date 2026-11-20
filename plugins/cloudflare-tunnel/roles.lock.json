@@ -1,0 +1,7 @@
+{
+  "cloudflared": {
+    "version": "1.0.0",
+    "sha256": "7497babb4f17468110705e7669262fb1dc91c63e56e924b062ce0ca1ed8e37a6",
+    "license": "MIT"
+  }
+}

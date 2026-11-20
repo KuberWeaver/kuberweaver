@@ -1,0 +1,50 @@
+---
+- name: Roll back the cloudflare-tunnel brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop and disable the connector
+      ansible.builtin.service:
+        name: kw-cloudflared.service
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove the env file and unit when the brick created them
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop:
+        - {path: /etc/kuberweaver/cloudflared/tunnel.env, existed: "{{ kw_snapshot.env_existed }}"}
+        - {path: /etc/systemd/system/kw-cloudflared.service, existed: "{{ kw_snapshot.unit_existed }}"}
+      when: not (item.existed | bool)
+
+    - name: Remove the package when the brick installed it
+      ansible.builtin.apt:
+        name: cloudflared
+        state: absent
+        purge: true
+      when: not (kw_snapshot.package_installed | bool)
+
+    - name: Remove the secret directory when the brick created it
+      ansible.builtin.file:
+        path: /etc/kuberweaver/cloudflared
+        state: absent
+      when: not (kw_snapshot.secret_dir_existed | bool)
+
+    - name: Reload the unit definitions
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Persist the rollback report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'cloudflare-tunnel',
+            'package_removed': not (kw_snapshot.package_installed | bool),
+            'secret_removed': not (kw_snapshot.secret_dir_existed | bool)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

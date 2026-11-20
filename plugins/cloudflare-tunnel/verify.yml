@@ -1,0 +1,60 @@
+---
+- name: Verify the cloudflare-tunnel brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'kw-cloudflared.service']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Read the cloudflared version
+      ansible.builtin.command:
+        argv: ['cloudflared', '--version']
+      register: kw_version
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect the env file and unit file
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/kuberweaver/cloudflared/tunnel.env
+        - /etc/systemd/system/kw-cloudflared.service
+      register: kw_paths
+
+    - name: Read the unit enabled state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-enabled', 'kw-cloudflared.service']
+      register: kw_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: Compute the checks
+      ansible.builtin.set_fact:
+        kw_checks:
+          service-active: "{{ (kw_unit.stdout | default('') | trim) == 'active' }}"
+          binary-present: "{{ 'cloudflared' in (kw_version.stdout | default('') | lower) }}"
+          token-staged: "{{ kw_paths.results[0].stat.exists and kw_paths.results[0].stat.mode == '0600' and kw_paths.results[0].stat.pw_name == 'root' }}"
+          unit-present: "{{ kw_paths.results[1].stat.exists }}"
+          unit-enabled: "{{ (kw_enabled.stdout | default('') | trim) in ('enabled', 'static') }}"
+
+    - name: Persist the verification report
+      ansible.builtin.copy:
+        content: "{{ {'brick': 'cloudflare-tunnel', 'assertions': kw_checks} | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Fail when an assertion is not met
+      ansible.builtin.assert:
+        that:
+          - kw_checks['service-active'] | bool
+          - kw_checks['binary-present'] | bool
+          - kw_checks['token-staged'] | bool
+          - kw_checks['unit-present'] | bool
+          - kw_checks['unit-enabled'] | bool

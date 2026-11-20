@@ -1,0 +1,67 @@
+id: cloudflare-tunnel
+name: Cloudflare tunnel connector
+version: 1.0.0
+description: >-
+  Runs the Cloudflare connector (cloudflared) on an existing Ubuntu guest,
+  wrapping a pinned local role. The tunnel token is slurped from a private host
+  file (a vault-resolved reference, never an inline secret) and written to a
+  root 0600 env file; the connector runs as a hardened systemd unit. Cloudflare
+  API governance (tunnel creation, DNS) is expressed in other bricks, so nothing
+  Cloudflare-specific is hardcoded in the microkernel.
+category: network
+kind: workload
+capability: live
+engine: ansible
+executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
+requires: compute.vm
+data_class: config
+implementation:
+  role: cloudflared
+  version: 1.0.0
+  license: MIT
+  source: local
+  reason: >-
+    Local pinned role that installs the pinned cloudflared package (sha256
+    verified), writes the hardened systemd unit and starts the connector basic
+    service; no third-party Galaxy role is required.
+schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_uuid
+  - ssh_key_id
+  - tunnel_token_file_ref
+  properties:
+    target_uuid:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
+    tunnel_token_file_ref:
+      type: string
+      pattern: ^/[A-Za-z0-9._/-]{1,200}\Z
+defaults: {}
+lifecycle:
+  snapshot: snapshot.yml
+  apply: apply.yml
+  verify: verify.yml
+  rollback: rollback.yml
+  remove: remove.yml
+verify:
+  assertions:
+  - id: service-active
+    description: the kw-cloudflared unit is active
+  - id: binary-present
+    description: cloudflared is installed and reports its version
+  - id: token-staged
+    description: the tunnel env file exists, root-owned, mode 0600
+  - id: unit-present
+    description: the systemd unit file is present
+  - id: unit-enabled
+    description: the unit is enabled at boot
+teardown: >-
+  Stops and disables the connector, removes the unit and the env file, and
+  removes the cloudflared package. Tunnel and DNS records on the Cloudflare side
+  are removed by the API governance bricks, not here.
