@@ -80,10 +80,11 @@
     },
     {
       "id": "vault-cloudflare-keys",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "detail": "Design+implement SOTA secure storage of Cloudflare API keys in the vault (OpenBao/local-vault): scoped API tokens (least privilege DNS/tunnel), reference-only in the core, resolution at execution, no secrets in plans/logs/responses. Add a Cloudflare secrets/connector contract with tests. Do NOT invent real tokens; use the vault write path and test fixtures.",
-      "acceptance": "Cloudflare API token can be stored via the vault and resolved by reference; tests prove no secret leakage; documented SOTA choices (scoped tokens, encryption at rest, rotation)."
+      "acceptance": "Cloudflare API token can be stored via the vault and resolved by reference; tests prove no secret leakage; documented SOTA choices (scoped tokens, encryption at rest, rotation).",
+      "note": "Done attempt 1. New backend/kuberweaver/cloudflare.py: scoped-token-only shape contract (cfut_/cfat_ scannable + legacy 40-alnum; global keys cfk_/hex, Origin CA, OAuth rejected fail-closed), closed {api_token} envelope, reference-only CloudflareConnectorSpec/Patch (no endpoint/secret fields, fixed API origin), least-privilege SCOPE_PROFILES dns/tunnel, vault write path via provider.store with pre-write shape check + provider readback, execution-time access() with SecretValue wipe and no cache, fingerprint pins references+provenance never values. API /api/cloudflare/connectors CRUD + human-admin-only PUT credentials (agents fail-closed, no scope mapping); cloudflare_connectors registered in PostgreSQL COLUMNS/DDL/ORDERED. TDD RED-first tests/test_cloudflare_secrets.py 119 passed: real LocalVaultProvider + loopback OpenBao write/readback/rotation, leakage scans of rows/audit/responses/tracebacks, live PostgreSQL isolated-schema create+reopen. Verify verbatim 286 passed; git diff --check clean. Docs: docs/CLOUDFLARE_SECRETS.md (scoped tokens, encryption at rest, rotation). No real token used; no Cloudflare network call. Report: reports/vault-cloudflare-keys.md"
     },
     {
       "id": "cloudflare-dns",

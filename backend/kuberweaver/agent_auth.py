@@ -174,6 +174,15 @@ def required_scope(method, path):
         return 'configure'
     if method == 'POST' and re.fullmatch(connection + r'/(test|discover)', path):
         return 'read:infrastructure'
+    # Cloudflare connectors are reference-only records; credential ingestion
+    # deliberately has no agent scope mapping (human administrator sessions only).
+    cloudflare = r'/api/cloudflare/connectors/[0-9a-f]{32}'
+    if method == 'GET' and (path == '/api/cloudflare/connectors'
+                            or re.fullmatch(cloudflare, path)):
+        return 'read:infrastructure'
+    if (method == 'POST' and path == '/api/cloudflare/connectors') or (
+            method == 'PATCH' and re.fullmatch(cloudflare, path)):
+        return 'configure'
     # A dashboard record is a link and a probe path, never a credential store.
     dashboard = r'/api/dashboards/[0-9a-f]{32}'
     if method == 'GET' and (path == '/api/dashboards'

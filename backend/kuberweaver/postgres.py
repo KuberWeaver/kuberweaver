@@ -22,6 +22,7 @@ COLUMNS = {
     'audit': ('id', 'time', 'actor', 'action', 'resource', 'detail'),
     'jobs': ('id', 'body'), 'blueprints': ('id', 'body'),
     'settings': ('key', 'body'), 'connections': ('id', 'body'), 'ssh_keys': ('id', 'body'),
+    'cloudflare_connectors': ('id', 'body'),
     'agent_tokens': ('id', 'token_hash', 'label', 'role', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'issued_by'),
     'oidc_identities': ('id', 'issuer', 'subject', 'user_id', 'created_at', 'last_login'),
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
@@ -36,7 +37,8 @@ COLUMNS = {
     'environment_state_drift': ('id', 'body'),
     'declaration_run': ('id', 'body'),
 }
-ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards',
+ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'cloudflare_connectors',
+           'notification_deliveries', 'dashboards',
            'studio_artifacts', 'studio_offerings', 'environment_state'}
 DDL = {
     'ssh_keys': 'id TEXT PRIMARY KEY, body TEXT NOT NULL',
@@ -49,7 +51,7 @@ DDL = {
     'dashboard_health': 'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL',
 }
 KEY_COLUMNS = {'settings': 'key', 'environment_state_adoption': 'uuid'}
-for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards',
+for _table in ('jobs', 'blueprints', 'settings', 'connections', 'cloudflare_connectors', 'dashboards',
                'studio_artifacts', 'studio_offerings',
                'environment_state', 'environment_state_documents', 'environment_state_claim',
                'environment_state_adoption', 'environment_state_destroy',
