@@ -44,7 +44,8 @@ Start here:
 - [Serving this site with KuberWeaver](docs/STATIC_SITE.md): how the `site/` page can be deployed by the tool itself, and which content channel is still missing.
 - [Static showcase](site/): the marketing-free page in `site/`, servable by any static host, buildable offline.
 
-Pull requests target `develop`. There is no service level agreement: issues are
+Pull requests target `main`, the default branch. There is no service level
+agreement: issues are
 triaged when the maintainer has time, and there is no merge guarantee.
 
 ## Access and roles

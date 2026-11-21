@@ -179,8 +179,8 @@ def restore(root: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Tag a release from the integration branch.')
-    parser.add_argument('--branch', default='develop', help='branch releases are cut from (default: develop)')
+    parser = argparse.ArgumentParser(description='Tag a release from the default branch.')
+    parser.add_argument('--branch', default='main', help='branch releases are cut from (default: main)')
     parser.add_argument('--remote', default='origin', help='remote used for the sync check (default: origin)')
     parser.add_argument('--bump', choices=BUMP_LEVELS, default='minor',
                         help='version bump applied to the last tag when --version is omitted (default: minor)')

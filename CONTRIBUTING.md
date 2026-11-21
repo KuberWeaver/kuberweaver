@@ -98,13 +98,13 @@ trailing whitespace and leftover conflict markers.
 
 | Branch | Purpose |
 | --- | --- |
-| `feat/<topic>` | One topic per branch, opened by contributors |
-| `develop` | Integration branch, pull requests target it |
-| `main` | Released state, reaches it only through a pull request from `develop` |
+| `feat/<topic>` or `chore/<topic>` | One topic per branch, opened by contributors |
+| `main` | Default and released state. Pull requests target it directly |
+| `develop` | Historical integration branch. It receives nothing today; do not open a pull request against it |
 
-Rebase your feature branch on `develop` before opening or updating a pull
-request. Never force-push `develop` or `main`. `feat/production-track` belongs to
-the local automation loop and is not a contribution branch.
+Rebase your feature branch on `main` before opening or updating a pull request.
+Never force-push `main`. `develop` is left in place for the history of older pull
+requests and is not a merge target.
 
 ## Commits
 
@@ -118,24 +118,22 @@ Commit subjects follow `type(area): what`, lowercase, with no trailing period:
 
 Write a body only when the reason is not obvious from the subject. One topic per
 commit. No commented-out code, no generated build output, no secret material.
-Rewrite history by rebasing on feature branches only, never on `develop` or
-`main`.
+Rewrite history by rebasing on feature branches only, never on `main`.
 
 ## Pull requests
 
-1. Rebase the branch on `develop`.
+1. Rebase the branch on `main`.
 2. Fill in the pull request template: behaviour change, tests, documentation.
-3. Target `develop`, not `main`.
+3. Target `main`. A pull request against `develop` will not be reviewed.
 4. Run the local checks and push.
 5. Wait for CI. A red check blocks the merge, it is not a formality.
-6. Squash or rebase as the reviewer prefers. Merges into `main` come from
-   `develop` only.
+6. Squash or rebase as the reviewer prefers.
 
 ## What CI checks
 
-Three jobs run on every push to `develop`, `main` and `feat/**`, and on every
-pull request that targets `develop` or `main`. A pull request opened against a
-feature branch does not trigger CI.
+Three jobs run on every push to `main` and `feat/**`, and on every pull request
+that targets `main`. A pull request opened against another branch does not
+trigger CI.
 
 - **Secret scan** (`ops/ci/secret_scan.py --history`): private key blocks,
   token prefixes, cloud key IDs and forbidden paths such as `data/`,
@@ -233,7 +231,7 @@ python3 scripts/release.py               # minor bump by default
 python3 scripts/release.py --version 1.0.0
 ```
 
-The script only runs on `develop` with a clean tree in sync with `origin/develop`
+The script only runs on `main` with a clean tree in sync with `origin/main`
 and an empty-refusal check on the changelog. It commits only `CHANGELOG.md` and
 creates an annotated tag. It never pushes and never merges: publishing stays a
 human decision.
