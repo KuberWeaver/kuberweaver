@@ -64,6 +64,9 @@ Two more checks before opening a pull request:
 ```sh
 python3 ops/ci/secret_scan.py
 git diff --check
+
+# the same three gates in one command
+python3 ops/ci/check.py
 ```
 
 The first refuses credential-like material in tracked files, the second catches

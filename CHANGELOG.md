@@ -20,6 +20,9 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   offline. It reproduces the README capability boundaries verbatim.
 - `docs/DISCORD.md`: the intended community server structure, to be created by
   an account holder (see SUPPORT.md for the current invite status).
+- `docs/AGENT_GUIDE.md`: the contract for a coding agent working in this
+  repository, with the checks, the commit rules and the refusal paths. A root
+  `AGENTS.md` would be the canonical location; it is not committed here.
 - Labels for contribution triage: `plugin`, `brick`, `extension`, `kernel`,
   `cli`, `ci`, `security`, `needs-review`, `triage`.
 
