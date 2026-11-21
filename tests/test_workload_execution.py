@@ -1,11 +1,14 @@
 """Brick contract tests: no shell, pinned role, declared verification."""
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
 
 from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor
+from kuberweaver.workload_execution import WorkloadProvider
+from kuberweaver.secrets import SecretValue
 
 
 MANIFEST = {
@@ -61,6 +64,48 @@ def executor(tmp_path, **kwargs):
     return WorkloadExecutor(tmp_path / 'state', make_plugins(tmp_path),
                             playbook=kwargs.pop('playbook', '/bin/true'),
                             key_path=kwargs.pop('key_path', None), **kwargs)
+
+
+def test_workload_credential_binding_is_explicit_and_pins_its_revision(tmp_path):
+    state = tmp_path / 'state'
+    path = state / 'config/workload-secrets.json'
+    path.parent.mkdir(parents=True)
+    provider = WorkloadProvider(state)
+    provider.secret_source = lambda _: ('source-fingerprint', None)
+    brick = {'id': 'web-nginx', 'workload_secret_ref': 'token_ref'}
+    config = {'token_ref': 'vendor/example'}
+    with pytest.raises(WorkloadError, match='credential binding'):
+        provider._credential_binding(brick, config)
+    row = {'provider': 'test-vault', 'reference': 'vendor/example', 'revision': 1}
+    path.write_text(json.dumps({'web-nginx': {'vendor/example': row}}))
+    path.chmod(0o600)
+    first = provider._credential_binding(brick, config)
+    row['revision'] = 2
+    path.write_text(json.dumps({'web-nginx': {'vendor/example': row}}))
+    assert provider._credential_binding(brick, config) != first
+    with pytest.raises(WorkloadError, match='credential binding'):
+        provider._credential_binding({**brick, 'id': 'foreign'}, config)
+
+
+def test_runtime_secret_is_not_in_vars_argv_or_output(tmp_path):
+    key = tmp_path / 'key'
+    key.touch()
+    value = 'fixture-runtime-only-value'
+
+    def runner(argv, *, env, **_):
+        assert env['KW_WORKLOAD_SECRET'] == value
+        assert all(value not in item for item in argv)
+        variables = json.loads(Path(argv[argv.index('-e') + 1][1:]).read_text())
+        assert value not in json.dumps(variables)
+        assert '--diff' not in argv
+        return SimpleNamespace(returncode=1, stdout=value, stderr=value)
+
+    run = executor(tmp_path, key_path=key, runner=runner)
+    run.runtime_secret = SecretValue(value.encode())
+    plan = run.prepare('web-nginx', {'server_name': 'example.test'}, TARGET, 'job1')
+    brick = {**run.brick('web-nginx'), 'workload_secret_ref': 'token_ref'}
+    report = run._run(brick, 'apply', tmp_path / 'job', plan)
+    assert value not in json.dumps(report)
 
 
 def test_brick_manifest_must_declare_verification(tmp_path):

@@ -1,0 +1,15 @@
+---
+- name: Run the Cloudflare DNS lifecycle action
+  kw_cloudflare_dns:
+    action: "{{ kw_dns_action }}"
+    config: "{{ kw_config }}"
+    result_path: "{{ kw_result_path }}"
+    api_token: "{{ kw_runtime_secret | default('') }}"
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+    ansible_pipelining: true
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  run_once: true
+  no_log: true
+  diff: false

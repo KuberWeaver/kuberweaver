@@ -1,0 +1,7 @@
+{
+  "kw_cloudflare_dns": {
+    "version": "1.0.0",
+    "sha256": "dfdc7013420a0cff991f3eebb3cf9d77dce0a54daacde7c23f08bc2a04349755",
+    "license": "MIT"
+  }
+}

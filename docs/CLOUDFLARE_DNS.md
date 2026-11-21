@@ -1,65 +1,53 @@
-# Cloudflare DNS capability
+# Cloudflare DNS workload brick
 
-`backend/kuberweaver/cloudflare_dns.py` delivers DNS record CRUD on top of the
-secrets/connector contract (`CLOUDFLARE_SECRETS.md`). The API origin stays the
-fixed constant `https://api.cloudflare.com/client/v4`; no client-supplied
-endpoint exists. Live use is gated on a real scoped token provided by the user
-and stored through the vault write path (`PUT /api/cloudflare/connectors/{id}/credentials`,
-human administrators only). No real token is used in tests: all Cloudflare
-traffic in the suite goes to an in-process `httpx.MockTransport` fake.
+`cloudflare-dns` uses the normal [workload job and approval flow](WORKLOADS.md).
+The legacy `/api/cloudflare` endpoints and standalone `kw cloudflare` commands
+are not used. The generic workload executor still requires an existing guest
+and managed SSH key; the DNS role itself runs on the controller without SSH.
 
-## Governance: the same approval/audit model as deployments
+## Configure a job
 
-- Reads (`GET /api/cloudflare/dns/zones`, `GET /api/cloudflare/dns/records`)
-  need an authenticated session, are audited (`cloudflare_dns.zones_listed`,
-  `cloudflare_dns.records_listed`) and never need approval, like every other
-  platform read. Responses are paginated (bounded at 50 pages, `truncated`
-  flag) and allowlisted to public record fields.
-- Mutations are durable requests: `POST /api/cloudflare/dns/requests`
-  (admin/operator, agent scope `submit`) lands in `pending_approval` and makes
-  no Cloudflare call. The request pins the connector fingerprint (references +
-  provider provenance + revision) and the canonical payload digest.
-- `POST .../approve` (admin role; agents only with the explicit human-granted
-  `approve` scope, exactly like job approval) re-verifies both pins, fails
-  closed on any drift (connector edit, credential rotation, disable), checks
-  credential resolvability, records a durable `executing` claim, then resolves
-  the token from the vault at execution time and executes exactly the approved
-  payload. An interrupted process leaves the claim visible, never a silent
-  re-run. `POST .../reject` terminates a pending request.
-- Every transition is audited: `cloudflare_dns.requested/approved/rejected/
-  succeeded/failed`. Audit details carry only operation/zone/count facts.
+Use a single-node blueprint with `plugin_id: cloudflare-dns`. For example, its
+node configuration can be:
 
-## Live token gate
+```json
+{
+  "target_uuid": "6f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+  "ssh_key_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "api_token_ref": "cloudflare/dns-example",
+  "zone_id": "cccccccccccccccccccccccccccccccc",
+  "record_type": "A",
+  "record_name": "demo.example.com",
+  "address": "192.0.2.42",
+  "ttl": 300
+}
+```
 
-Before any mutation the token must verify as `active` against
-`GET /user/tokens/verify` (user tokens) or
-`GET /accounts/{account_id}/tokens/verify` when the connector carries an
-`account_id` (account-owned tokens). Inactive, expired or unverifiable tokens
-fail the request closed. Create sends `POST /zones/{zone_id}/dns_records`,
-update sends `PATCH /zones/{zone_id}/dns_records/{record_id}`, delete sends
-`DELETE` on the same path.
+An administrator must bind the logical `api_token_ref` alias for this brick in
+`config/workload-secrets.json` to an approved vault provider and reference. The
+token needs DNS edit access scoped to the selected zone. Do not put token
+material in that file or the blueprint. Ansible receives it only at execution;
+the role suppresses task logging and diffs, and sends it only to the fixed
+Cloudflare HTTPS origin with certificate verification, no proxy, and no redirects.
 
-## Secret hygiene
+## Lifecycle and limits
 
-- Closed pydantic schemas (`extra='forbid'`, strict): record type/name/content/
-  ttl/proxied/priority with per-type rules; secret-shaped fields are refused.
-- Upstream evidence is allowlisted, length-bounded, and redacted against the
-  resolved token before persistence; `CloudflareApiError` messages are generic
-  (details ride in a separate attribute, never in str/repr/tracebacks).
-- The token travels only in the `Authorization` header of the fixed-origin
-  client (`trust_env=False`, no redirects); it never appears in URLs, request
-  rows, audit, logs or responses. Tests scan persisted rows, audit, responses,
-  tracebacks and captured logs for the fixture token.
+- **Snapshot and apply:** Require an unused fully qualified ASCII DNS name, then
+  create one DNS-only A or AAAA record. `ttl` defaults to `1` (automatic). The
+  brick refuses to adopt or overwrite a record, even if its values match.
+- **Verify:** Read back the returned record ID and match the approved values and
+  the job's ownership marker. This is API verification, not a resolver query.
+- **Rollback and removal:** Use the original job's private receipt and configuration.
+  The brick deletes only the exact receipted ID after checking for edits, then
+  confirms absence. The generic workload API does not expose manual removal or
+  rollback of a successful job.
+- **Uncertain writes:** The receipt records intent before sending a mutation.
+  If the reply is lost or cannot be validated, the brick refuses to retry or
+  guess which record to delete. Preserve the private job directory and reconcile
+  manually. Cloudflare's record endpoints do not provide an atomic conditional
+  write here, so avoid concurrent changes to the same name or ID.
 
-## CLI
-
-`kw cloudflare zones|records|request|requests|get|approve|reject` — a thin
-client over the same routes, roles and scopes. `request` takes `--operation
-create|update|delete`, `--record-file`/`--record-json` and `--record-id`.
-
-## Storage
-
-`cloudflare_dns_requests(id, body)` is registered in the PostgreSQL contract
-(`COLUMNS`/`DDL`/`ORDERED`); SQLite is used only by isolated tests. The
-PostgreSQL lifecycle (create, execute, reopen) is covered by an isolated-schema
-test against the dedicated test DSN.
+This brick does not manage zones, existing records, wildcard records, proxying,
+or record types other than A and AAAA. Tests use an injected HTTP transport and
+local Ansible execution with a socket-free module fixture; no live Cloudflare
+operation was performed.

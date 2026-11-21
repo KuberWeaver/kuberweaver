@@ -1,11 +1,10 @@
-"""Real HTTP, stdio MCP and browser flow with a named fixture driver.
+"""Real HTTP and stdio MCP flow with a named fixture driver.
 
 The fixture replaces only the remote hypervisor/secret-source boundary. It is
 not evidence of authenticated ESXi discovery or VM provisioning.
 """
 import asyncio
 import json
-import shutil
 import sys
 
 import httpx
@@ -53,8 +52,7 @@ def register(ctx):
 '''
 
 
-def test_real_connection_http_mcp_and_browser(tmp_path):
-    pytest.importorskip('playwright.sync_api', reason='Optional acceptance: install requirements-acceptance.txt')
+def test_real_connection_http_and_mcp(tmp_path):
     with real_api(tmp_path) as (base_url, human):
         package = tmp_path / 'state/extensions/protocol-fixture'
         package.mkdir()
@@ -110,32 +108,6 @@ def test_real_connection_http_mcp_and_browser(tmp_path):
                     assert revoked.isError and 'HTTP 401' in revoked.content[0].text
         asyncio.run(machine_flow())
 
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as playwright:
-            executable = shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
-            browser = playwright.chromium.launch(executable_path=executable, headless=True)
-            context = browser.new_context(viewport={'width': 1440, 'height': 1000})
-            try:
-                context.add_cookies([{'name': 'kw_session', 'value': human.cookies['kw_session'],
-                    'url': base_url, 'httpOnly': True, 'sameSite': 'Strict'}])
-                page = context.new_page()
-                errors = []
-                page.on('pageerror', lambda error: errors.append(str(error)))
-                page.goto(base_url)
-                page.get_by_role('button', name='Connections', exact=True).click()
-                page.get_by_role('heading', name='Hypervisor connections').wait_for()
-                page.get_by_text('Protocol fixture, not ESXi', exact=True).wait_for()
-                page.get_by_role('button', name='Discover inventory', exact=True).click()
-                page.get_by_role('status').filter(has_text='Observation saved').wait_for()
-                assert page.get_by_role('table', name='Datastores').get_by_text('Fixture storage').count() == 1
-                assert 'fixture-password-only' not in page.locator('body').inner_text()
-                assert not errors, errors
-                page.set_viewport_size({'width': 390, 'height': 844})
-                assert page.get_by_role('heading', name='Hypervisor connections').is_visible()
-                assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-            finally:
-                context.close()
-                browser.close()
-        assert calls.read_text().splitlines() == ['discovery', 'discovery', 'discovery']
+        assert calls.read_text().splitlines() == ['discovery', 'discovery']
         persisted = httpx.get(base_url + '/healthz', trust_env=False)
         assert persisted.status_code == 200

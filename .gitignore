@@ -13,8 +13,10 @@ __pycache__/
 tools/
 *.tsbuildinfo
 
-# Brick roles are installed from their pinned requirements, never committed
+# Downloaded brick roles are installed from their pinned requirements.
 plugins/*/roles/
+# The Cloudflare connector role is first-party source, not a download.
+!plugins/cloudflare-tunnel/roles/
 # Brick collections are installed from their pinned requirements, never committed
 plugins/*/collections/
 
@@ -57,3 +59,12 @@ ops/autopilot-enterprise/runner.log
 ops/autopilot-enterprise/watchdog.log
 ops/autopilot-enterprise/STOP
 ops/autopilot-enterprise/reports/
+
+# Legacy GUI acceptance artifacts, superseded by the CLI (no longer used)
+docs/THEMING.md
+requirements-acceptance.txt
+scripts/browser_acceptance.py
+scripts/browser_final.py
+scripts/modularity_acceptance.py
+tests/test_resource_workspace_browser.py
+spikes/

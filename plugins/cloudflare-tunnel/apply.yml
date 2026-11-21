@@ -4,10 +4,13 @@
   become: true
   gather_facts: false
   pre_tasks:
-    # The tunnel token lives in a private host file resolved from the vault (a
-    # reference, never an inline secret). Slurp it on the controller and write it
-    # to a root 0600 env file the hardened unit reads; it never enters argv, the
-    # plan, the report or a log line.
+    - name: Require the runtime credential before changing the guest
+      ansible.builtin.assert:
+        that:
+          - kw_runtime_secret is defined
+          - kw_runtime_secret is match('^[A-Za-z0-9+/=_-]{16,8192}\Z')
+      no_log: true
+
     - name: Ensure the connector secret directory exists
       ansible.builtin.file:
         path: /etc/kuberweaver/cloudflared
@@ -16,27 +19,28 @@
         group: root
         mode: "0700"
 
-    - name: Slurp the tunnel token from the host
-      ansible.builtin.slurp:
-        src: "{{ kw_config.tunnel_token_file_ref }}"
-      register: kw_tunnel_token_body
-      delegate_to: localhost
-      become: false
-      no_log: true
-
     - name: Write the connector env file
       ansible.builtin.copy:
-        content: "TUNNEL_TOKEN={{ kw_tunnel_token_body.content | b64decode | trim }}\n"
+        content: "TUNNEL_TOKEN={{ kw_runtime_secret }}\n"
         dest: /etc/kuberweaver/cloudflared/tunnel.env
         owner: root
         group: root
         mode: "0600"
       no_log: true
+      diff: false
 
   roles:
     - role: cloudflared
 
   tasks:
+    - name: Record the installed connector ownership
+      ansible.builtin.copy:
+        content: "{{ {'target': kw_config.target_uuid, 'reference': kw_config.tunnel_token_ref} | to_json }}"
+        dest: /etc/kuberweaver/cloudflared/owner.json
+        owner: root
+        group: root
+        mode: "0600"
+
     - name: Persist the apply report
       ansible.builtin.copy:
         content: "{{ {

@@ -1,0 +1,4 @@
+---
+- ansible.builtin.import_playbook: lifecycle.yml
+  vars:
+    kw_dns_action: remove

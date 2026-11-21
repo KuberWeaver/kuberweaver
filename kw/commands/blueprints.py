@@ -31,16 +31,25 @@ def list_cmd(ctx):
 
 
 @blueprints.command("create")
-@click.option("--name", required=True)
-@click.option("--graph-file", required=True, type=click.Path(exists=True),
-              help="JSON file holding the deployment graph.")
+@click.option("--name", default=None, help="Blueprint name (asked interactively if omitted).")
+@click.option("--graph-file", default=None, type=click.Path(exists=True),
+              help="JSON file holding the deployment graph. Omit for the interactive builder.")
 @click.pass_context
 @api
 def create_cmd(ctx, name, graph_file):
-    c = client(ctx)
-    data = c.post("/api/blueprints", json={"name": name, "graph": _load_graph(graph_file)})
-    c.close()
-    out(ctx, data)
+    """Create a blueprint: interactive builder (no options), or --graph-file for scripts."""
+    if graph_file:
+        if not name:
+            raise click.UsageError("--name is required with --graph-file")
+        c = client(ctx)
+        data = c.post("/api/blueprints", json={"name": name, "graph": _load_graph(graph_file)})
+        c.close()
+        out(ctx, data)
+        return
+    from kw.blueprint_wizard import run_wizard
+    data = run_wizard(ctx, name)
+    if data is not None:
+        out(ctx, data)
 
 
 @blueprints.command("get")

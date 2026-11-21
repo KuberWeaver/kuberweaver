@@ -34,13 +34,28 @@
       failed_when: false
 
     - name: Compute the checks
+      block:
+        - name: Wait for a connected Cloudflare edge
+          ansible.builtin.uri:
+            url: http://127.0.0.1:20249/ready
+            status_code: 200
+            use_proxy: false
+            follow_redirects: none
+            timeout: 4
+          register: kw_edge
+          until: kw_edge.status == 200
+          retries: 12
+          delay: 5
+
+    - name: Collect the checks
       ansible.builtin.set_fact:
         kw_checks:
           service-active: "{{ (kw_unit.stdout | default('') | trim) == 'active' }}"
           binary-present: "{{ 'cloudflared' in (kw_version.stdout | default('') | lower) }}"
           token-staged: "{{ kw_paths.results[0].stat.exists and kw_paths.results[0].stat.mode == '0600' and kw_paths.results[0].stat.pw_name == 'root' }}"
           unit-present: "{{ kw_paths.results[1].stat.exists }}"
-          unit-enabled: "{{ (kw_enabled.stdout | default('') | trim) in ('enabled', 'static') }}"
+          unit-enabled: "{{ (kw_enabled.stdout | default('') | trim) == 'enabled' }}"
+          edge-connected: "{{ kw_edge.status == 200 }}"
 
     - name: Persist the verification report
       ansible.builtin.copy:
@@ -58,3 +73,4 @@
           - kw_checks['token-staged'] | bool
           - kw_checks['unit-present'] | bool
           - kw_checks['unit-enabled'] | bool
+          - kw_checks['edge-connected'] | bool

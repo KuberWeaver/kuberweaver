@@ -1,11 +1,6 @@
 """The cloudflare-tunnel workload brick: contract, schema and secret hygiene.
 
-This brick is the Ansible service that runs the Cloudflare connector on an
-existing guest. It installs the pinned cloudflared package, stages the tunnel
-token from a private host file (a vault-resolved reference, never an inline
-secret), writes the systemd unit and starts the connector. Cloudflare API
-governance lives in bricks too; nothing Cloudflare-specific is hardcoded in the
-microkernel.
+The service accepts a vault reference, not a controller path.
 """
 from __future__ import annotations
 
@@ -15,7 +10,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from kuberweaver.catalog import Catalog
 from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor
 
 ROOT = Path(__file__).parents[1]
@@ -25,9 +19,9 @@ UUID = '6f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5b'
 KEY = 'b' * 32
 TARGET = {'uuid': UUID, 'address': '192.168.10.63'}
 ASSERTIONS = {'service-active', 'binary-present', 'token-staged',
-              'unit-present', 'unit-enabled'}
+              'unit-present', 'unit-enabled', 'edge-connected'}
 BASE = {'target_uuid': UUID, 'ssh_key_id': KEY,
-        'tunnel_token_file_ref': '/run/kw/tunnel-token'}
+        'tunnel_token_ref': 'cloudflare/tunnel-example'}
 
 
 @pytest.fixture(scope='module')
@@ -76,11 +70,10 @@ def test_schema_is_closed_and_secret_free(brick):
     assert schema['type'] == 'object'
     assert schema['additionalProperties'] is False
     assert set(schema['required']) == {'target_uuid', 'ssh_key_id',
-                                      'tunnel_token_file_ref'}
+                                      'tunnel_token_ref'}
     # No inline secret may ever be accepted in this config.
     for secret_field in ('token', 'tunnel_token', 'api_token', 'password', 'secret'):
         assert secret_field not in schema['properties']
-    assert 'tunnel_token_file_ref' in schema['properties']
 
 
 def test_config_passes_admission_unsafe_fields():
@@ -90,26 +83,29 @@ def test_config_passes_admission_unsafe_fields():
 
 def test_invalid_configs_are_rejected(executor):
     bad = [
-        {**BASE, 'tunnel_token_file_ref': 'relative/path'},
-        {**BASE, 'tunnel_token_file_ref': '/etc/passwd\n'},
+        {**BASE, 'tunnel_token_ref': 'relative/path'},
+        {**BASE, 'tunnel_token_ref': '/run/kw/dashboard-password'},
+        {**BASE, 'tunnel_token_ref': 'cloudflare/../example'},
+        {**BASE, 'tunnel_token_ref': 'cloudflare/tunnel-example\n'},
+        {**BASE, 'tunnel_token_file_ref': '/run/kw/tunnel-token'},
         {**BASE, 'token': 'inline-secret'},
         {k: v for k, v in BASE.items() if k != 'ssh_key_id'},
     ]
     for config in bad:
-        with pytest.raises(WorkloadError):
+        with pytest.raises(WorkloadError, match='Invalid brick configuration'):
             executor.prepare('cloudflare-tunnel', config, TARGET, 'abcdef0123456789abcdef0123456789')
 
 
 def test_apply_installs_pinned_cloudflared_and_stages_token_without_leaking():
     play = load_play('apply.yml')[0]
     text = json.dumps(play)
-    # The token is slurped from the private host file, never echoed.
-    assert 'kw_config.tunnel_token_file_ref' in text
-    pre = play.get('pre_tasks', [])
-    slurps = [t for t in pre if 'ansible.builtin.slurp' in t]
-    assert slurps, 'apply must slurp the host tunnel token file'
-    for task in slurps:
-        assert task.get('no_log') is True
+    assert 'ansible.builtin.slurp' not in text
+    guard, _, write = play['pre_tasks']
+    assert 'kw_runtime_secret is defined' in guard['ansible.builtin.assert']['that']
+    assert guard['no_log'] is True
+    assert write['no_log'] is True
+    assert write['diff'] is False
+    assert write['ansible.builtin.copy']['mode'] == '0600'
     # The cloudflared package is pinned by sha256 before dpkg (in the local role).
     role_text = ((BRICK / 'roles/cloudflared/defaults/main.yml').read_text()
                  + (BRICK / 'roles/cloudflared/tasks/main.yml').read_text())

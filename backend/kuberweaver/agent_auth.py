@@ -174,40 +174,7 @@ def required_scope(method, path):
         return 'configure'
     if method == 'POST' and re.fullmatch(connection + r'/(test|discover)', path):
         return 'read:infrastructure'
-    # Cloudflare connectors are reference-only records; credential ingestion
-    # deliberately has no agent scope mapping (human administrator sessions only).
-    cloudflare = r'/api/cloudflare/connectors/[0-9a-f]{32}'
-    if method == 'GET' and (path == '/api/cloudflare/connectors'
-                            or re.fullmatch(cloudflare, path)):
-        return 'read:infrastructure'
-    if (method == 'POST' and path == '/api/cloudflare/connectors') or (
-            method == 'PATCH' and re.fullmatch(cloudflare, path)):
-        return 'configure'
-    # Cloudflare DNS reads are infrastructure evidence; mutations follow the
-    # deployment governance: submit to propose, approve/reject only with the
-    # explicit human-granted approve scope.
-    dns_request = r'/api/cloudflare/dns/requests/[0-9a-f]{32}'
-    if method == 'GET' and (path in {'/api/cloudflare/dns/zones', '/api/cloudflare/dns/records',
-                                     '/api/cloudflare/dns/requests'}
-                            or re.fullmatch(dns_request, path)):
-        return 'read:infrastructure'
-    if method == 'POST' and path == '/api/cloudflare/dns/requests':
-        return 'submit'
-    if method == 'POST' and re.fullmatch(dns_request + r'/(approve|reject)', path):
-        return 'approve'
-    # Cloudflare tunnels follow the same governance: reads are infrastructure
-    # evidence, submit proposes, approve/reject needs the explicit human grant.
-    tunnel_request = r'/api/cloudflare/tunnel/requests/[0-9a-f]{32}'
-    tunnel_remote = r'/api/cloudflare/tunnel/tunnels/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}'
-    if method == 'GET' and (path in {'/api/cloudflare/tunnel/tunnels',
-                                     '/api/cloudflare/tunnel/requests'}
-                            or re.fullmatch(tunnel_remote, path)
-                            or re.fullmatch(tunnel_request, path)):
-        return 'read:infrastructure'
-    if method == 'POST' and path == '/api/cloudflare/tunnel/requests':
-        return 'submit'
-    if method == 'POST' and re.fullmatch(tunnel_request + r'/(approve|reject)', path):
-        return 'approve'
+
     # A dashboard record is a link and a probe path, never a credential store.
     dashboard = r'/api/dashboards/[0-9a-f]{32}'
     if method == 'GET' and (path == '/api/dashboards'

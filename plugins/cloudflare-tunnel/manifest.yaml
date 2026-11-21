@@ -1,17 +1,14 @@
 id: cloudflare-tunnel
-name: Cloudflare tunnel connector
-version: 1.0.0
+name: Cloudflare Tunnel
+version: 1.1.0
 description: >-
-  Runs the Cloudflare connector (cloudflared) on an existing Ubuntu guest,
-  wrapping a pinned local role. The tunnel token is slurped from a private host
-  file (a vault-resolved reference, never an inline secret) and written to a
-  root 0600 env file; the connector runs as a hardened systemd unit. Cloudflare
-  API governance (tunnel creation, DNS) is expressed in other bricks, so nothing
-  Cloudflare-specific is hardcoded in the microkernel.
+  Ansible service for running cloudflared on an existing Ubuntu guest.
+  Requires a scoped vault binding and an existing remotely managed tunnel.
 category: network
 kind: workload
 capability: live
 engine: ansible
+workload_secret_ref: tunnel_token_ref
 executor: ansible-workload-v1
 execution_provider: ansible-workload-v1
 requires: compute.vm
@@ -31,7 +28,7 @@ schema:
   required:
   - target_uuid
   - ssh_key_id
-  - tunnel_token_file_ref
+  - tunnel_token_ref
   properties:
     target_uuid:
       type: string
@@ -39,9 +36,9 @@ schema:
     ssh_key_id:
       type: string
       pattern: ^[0-9a-f]{32}$
-    tunnel_token_file_ref:
+    tunnel_token_ref:
       type: string
-      pattern: ^/[A-Za-z0-9._/-]{1,200}\Z
+      pattern: ^cloudflare/[a-z0-9][a-z0-9_-]{0,95}\Z
 defaults: {}
 lifecycle:
   snapshot: snapshot.yml
@@ -61,7 +58,9 @@ verify:
     description: the systemd unit file is present
   - id: unit-enabled
     description: the unit is enabled at boot
+  - id: edge-connected
+    description: the local readiness endpoint confirms a Cloudflare edge connection
 teardown: >-
   Stops and disables the connector, removes the unit and the env file, and
-  removes the cloudflared package. Tunnel and DNS records on the Cloudflare side
-  are removed by the API governance bricks, not here.
+  removes the cloudflared package. This service does not remove remote tunnels
+  or DNS records.

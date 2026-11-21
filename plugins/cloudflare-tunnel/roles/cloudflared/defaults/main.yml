@@ -1,0 +1,12 @@
+---
+# Pinned cloudflared release. The SHA256 is the official linux-amd64 .deb
+# checksum published with this release; the install tasks verify it before dpkg
+# touches the guest. The version is fixed in the role (never taken from config)
+# so the checksum can never drift from the binary actually installed.
+cloudflared_version: "2026.11.1"
+cloudflared_deb_url: >-
+  https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-amd64.deb
+cloudflared_deb_sha256: "744ce90be92adb361103d51c85f78646314c47e4a68bbaadfe12ab5acc16c9b6"
+cloudflared_secret_dir: /etc/kuberweaver/cloudflared
+cloudflared_env_file: /etc/kuberweaver/cloudflared/tunnel.env
+cloudflared_unit_file: /etc/systemd/system/kw-cloudflared.service

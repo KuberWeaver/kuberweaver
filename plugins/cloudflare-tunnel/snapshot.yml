@@ -27,6 +27,13 @@
         - /etc/kuberweaver/cloudflared
       register: kw_paths
 
+    - name: Refuse existing installations and unmanaged connector state
+      ansible.builtin.assert:
+        that:
+          - kw_package.rc == 1
+          - (kw_unit.stdout | trim) in ['inactive', 'unknown']
+          - not (kw_paths.results | selectattr('stat.exists') | list)
+
     - name: Persist the snapshot
       ansible.builtin.copy:
         content: "{{ {

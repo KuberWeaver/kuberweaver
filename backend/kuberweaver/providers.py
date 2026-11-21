@@ -28,6 +28,11 @@ def resolve_provider(app, kind, name=None):
     name = name if name is not None else app.state.provider_bindings[kind]
     provider = registered_provider(app.state.registry, kind, name)
     if kind == 'execution':
+        if hasattr(provider, 'secret_source'):
+            def secret_source(source):
+                vault = resolve_provider(app, 'secrets', source)
+                return provider_provenance(app, 'secrets', source, provider=vault), vault
+            provider.secret_source = secret_source
         if hasattr(provider, 'secret_resolver'):
             provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
         if hasattr(provider, 'connections'):

@@ -1,0 +1,6 @@
+---
+- name: Restart the connector
+  ansible.builtin.systemd:
+    name: kw-cloudflared.service
+    state: restarted
+  listen: restart cloudflared

@@ -1,9 +1,9 @@
 # Contributing
 
-KuberWeaver is a single Python backend (`backend/kuberweaver`), a React/TypeScript
-portal (`frontend`), a pytest suite (`tests`) and operational scripts (`scripts`,
-`ops`). Changes reach production through two protected branches and a pull
-request, so no contributor needs write access to `main`.
+KuberWeaver is a single Python backend (`backend/kuberweaver`), the `kw` CLI
+(`kw`), a pytest suite (`tests`) and operational scripts (`scripts`, `ops`).
+Changes reach production through two protected branches and a pull request, so
+no contributor needs write access to `main`.
 
 ## Branches
 
@@ -33,13 +33,11 @@ env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
   KUBERWEAVER_STATE_DIR=/tmp/kw-check PYTHONPATH=backend \
   .venv/bin/python -m pytest tests -q --tb=short
 
-cd frontend && npx tsc --noEmit && npm test -- --run && npm run build
-cd .. && python3 ops/ci/secret_scan.py && git diff --check
+python3 ops/ci/secret_scan.py && git diff --check
 ```
 
-The frontend commands only apply when the change touches `frontend/`. A dirty
-`git diff --check` means trailing whitespace or a conflict marker was left
-behind.
+A dirty `git diff --check` means trailing whitespace or a conflict marker was
+left behind.
 
 ## Commits
 

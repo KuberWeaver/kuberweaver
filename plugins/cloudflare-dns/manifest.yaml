@@ -1,0 +1,86 @@
+id: cloudflare-dns
+name: Cloudflare DNS record
+version: 1.0.0
+description: >-
+  Creates one DNS-only A or AAAA record at an unused name. Uses a zone-scoped
+  API token from the vault and verifies the record through the Cloudflare API.
+  Existing records are never adopted or overwritten.
+category: network
+kind: workload
+capability: live
+engine: ansible
+executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
+requires: compute.vm
+data_class: config
+workload_secret_ref: api_token_ref
+implementation:
+  role: kw_cloudflare_dns
+  version: 1.0.0
+  license: MIT
+  source: local
+  reason: First-party role with a fixed API origin and receipt-based teardown.
+schema:
+  type: object
+  additionalProperties: false
+  required: [target_uuid, ssh_key_id, api_token_ref, zone_id, record_type, record_name, address]
+  properties:
+    target_uuid:
+      type: string
+      pattern: '^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}(?![\s\S])'
+    ssh_key_id:
+      type: string
+      pattern: '^[0-9a-f]{32}(?![\s\S])'
+    api_token_ref:
+      type: string
+      description: Logical vault reference for a token scoped to this DNS zone.
+      maxLength: 128
+      pattern: '^cloudflare/[a-z][a-z0-9_-]*(?:/[a-z][a-z0-9_-]*)*(?![\s\S])'
+    zone_id:
+      type: string
+      description: Cloudflare zone ID.
+      pattern: '^[0-9a-f]{32}(?![\s\S])'
+    record_type:
+      type: string
+      enum: [A, AAAA]
+    record_name:
+      type: string
+      description: Fully qualified ASCII name, without a trailing dot.
+      maxLength: 253
+      pattern: '^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?![\s\S])'
+    address:
+      type: string
+      description: IPv4 for A, IPv6 for AAAA.
+      maxLength: 45
+      pattern: '^[0-9A-Fa-f:.]+(?![\s\S])'
+    ttl:
+      type: integer
+      default: 1
+      description: Auto (1), or 60–86400 seconds (zone limits may be stricter).
+      anyOf:
+        - const: 1
+        - minimum: 60
+          maximum: 86400
+  allOf:
+    - if:
+        properties:
+          record_type: {const: A}
+      then:
+        properties:
+          address: {format: ipv4}
+      else:
+        properties:
+          address: {format: ipv6}
+defaults:
+  ttl: 1
+lifecycle:
+  snapshot: snapshot.yml
+  apply: apply.yml
+  verify: verify.yml
+  rollback: rollback.yml
+  remove: remove.yml
+verify:
+  assertions:
+    - id: record-matches
+      description: The recorded Cloudflare ID has the approved configuration and ownership marker.
+teardown: Refuses to delete without the original job receipt and exact Cloudflare readback.

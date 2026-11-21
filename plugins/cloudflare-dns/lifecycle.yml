@@ -1,0 +1,8 @@
+---
+- name: Manage a Cloudflare DNS record
+  hosts: all
+  connection: local
+  become: false
+  gather_facts: false
+  roles:
+    - role: kw_cloudflare_dns

@@ -156,8 +156,8 @@ def wait_status(client, identity, statuses):
     raise AssertionError(result)
 
 
-def submit(client):
-    response = client.post('/api/jobs', json={'graph': graph()})
+def submit(client, **config):
+    response = client.post('/api/jobs', json={'graph': graph(**config)})
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -201,6 +201,56 @@ def test_a_workload_brick_is_prepared_approved_and_executed(portal):
     assert not list((portal.state / 'workloads' / 'keys').glob('*'))
     artifact = portal.app.state.store.get('jobs', job['id'])
     assert artifact['approved_prepared_plan'] == artifact['prepared_plan_hash']
+
+
+def test_workload_uses_real_vault_only_after_approval(portal):
+    from kuberweaver.local_vault import LocalVaultProvider, initialize
+    from kuberweaver.secrets import SecretValue
+
+    manifest = json.loads(json.dumps(MANIFEST))
+    manifest['workload_secret_ref'] = 'token_ref'
+    manifest['schema']['properties']['token_ref'] = {'type': 'string'}
+    write_brick(portal.plugins, manifest)
+    record_evidence(portal.app)
+    directory = portal.state / 'test-vault'
+    initialize(directory)
+    vault = LocalVaultProvider(directory, allow_write=True)
+    portal.app.state.registry.register('secrets', 'fixture-vault', vault)
+    path = portal.state / 'config/workload-secrets.json'
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps({'web-nginx': {'fixture/service': {
+        'provider': 'fixture-vault', 'reference': 'fixture/v1', 'revision': 1,
+    }}}))
+    path.chmod(0o600)
+    job = submit(portal.client, token_ref='fixture/service')
+    ready = wait_status(portal.client, job['id'], {'pending_approval', 'failed'})
+    assert ready['status'] == 'pending_approval', ready
+    assert portal.provider.runner.calls == []
+    # The secret does not even exist until after the plan has been prepared.
+    value = 'runtime-only-test-fixture'
+    secret = SecretValue(value.encode())
+    try:
+        vault.store('fixture/v1', secret)
+    finally:
+        secret.close()
+    stub = portal.provider.runner
+
+    def runner(argv, **kwargs):
+        assert kwargs['env']['KW_WORKLOAD_SECRET'] == value
+        assert kwargs['env']['ANSIBLE_HOST_KEY_CHECKING'] == 'True'
+        inventory = json.loads(Path(argv[2]).read_text())
+        args = inventory['all']['hosts']['target']['ansible_ssh_common_args']
+        assert 'StrictHostKeyChecking=yes' in args
+        return stub(argv, **kwargs)
+
+    portal.provider.runner = runner
+    assert portal.client.post(f"/api/jobs/{job['id']}/approve").status_code == 200
+    done = wait_status(portal.client, job['id'], {'succeeded', 'failed', 'rollback_failed'})
+    assert done['status'] == 'succeeded', done
+    assert stub.calls == ['snapshot', 'apply', 'verify']
+    assert value not in json.dumps(done)
+    for artifact in (portal.state / 'workloads' / job['id']).glob('*.json'):
+        assert value not in artifact.read_text()
 
 
 def test_unpinned_role_is_refused_before_approval(portal):

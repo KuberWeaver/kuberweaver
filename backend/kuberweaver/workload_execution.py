@@ -1,14 +1,13 @@
 """Workload bricks: apply, verify, snapshot, roll back and remove on a guest.
 
-A brick wraps a pinned upstream Ansible role. This adapter does not carry shell,
-does not accept free-form variables and never sees a secret: the caller supplies
-the path to a private key file, and every value that reaches the guest comes from
-a schema-validated configuration.
+A brick wraps a pinned Ansible role. This adapter accepts schema-validated
+configuration and can pass an administrator-bound vault credential to the
+trusted runner after approval.
 """
 from __future__ import annotations
 
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack, nullcontext
 import hashlib
 import ipaddress
 import json
@@ -21,6 +20,8 @@ from typing import Any
 
 import jsonschema
 import yaml
+
+from .secrets import SecretValue, _name, _protected_read
 
 
 class WorkloadError(Exception):
@@ -48,6 +49,8 @@ def _private_write(path: Path, value) -> None:
 
 class WorkloadExecutor:
     """Executes workload bricks against a resolved guest."""
+
+    runtime_secret: SecretValue | None = None
 
     executor_id = 'ansible-workload-v1'
 
@@ -156,6 +159,7 @@ class WorkloadExecutor:
 
     def _inventory(self, folder, plan):
         path = folder / 'inventory.json'
+        trust = 'yes' if self.runtime_secret is not None else 'accept-new'
         _private_write(path, {'all': {'hosts': {'target': {
             'ansible_host': plan['address'],
             'ansible_user': self.user,
@@ -164,7 +168,7 @@ class WorkloadExecutor:
             'ansible_ssh_private_key_file': str(self.key_path) if self.key_path else None,
             # Long state paths overflow ssh ControlPath, so multiplexing is off.
             'ansible_ssh_common_args': '-o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=no '
-                                       '-o ControlPath=none -o StrictHostKeyChecking=accept-new '
+                                       f'-o ControlPath=none -o StrictHostKeyChecking={trust} '
                                        '-o ConnectTimeout=15',
         }}}})
         return path
@@ -179,11 +183,18 @@ class WorkloadExecutor:
         result_path.unlink(missing_ok=True)
         variables = {'kw_config': plan['config'], 'kw_result_path': str(result_path)}
         variables.update(extra or {})
+        uses_secret = 'workload_secret_ref' in brick
+        secret = None
+        if uses_secret:
+            if self.runtime_secret is None:
+                raise WorkloadError('Workload runtime credential is unavailable')
+            secret = self.runtime_secret.bytes().decode('utf-8')
+            variables['kw_runtime_secret'] = "{{ lookup('ansible.builtin.env', 'KW_WORKLOAD_SECRET') }}"
         vars_path = folder / f'{action}.vars.json'
         _private_write(vars_path, variables)
         inventory = self._inventory(folder, plan)
         argv = [str(self.playbook), '-i', str(inventory), str(playbook),
-                '-e', '@' + str(vars_path), '--diff']
+                '-e', '@' + str(vars_path)] + ([] if uses_secret else ['--diff'])
         (folder / 'home').mkdir(exist_ok=True)
         completed = self.runner(argv, capture_output=True, text=True, timeout=900,
                                 cwd=str(folder), env={'PATH': '/usr/bin:/bin:/usr/local/bin',
@@ -191,19 +202,25 @@ class WorkloadExecutor:
                                                       # Bricks keep their pinned roles beside the
                                                       # playbooks, not in a global path.
                                                       'ANSIBLE_ROLES_PATH': str(brick['_directory'] / 'roles'),
-                                                      'ANSIBLE_HOST_KEY_CHECKING': 'False',
+                                                      'ANSIBLE_HOST_KEY_CHECKING': 'True' if uses_secret else 'False',
                                                       'ANSIBLE_NOCOLOR': '1',
-                                                      'LANG': 'C.UTF-8'})
+                                                      'LANG': 'C.UTF-8',
+                                                      **({'KW_WORKLOAD_SECRET': secret} if secret is not None else {})})
         report = None
         if result_path.is_file():
             try:
                 report = json.loads(result_path.read_text())
+                if secret is not None and secret in json.dumps(report, ensure_ascii=False):
+                    report = None
+                    result_path.unlink(missing_ok=True)
             except ValueError:
                 report = None
+                if uses_secret:
+                    result_path.unlink(missing_ok=True)
         return {'action': action, 'returncode': completed.returncode,
                 'report': report,
-                'stdout_tail': completed.stdout[-1500:],
-                'stderr_tail': completed.stderr[-1500:]}
+                'stdout_tail': '' if uses_secret else completed.stdout[-1500:],
+                'stderr_tail': '' if uses_secret else completed.stderr[-1500:]}
 
     def execute(self, brick_id, job_id, config, target, *, emit=None):
         """Apply, verify, and roll back on failure. Returns evidence."""
@@ -348,6 +365,7 @@ class WorkloadProvider:
     requires_saved_plan = True
     supports_rollback = False
     ssh_keys: Any = None
+    secret_source: Any = None
 
     def __init__(self, state_dir, plugins_dir=None, *, store=None, inspector=None,
                  playbook=None, user='ubuntu'):
@@ -388,6 +406,46 @@ class WorkloadProvider:
     def _executor(self, key_path=None, runner=None):
         return WorkloadExecutor(self.state_dir, self.plugins_dir, playbook=self._playbook(),
                                 key_path=key_path, user=self.user, runner=runner or self.runner)
+
+    def _credential_binding(self, brick, config):
+        if 'workload_secret_ref' not in brick:
+            return None
+        try:
+            field = brick['workload_secret_ref']
+            if not re.fullmatch(r'[a-z][a-z0-9_]*_ref', field):
+                raise ValueError
+            alias = _name(config[field])
+            bindings = json.loads(_protected_read(self.state_dir / 'config/workload-secrets.json'))
+            row = bindings[brick['id']][alias]
+            if (not isinstance(row, dict) or set(row) != {'provider', 'reference', 'revision'}
+                    or type(row['revision']) is not int or not 0 < row['revision'] <= 2**53 - 1):
+                raise ValueError
+            reference = _name(row['reference'])
+            provider = row['provider']
+            if not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}', provider):
+                raise ValueError
+            fingerprint, _ = self.secret_source(provider)
+            return {'alias': alias, 'reference': reference, 'provider': provider,
+                    'revision': row['revision'], 'fingerprint': fingerprint}
+        except Exception:
+            raise WorkloadError('Workload credential binding is missing or invalid') from None
+
+    @contextmanager
+    def _workload_secret(self, binding):
+        with ExitStack() as stack:
+            try:
+                fingerprint, provider = self.secret_source(binding['provider'])
+                if fingerprint != binding['fingerprint']:
+                    raise ValueError
+                secret = stack.enter_context(provider.resolve(binding['reference']))
+                if not isinstance(secret, SecretValue):
+                    raise ValueError
+                stack.callback(secret.close)
+                if not re.fullmatch(rb'[A-Za-z0-9+/=_-]{16,8192}', secret.bytes()):
+                    raise ValueError
+            except Exception:
+                raise WorkloadError('Workload runtime credential is unavailable') from None
+            yield secret
 
     def _recorded_target(self, uuid, environment):
         """The single guest address a succeeded, approved provisioning job proved."""
@@ -492,6 +550,8 @@ class WorkloadProvider:
         node = nodes[0]
         executor = self._executor()
         brick = executor.brick(node.get('plugin_id'))
+        if brick.get('capability') != 'live':
+            raise WorkloadError('Workload brick is not deployable')
         config = {**copy.deepcopy(brick.get('defaults') or {}), **(node.get('config') or {})}
         try:
             json.dumps(config, allow_nan=False)
@@ -507,7 +567,9 @@ class WorkloadProvider:
         if live:
             self._live(target)
         plan = executor.prepare(brick['id'], config, {'uuid': uuid, 'address': target['address']}, identity)
-        return {'job_id': identity, 'environment': graph.get('environment'), 'node_id': node.get('id'),
+        credential = self._credential_binding(brick, config)
+        return {**({'credential': credential} if credential is not None else {}),
+                'job_id': identity, 'environment': graph.get('environment'), 'node_id': node.get('id'),
                 'brick': brick['id'], 'config': config, 'plan': plan,
                 'key': self._key(config.get('ssh_key_id')), 'target': target}
 
@@ -553,8 +615,11 @@ class WorkloadProvider:
                     or job.get('approved_prepared_plan') != _digest(job.get('prepared_plan'))):
                 raise WorkloadError('Explicit approval of this exact workload plan is required')
             self._live(signed['target'])
-            with self._staged_key(signed['key']['id']) as key_path:
+            binding = signed['reviewed'].get('credential')
+            credentials = self._workload_secret(binding) if binding is not None else nullcontext()
+            with self._staged_key(signed['key']['id']) as key_path, credentials as runtime_secret:
                 executor = self._executor(key_path=key_path)
+                executor.runtime_secret = runtime_secret
                 evidence = executor.execute(signed['reviewed']['brick'], job['id'],
                                             signed['reviewed']['config'],
                                             {'uuid': signed['target']['uuid'],

@@ -1,0 +1,55 @@
+---
+- name: Install the pinned cloudflared package
+  block:
+    - name: Download the pinned cloudflared package
+      ansible.builtin.get_url:
+        url: "{{ cloudflared_deb_url }}"
+        dest: /tmp/kw-cloudflared.deb
+        mode: "0644"
+        checksum: "sha256:{{ cloudflared_deb_sha256 }}"
+
+    - name: Install the pinned cloudflared package
+      ansible.builtin.apt:
+        deb: /tmp/kw-cloudflared.deb
+
+  always:
+    - name: Remove the downloaded package
+      ansible.builtin.file:
+        path: /tmp/kw-cloudflared.deb
+        state: absent
+
+- name: Write the connector unit
+  ansible.builtin.copy:
+    dest: "{{ cloudflared_unit_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=KuberWeaver Cloudflare tunnel connector
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      EnvironmentFile={{ cloudflared_env_file }}
+      ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel --metrics 127.0.0.1:20249 run
+      Restart=on-failure
+      RestartSec=5s
+      NoNewPrivileges=true
+      PrivateTmp=true
+      ProtectHome=true
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart cloudflared
+
+- name: Reload the unit definitions
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start the connector
+  ansible.builtin.systemd:
+    name: kw-cloudflared.service
+    enabled: true
+    state: started
