@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a reproducible defect in the kernel, the kw CLI, a brick or the documentation.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If the defect could expose data, credentials or unauthenticated access, do not use this form. Follow SECURITY.md and report privately.
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Commit hash, tag or branch where the defect appears.
+      placeholder: "main@abcdef1"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - kernel (FastAPI backend)
+        - kw CLI
+        - workload brick / plugin
+        - extension SDK
+        - documentation
+        - CI / tooling
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened, with the exact error message or HTTP status.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen instead, and why that is the contract.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal ordered steps, including the exact command or API call.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and tracebacks
+      description: Paste the relevant output. Redact passwords, tokens, host names and private paths.
+      render: bash
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version and database backend (SQLite or PostgreSQL).
+      placeholder: "Ubuntu 24.04, Python 3.14, PostgreSQL 17"
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I redacted every secret and private identifier from the pasted content.
+          required: true
+        - label: I checked the README capability table and this is not a documented limit.
+          required: false

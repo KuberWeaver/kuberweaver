@@ -24,6 +24,28 @@ Self-hosted infrastructure management with a service catalogue, governed request
 
 The repository contains source, tests, manifests, scripts and public documentation. Credentials, local accounts, runtime state, snapshots, IaC state and installed dependencies are excluded. A clone does not recreate existing lab VMs, system images or SSH access. Adapt systemd paths and target access to your installation.
 
+## Community
+
+The project is open source under GPL-3.0-or-later, with a commercial license
+available for organizations that cannot accept copyleft terms; see
+[LICENSE](LICENSE) and [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). The
+project shows its work as it is: this repository is an early-stage prototype
+with one maintainer, not a finished product.
+
+Start here:
+
+- [Contributing](CONTRIBUTING.md): setup, checks, branches, commits, how to add
+  a brick or an extension.
+- [Support](SUPPORT.md): where to ask, what is supported and what response to
+  expect. [Security policy](SECURITY.md): report a vulnerability privately,
+  never in a public issue.
+- [Serving this site with KuberWeaver](docs/STATIC_SITE.md): how the `site/` page could be deployed by the tool itself, and which content channel is still missing.
+- [Site vitrine](site/): the static showcase page in `site/`, servable with any
+  static host and buildable offline.
+
+Pull requests target `develop`. There is no service level agreement: issues are
+triaged when the maintainer has time, and there is no merge guarantee.
+
 ## Access and roles
 
 The API listens on `http://127.0.0.1:8088` for the documented local installation; drive it with the `kw` CLI. The server binds to workstation loopback; it is not a public multi-tenant SaaS deployment.
@@ -107,7 +129,7 @@ Canonical hooks are `before_plan`, `after_approval`, `job_started` and `job_fini
 | Capability | Supported scope and limits |
 | --- | --- |
 | Catalogue, blueprint storage and governed deployment | Available through the API and the `kw` CLI. |
-| Sessions, RBAC, CSRF, quotas and approval | Local accounts; no SSO or per-object authorization. |
+| Sessions, RBAC, CSRF, quotas and approval | Local accounts plus an optional, disabled-by-default OpenID Connect sign-in that binds to an existing local account; no per-object authorization. |
 | NGINX and Apache | Real Ansible deployment on two allowlisted GNS3 guests, with HTTP verification. |
 | Canary, rolling and rollback | Exercised for managed web workloads; not a universal recovery guarantee. |
 | VMware Ubuntu OVF import | Create-only workflow documented separately; no update, deletion, rollback or automatic cleanup after an ambiguous failure. Target OS/SSH acceptance requires an authorized real import. |
@@ -177,4 +199,4 @@ FastAPI serves the API on one origin; the legacy GUI was removed and a modular G
 
 ## Security limits
 
-Do not expose this installation directly to the Internet. It has no SSO, multi-tenancy, per-object permissions, HA or sandboxed marketplace. Protect remote access with an appropriate authenticated HTTPS boundary and a reviewed threat model. The existing unauthenticated GNS3 LAN API is not secured for other clients by this installation. Guest root and workstation administrators remain trusted. Deployment must stay within authorized targets and owned resources; do not change host routes, other GNS3 projects or production resources for acceptance tests.
+Do not expose this installation directly to the Internet. It has no multi-tenancy, per-object permissions, HA or sandboxed marketplace, and its optional OpenID Connect sign-in is disabled unless configured. Protect remote access with an appropriate authenticated HTTPS boundary and a reviewed threat model. The existing unauthenticated GNS3 LAN API is not secured for other clients by this installation. Guest root and workstation administrators remain trusted. Deployment must stay within authorized targets and owned resources; do not change host routes, other GNS3 projects or production resources for acceptance tests.

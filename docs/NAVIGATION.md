@@ -1,6 +1,11 @@
 # Navigation and page states
 
-The portal declares its pages once, in `frontend/src/navigation.ts`. The sidebar,
+> Retired. The React portal this file described was removed from the repository.
+> It is kept as a historical record of the previous interface. The supported
+> surfaces now are the `kw` CLI and the HTTP API, and a modular GUI can be built
+> on that same API.
+
+The portal declared its pages once, in `frontend/src/navigation.ts`. The sidebar,
 the breadcrumb, the page heading and the role filter all read that registry, so a
 route, a label or a heading is never duplicated.
 
