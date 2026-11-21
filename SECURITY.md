@@ -2,9 +2,9 @@
 
 ## Status and scope
 
-KuberWeaver is an early-stage prototype. The repository is private today and has
-no external users. This file states what the project does and does not protect,
-which versions receive fixes, and how to report a vulnerability privately.
+KuberWeaver is an early-stage prototype maintained by one person. This file
+states what the project does and does not protect, which revisions receive fixes,
+and how to report a vulnerability privately.
 
 The documented installation binds the API to a workstation loopback address. It
 is not a multi-tenant service. There is no per-object authorization beyond the

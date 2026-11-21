@@ -3,9 +3,9 @@
 KuberWeaver is an early-stage, self-hosted infrastructure management prototype:
 one FastAPI kernel (`backend/kuberweaver/`), the `kw` CLI (`kw/`), a declarative
 catalogue of workload bricks (`plugins/*/`) and separately installed Python
-extensions (`examples/extensions/`). The repository is private today and has no
-external users. This document explains how to change the project safely. It does
-not describe a finished product.
+extensions (`examples/extensions/`). This document is written for someone who has
+never seen the repository. It does not describe a finished product: the project is
+an early-stage prototype with one maintainer.
 
 Before asking a question, read [SUPPORT.md](SUPPORT.md). If you found something
 that looks like a vulnerability, read [SECURITY.md](SECURITY.md) and report it
