@@ -1,0 +1,8 @@
+# Default owner for every path in the repository.
+* @EMRD95
+
+# Community-facing governance files stay explicitly owned by the maintainer.
+.github/ @EMRD95
+CONTRIBUTING.md @EMRD95
+SECURITY.md @EMRD95
+SUPPORT.md @EMRD95

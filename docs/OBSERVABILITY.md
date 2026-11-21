@@ -154,7 +154,7 @@ Grafana instance without explicit review of paths, datasource URL, and permissio
 
 ## Reproduce validation
 
-Tests follow RED→GREEN development of each helper behavior. From the repository root:
+Run the helper and integration checks from the repository root:
 
 ```sh
 .venv/bin/python -m pytest tests/test_observability.py -q
@@ -186,7 +186,7 @@ docker run --rm --network none --read-only --cap-drop ALL \
   test rules rules.test.yml dashboard.test.yml
 ```
 
-Actual validation during implementation:
+Historical validation record (not a new run or production-readiness evidence):
 
 - Helper tests: **10 passed**, real app fixture and actual SQLite state, including
   malformed records, closed storage, stopped worker, secret/nonmutation sentinels,

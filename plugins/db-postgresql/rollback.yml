@@ -1,0 +1,55 @@
+---
+- name: Roll back the db-postgresql brick
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    kw_password_file: "{{ kw_config.handoff_path | dirname }}/{{ kw_config.db_user }}.password"
+  tasks:
+    - name: Restore the previous cluster configuration
+      ansible.builtin.copy:
+        dest: "{{ item.key }}"
+        content: "{{ item.value }}"
+        owner: postgres
+        group: postgres
+        mode: "0644"
+      loop: "{{ kw_snapshot.configs | default({}) | dict2items }}"
+      no_log: true
+
+    - name: Stop the cluster when it was not running before this brick
+      ansible.builtin.service:
+        name: postgresql
+        state: stopped
+      when: not (kw_snapshot.unit_active | bool)
+
+    - name: Remove the package when the brick installed it
+      ansible.builtin.apt:
+        name: postgresql
+        state: absent
+        purge: true
+      when: not (kw_snapshot.package_installed | bool)
+
+    - name: Remove the handoff file when it did not exist before
+      ansible.builtin.file:
+        path: "{{ kw_config.handoff_path }}"
+        state: absent
+      when: not (kw_snapshot.handoff_existed | bool)
+
+    - name: Remove the password file when it did not exist before
+      ansible.builtin.file:
+        path: "{{ kw_password_file }}"
+        state: absent
+      when: not (kw_snapshot.password_existed | bool)
+
+    - name: Persist the rollback report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'db-postgresql',
+            'config_restored': (kw_snapshot.configs | default({})) | length > 0,
+            'package_removed': not (kw_snapshot.package_installed | bool),
+            'data_retained': kw_snapshot.package_installed | bool
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

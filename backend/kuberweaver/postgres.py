@@ -21,20 +21,40 @@ COLUMNS = {
     'sessions': ('token_hash', 'user_id', 'csrf', 'expires'),
     'audit': ('id', 'time', 'actor', 'action', 'resource', 'detail'),
     'jobs': ('id', 'body'), 'blueprints': ('id', 'body'),
-    'settings': ('key', 'body'), 'connections': ('id', 'body'),
+    'settings': ('key', 'body'), 'connections': ('id', 'body'), 'ssh_keys': ('id', 'body'),
     'agent_tokens': ('id', 'token_hash', 'label', 'role', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'issued_by'),
+    'oidc_identities': ('id', 'issuer', 'subject', 'user_id', 'created_at', 'last_login'),
     'notification_deliveries': ('id', 'payload', 'status', 'attempts', 'error', 'updated'),
+    'dashboards': ('id', 'body'),
+    'dashboard_health': ('dashboard_id', 'body'),
+    'studio_artifacts': ('id', 'body'), 'studio_offerings': ('id', 'body'),
+    'environment_state': ('id', 'body'),
+    'environment_state_documents': ('id', 'body'),
+    'environment_state_claim': ('id', 'body'),
+    'environment_state_adoption': ('uuid', 'body'),
+    'environment_state_destroy': ('id', 'body'),
+    'environment_state_drift': ('id', 'body'),
+    'declaration_run': ('id', 'body'),
 }
-ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries'}
+ORDERED = {'jobs', 'blueprints', 'settings', 'connections', 'notification_deliveries', 'dashboards',
+           'studio_artifacts', 'studio_offerings', 'environment_state'}
 DDL = {
+    'ssh_keys': 'id TEXT PRIMARY KEY, body TEXT NOT NULL',
     'users': 'id TEXT PRIMARY KEY, username TEXT UNIQUE, role TEXT, password_hash TEXT',
     'sessions': 'token_hash TEXT PRIMARY KEY, user_id TEXT, csrf TEXT, expires DOUBLE PRECISION',
     'audit': 'id BIGSERIAL PRIMARY KEY, time TEXT, actor TEXT, action TEXT, resource TEXT, detail TEXT',
     'agent_tokens': 'id TEXT PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL, label TEXT NOT NULL, role TEXT NOT NULL, scopes TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL, expires_at DOUBLE PRECISION NOT NULL, revoked_at DOUBLE PRECISION, issued_by TEXT NOT NULL',
+    'oidc_identities': 'id TEXT PRIMARY KEY, issuer TEXT NOT NULL, subject TEXT NOT NULL, user_id TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL, last_login DOUBLE PRECISION NOT NULL',
     'notification_deliveries': 'id TEXT PRIMARY KEY, payload TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, error TEXT, updated TEXT NOT NULL',
+    'dashboard_health': 'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL',
 }
-for _table in ('jobs', 'blueprints', 'settings', 'connections'):
-    DDL[_table] = ('key' if _table == 'settings' else 'id') + ' TEXT PRIMARY KEY, body TEXT NOT NULL'
+KEY_COLUMNS = {'settings': 'key', 'environment_state_adoption': 'uuid'}
+for _table in ('jobs', 'blueprints', 'settings', 'connections', 'dashboards',
+               'studio_artifacts', 'studio_offerings',
+               'environment_state', 'environment_state_documents', 'environment_state_claim',
+               'environment_state_adoption', 'environment_state_destroy',
+               'environment_state_drift', 'declaration_run'):
+    DDL[_table] = KEY_COLUMNS.get(_table, 'id') + ' TEXT PRIMARY KEY, body TEXT NOT NULL'
 for _table in ORDERED:
     DDL[_table] += ', _kw_rowid BIGSERIAL UNIQUE NOT NULL'
 

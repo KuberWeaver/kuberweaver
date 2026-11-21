@@ -1,12 +1,13 @@
-# Rapport de cohérence
+# Historical coherence report
 
-- Résultat : **conforme aux contrôles**
-- Erreurs : 0
-- Avertissements : 0
+- Result: **passed the documented checks**
+- Errors: 0
+- Warnings: 0
 
-## Constats
+## Findings
 
-Aucun constat.
-## Limite
+None in the historical structural check.
 
-Ce rapport contrôle la structure et la cohérence documentaire. Il ne certifie ni la validité métier, ni la qualité scientifique ou technique.
+## Limit
+
+This report checks documentary structure and consistency. It certifies neither business validity nor scientific/technical quality. It is not a new check of the translated documentation or the current application.

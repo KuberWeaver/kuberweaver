@@ -218,3 +218,117 @@ def test_issuance_constraints(platform, changes):
     payload = {'label': 'test', 'role': 'viewer', 'scopes': ['read'], 'expires_in_seconds': 3600, **changes}
     assert human.post('/api/agent-tokens', json=payload).status_code == 422
     assert human.get('/api/agent-tokens').json()['tokens'] == []
+
+
+def test_rotation_replaces_only_the_secret(platform):
+    app, human, agent = platform
+    issued = issue(human)
+    identity = issued['metadata']['id']
+    before = app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (identity,))
+    response = human.post(f'/api/agent-tokens/{identity}/rotate')
+    assert response.status_code == 200, response.text
+    rotated = response.json()
+    assert rotated['token'] != issued['token']
+    assert rotated['metadata']['id'] == identity
+    assert rotated['metadata']['label'] == issued['metadata']['label']
+    assert rotated['metadata']['role'] == issued['metadata']['role']
+    assert rotated['metadata']['scopes'] == issued['metadata']['scopes']
+    assert rotated['metadata']['expires_at'] == before['expires_at']
+    assert rotated['metadata']['revoked_at'] is None
+    after = app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (identity,))
+    assert after['created_at'] == before['created_at']
+    assert after['expires_at'] == before['expires_at']
+    assert after['token_hash'] == hashlib.sha256(rotated['token'].encode()).hexdigest()
+    assert after['token_hash'] != hashlib.sha256(issued['token'].encode()).hexdigest()
+    agent.headers['Authorization'] = 'Bearer ' + issued['token']
+    assert agent.get('/api/jobs').status_code == 401
+    agent.headers['Authorization'] = 'Bearer ' + rotated['token']
+    assert agent.get('/api/jobs').status_code == 200
+    assert [row['id'] for row in human.get('/api/agent-tokens').json()['tokens']] == [identity]
+    rotated_audit = [row for row in app.state.store.all('SELECT * FROM audit') if row['action'] == 'agent_token.rotated']
+    assert len(rotated_audit) == 1
+    assert rotated_audit[0]['actor'] == 'admin' and rotated_audit[0]['resource'] == identity
+    assert issued['token'] not in json.dumps(rotated_audit) and rotated['token'] not in json.dumps(rotated_audit)
+
+
+def test_rotation_refuses_revoked_expired_and_unknown_tokens(platform):
+    app, human, agent = platform
+    revoked = issue(human)
+    assert human.delete('/api/agent-tokens/' + revoked['metadata']['id']).status_code == 200
+    stored = app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (revoked['metadata']['id'],))
+    response = human.post(f"/api/agent-tokens/{revoked['metadata']['id']}/rotate")
+    assert response.status_code == 409
+    assert app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (revoked['metadata']['id'],))['token_hash'] == stored['token_hash']
+    expired = issue(human)
+    app.state.store.execute('UPDATE agent_tokens SET expires_at=? WHERE id=?', (time.time() - 1, expired['metadata']['id']))
+    stale = app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (expired['metadata']['id'],))
+    assert human.post(f"/api/agent-tokens/{expired['metadata']['id']}/rotate").status_code == 409
+    assert app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (expired['metadata']['id'],))['token_hash'] == stale['token_hash']
+    assert human.post('/api/agent-tokens/unknown/rotate').status_code == 404
+
+
+def test_rotation_is_human_admin_only_and_needs_csrf(platform):
+    app, human, agent = platform
+    issued = issue(human)
+    identity = issued['metadata']['id']
+    credentials = dict(line.split(':', 1) for line in (app.state.state_dir / 'bootstrap-credentials.txt').read_text().splitlines())
+    for role in ('viewer', 'operator'):
+        login = agent.post('/api/auth/login', json={'username': role, 'password': credentials[role]})
+        agent.headers['x-csrf-token'] = login.json()['csrf_token']
+        assert agent.post(f'/api/agent-tokens/{identity}/rotate').status_code == 403
+        agent.cookies.clear()
+        agent.headers.pop('x-csrf-token')
+    agent.headers['Authorization'] = 'Bearer ' + issued['token']
+    assert agent.post(f'/api/agent-tokens/{identity}/rotate').status_code == 403
+    agent.headers.pop('Authorization')
+    csrf = human.headers.pop('x-csrf-token')
+    assert human.post(f'/api/agent-tokens/{identity}/rotate').status_code == 403
+    human.headers['x-csrf-token'] = csrf
+    row = app.state.store.one('SELECT * FROM agent_tokens WHERE id=?', (identity,))
+    assert row['token_hash'] == hashlib.sha256(issued['token'].encode()).hexdigest()
+
+
+def test_each_authenticated_agent_request_is_audited(platform):
+    app, human, agent = platform
+    issued = issue(human, role='operator', scopes=['read:jobs'])
+    identity = issued['metadata']['id']
+    agent.headers['Authorization'] = 'Bearer ' + issued['token']
+    assert agent.get('/api/jobs').status_code == 200
+    uses = app.state.store.all("SELECT * FROM audit WHERE action='agent.request' ORDER BY id DESC")
+    assert len(uses) == 1
+    assert uses[0]['actor'] == 'agent:' + identity and uses[0]['resource'] == identity
+    assert json.loads(uses[0]['detail']) == {'method': 'GET', 'path': '/api/jobs', 'status': 200, 'scope': 'read:jobs'}
+    assert issued['token'] not in json.dumps(uses)
+    assert agent.get('/api/infrastructure').status_code == 403
+    assert len(app.state.store.all("SELECT * FROM audit WHERE action='agent.request'")) == 1
+    denials = app.state.store.all("SELECT * FROM audit WHERE action='agent.request_denied' ORDER BY id DESC")
+    assert json.loads(denials[0]['detail']) == {'method': 'GET', 'scope': 'read:infrastructure'}
+    assert denials[0]['actor'] == 'agent:' + identity
+
+
+def test_agent_use_audit_is_bounded_and_keeps_decisions(tmp_path):
+    from kuberweaver.agent_auth import AgentTokens
+    from kuberweaver.storage import Store
+    store = Store(tmp_path)
+    tokens = AgentTokens(store, use_audit_retention=2, use_audit_prune_interval=0)
+    store.audit('admin', 'agent_token.issued', 'token-1')
+    principal = {'username': 'agent:token-1', 'token_id': 'token-1'}
+    for _ in range(4):
+        tokens.record_use(principal, 'GET', '/api/jobs', 200, 'read:jobs')
+    uses = store.all("SELECT * FROM audit WHERE action='agent.request'")
+    assert len(uses) == 2
+    decisions = json.loads(json.dumps(store.all("SELECT * FROM audit WHERE action='agent_token.issued'")))
+    assert [row['resource'] for row in decisions] == ['token-1']
+
+
+def test_read_only_agent_reads_infrastructure_but_cannot_write(platform):
+    app, human, agent = platform
+    issued = issue(human, role='operator', scopes=['read:infrastructure'])
+    agent.headers['Authorization'] = 'Bearer ' + issued['token']
+    assert agent.get('/api/infrastructure').status_code == 200
+    assert agent.get('/api/jobs').status_code == 403
+    assert agent.get('/api/audit').status_code == 403
+    assert agent.post('/api/jobs', json={}).status_code == 403
+    assert agent.patch('/api/settings', json={}).status_code == 403
+    assert agent.post('/api/plans/validate', json={}).status_code == 403
+    assert agent.get('/api/auth/me').json()['user']['scopes'] == ['read:infrastructure']

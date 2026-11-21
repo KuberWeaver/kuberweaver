@@ -1,0 +1,54 @@
+name: Feature request
+description: Propose a capability, a behavior change or a documentation improvement.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        KuberWeaver is a prototype with one volunteer maintainer. Requests are read and triaged, never promised.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What task is hard or impossible today? Give a concrete example from your installation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should happen instead, and how an operator would use it?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing commands, bricks, manual steps or scope changes that could cover the same need.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - kernel (FastAPI backend)
+        - kw CLI
+        - workload brick / plugin
+        - extension SDK
+        - documentation
+        - CI / tooling
+        - other
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope and contribution
+      options:
+        - label: The request stays inside the documented capability boundaries in the README.
+          required: false
+        - label: I am willing to contribute the change or help test it.
+          required: false
+        - label: I checked docs/ and existing issues for a planned or disabled equivalent.
+          required: true

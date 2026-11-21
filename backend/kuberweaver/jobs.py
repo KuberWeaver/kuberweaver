@@ -14,10 +14,14 @@ from fastapi import HTTPException
 from .storage import now
 from .providers import (resolve_provider, execution_binding, execution_credential_binding,
                         invoke_approved_execution, graph_execution_name,
-                        check_execution_pins, check_prepared_plan, ExecutionTrustError)
+                        check_execution_pins, check_prepared_plan, ExecutionTrustError,
+                        RuntimeExecutor)
 from .gitops import publish as publish_remote
 
-TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}
+TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected',
+            'decommissioned', 'decommission_failed'}
+# The only status a retirement provider may report as verified removal.
+DECOMMISSION_VERIFIED = 'decommissioned'
 
 
 def digest(value):
@@ -76,6 +80,11 @@ class Jobs:
         self.admission = app.state.admission
         self.catalog = app.state.catalog
 
+    # Attribution a caller may add at creation time. These are observability
+    # facts about where a job came from; they can never replace approval,
+    # provider pins or any other security-relevant job field.
+    ATTRIBUTION_KEYS = ('service_request',)
+
     def get(self, identity):
         job = self.store.get('jobs', identity)
         if not job:
@@ -129,8 +138,47 @@ class Jobs:
         except (OSError, ValueError, KeyError, TypeError):
             return False
 
+    def decommission_runner(self, job):
+        """The pinned provider's explicit ``decommission(job, emit)`` capability.
+
+        Retirement is never substituted with rollback: the execution provider
+        selected for the job must itself expose the method. A registry wrapper
+        that only delegates to an implementation is accepted when *that*
+        implementation declares it, so the wrapper's durable-approval command
+        guard still applies and the pinned provenance still covers the code.
+        """
+        pinned = job.get('approved_execution_provider')
+        if not isinstance(pinned, dict) or not isinstance(pinned.get('name'), str):
+            return None
+        provider = resolve_provider(self.app, 'execution', pinned['name'])
+        if isinstance(provider, RuntimeExecutor):
+            implementation = getattr(self.app.state, 'executor', None)
+            if not callable(getattr(implementation, 'decommission', None)):
+                return None
+            return lambda current, emit: provider._invoke('decommission', current, emit)
+        if not callable(getattr(provider, 'decommission', None)):
+            return None
+        return lambda current, emit: invoke_approved_execution(
+            self.app, provider, 'decommission', current, emit)
+
+    def can_decommission(self, job):
+        """A retired service needs a succeeded request and a pinned provider
+        that explicitly supports decommission. Never implied by rollback."""
+        if not isinstance(job, dict) or not isinstance(job.get('service_request'), dict):
+            return False
+        if job.get('status') != 'succeeded' or job.get('requires_manual_review'):
+            return False
+        try:
+            pinned = job['approved_execution_provider']
+            if not isinstance(pinned, dict) or execution_binding(self.app, pinned['name']) != pinned:
+                return False
+            return self.decommission_runner(job) is not None
+        except (HTTPException, KeyError, TypeError, ValueError, AttributeError, RuntimeError):
+            return False
+
     def present(self, job):
-        return {**job, 'can_rollback': self.can_rollback(job)}
+        return {**job, 'can_rollback': self.can_rollback(job),
+                'can_decommission': self.can_decommission(job)}
 
     def emit(self, identity, phase, level, message):
         with self.store.lock:
@@ -176,7 +224,15 @@ class Jobs:
         job[prefix + '_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
         job[prefix + '_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
 
-    def create(self, graph, actor):
+    def check_offering_pins(self, job, prefix):
+        if 'service_request' not in job:
+            return
+        pins = job['service_request'].get('pins')
+        if pins != {key: job.get(f'{prefix}_{key}')
+                    for key in ('graph_hash', 'manifest_hashes', 'source_hashes')}:
+            raise HTTPException(409, 'Published offering changed; publish a new version')
+
+    def create(self, graph, actor, attribution=None):
         with self.store.lock:
             identity = secrets.token_hex(16)
             self.notify('before_plan', {'job_id': identity, 'status': 'planning', 'environment': graph['environment'], 'operation': 'execute'})
@@ -187,6 +243,12 @@ class Jobs:
                    'environment': graph['environment'], 'graph': graph, 'cost': report['cost'],
                    'git_commit': None, 'events': [], 'result': None, 'approved_by': None,
                    'error': None, 'requires_manual_review': False, 'operation': 'execute'}
+            if attribution:
+                if not isinstance(attribution, dict) or set(attribution) - set(self.ATTRIBUTION_KEYS):
+                    raise ValueError('Unsupported job attribution')
+                # Persist attribution with the row itself: a request can never
+                # return a job id whose origin was not durably recorded.
+                job.update(copy.deepcopy(attribution))
             # Legacy graphs remain submittable even if their global provider is
             # unavailable; approval still fails closed, as before.
             try:
@@ -195,6 +257,7 @@ class Jobs:
                 provider = None
             if provider is not None and getattr(provider, 'requires_saved_plan', False):
                 self.pin_execution(job, 'preparation')
+                self.check_offering_pins(job, 'preparation')
                 job.update(status='queued', operation='prepare')
             self.store.put('jobs', job['id'], job)
             self.emit(job['id'], 'preparation' if job['operation'] == 'prepare' else 'approval', 'info',
@@ -272,7 +335,10 @@ class Jobs:
             try:
                 if not prepared:
                     job['approved_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
+                self.check_offering_pins(job, 'approved')
                 job['git_commit'] = self.git_commit(job)
+            except HTTPException:
+                raise
             except Exception:
                 self.store.audit(actor['username'], 'job.gitops_failed', identity)
                 raise HTTPException(503, 'Local GitOps commit failed; execution was not queued')
@@ -371,6 +437,37 @@ class Jobs:
             self.app.state.worker.enqueue(identity)
             return self.get(identity)
 
+    def decommission(self, identity, actor):
+        """Queue explicit administrator retirement of one succeeded service.
+
+        The request is the approval: it performs no provider call, persists
+        ``decommission_queued`` and hands the job to the one serialized worker.
+        Only a service request whose pinned provider declares decommission is
+        eligible; retirement is never rewritten into a rollback.
+        """
+        if (not isinstance(actor, dict) or not isinstance(actor.get('username'), str)
+                or not actor['username'] or actor.get('role') != 'admin'):
+            raise HTTPException(403, 'A signed-in administrator is required')
+        if actor.get('principal_type') == 'agent':
+            raise HTTPException(403, 'A human administrator session is required')
+        with self.store.lock:
+            job = self.get(identity)
+            attribution = job.get('service_request')
+            if not isinstance(attribution, dict) or not attribution.get('offering_id'):
+                raise HTTPException(404, 'Unknown service request')
+            if not self.can_decommission(job):
+                raise HTTPException(409, 'Service retirement requires a succeeded service request '
+                                         'whose pinned execution provider supports decommission')
+            job.update(status='decommission_queued', operation='decommission',
+                       decommission_requested_by=actor['username'],
+                       decommission_requested_at=now())
+            self.store.put('jobs', identity, job)
+            self.emit(identity, 'decommission', 'info',
+                      'Explicit administrator retirement queued; rollback was not requested')
+            self.store.audit(actor['username'], 'job.decommission_requested', identity)
+            self.app.state.worker.enqueue(identity)
+            return self.get(identity)
+
 
 class Worker:
     def __init__(self, app):
@@ -387,9 +484,16 @@ class Worker:
     def recover(self):
         with self.store.lock:
             for job in self.store.list('jobs'):
-                if job['status'] in {'queued', 'planning', 'running', 'rolling_back'}:
-                    job.update(status='rollback_failed' if job.get('operation') == 'rollback' else 'failed',
-                               error='Interrupted by process restart: manual review required; never automatically reapplied',
+                if job['status'] in {'queued', 'planning', 'running', 'rolling_back',
+                                     'decommission_queued', 'decommissioning'}:
+                    retiring = job.get('operation') == 'decommission'
+                    job.update(status='decommission_failed' if retiring
+                                      else 'rollback_failed' if job.get('operation') == 'rollback'
+                                      else 'failed',
+                               error=('Service retirement was interrupted by process restart: '
+                                      'manual review required; no provider was re-invoked'
+                                      if retiring else
+                                      'Interrupted by process restart: manual review required; never automatically reapplied'),
                                requires_manual_review=True)
                     self.store.put('jobs', job['id'], job)
                     self.jobs.emit(job['id'], 'recovery', 'error', job['error'])
@@ -422,38 +526,59 @@ class Worker:
             self.process(identity)
 
     def process(self, identity):
-        rollback = preparing = False
+        rollback = preparing = decommission = False
         claimed = False
         completion = None
         try:
             with self.store.lock:
                 job = self.jobs.get(identity)
-                if job['status'] != 'queued':
+                requested = job.get('operation')
+                decommission = requested == 'decommission'
+                # Retirement uses its own visible queue state; it still runs on
+                # this one serialized consumer, never inline in the request.
+                if decommission:
+                    if job['status'] != 'decommission_queued':
+                        return
+                elif job['status'] != 'queued':
                     return
                 claimed = True
                 self.active_identity = identity
-                rollback = job.get('operation') == 'rollback'
-                preparing = job.get('operation') == 'prepare'
+                rollback = requested == 'rollback'
+                preparing = requested == 'prepare'
                 if job.get('requires_manual_review'):
                     raise RuntimeError('Manual review required')
-                if not preparing and (not job.get('approved_by') or not job.get('git_commit')):
+                if not preparing and not decommission and (not job.get('approved_by') or not job.get('git_commit')):
                     raise RuntimeError('Approval evidence missing')
                 prefix = 'preparation' if preparing else 'approved'
                 check_execution_pins(self.app, job, prefix)
                 executor = resolve_provider(self.app, 'execution', job[prefix + '_execution_provider']['name'])
-                if not preparing:
+                runner = None
+                if decommission:
+                    # Re-check the capability at execution time: a provider that
+                    # no longer declares decommission fails closed, it is never
+                    # silently downgraded to rollback.
+                    runner = self.jobs.decommission_runner(job)
+                    if runner is None:
+                        raise RuntimeError('Decommission capability unavailable')
+                elif not preparing:
                     check_prepared_plan(self.app, executor, job, approved=True)
-                if not rollback:
+                if not rollback and not decommission:
                     self.jobs.check(job['graph'], job.get('created_by_role', 'operator'))
-                job['status'] = 'planning' if preparing else 'rolling_back' if rollback else 'running'
+                job['status'] = ('planning' if preparing else 'rolling_back' if rollback
+                                 else 'decommissioning' if decommission else 'running')
                 self.store.put('jobs', identity, job)
-            # Notifications retain their existing execute/rollback schema. A
-            # prepared plan finishes pending_approval, never deployment success.
-            operation = 'execute' if preparing else job.get('operation')
-            self.jobs.notify('job_started', {'job_id': identity, 'status': job['status'], 'operation': operation, 'environment': job['environment']})
-            self.jobs.emit(identity, 'preparation' if preparing else 'rollback' if rollback else 'execution', 'info', 'Serialized worker started')
+            # Notifications retain their existing schema; the operation names the
+            # action that actually ran so a retirement never reads as rollback.
+            notification_operation = 'execute' if preparing else requested
+            self.jobs.notify('job_started', {'job_id': identity, 'status': job['status'], 'operation': notification_operation, 'environment': job['environment']})
+            self.jobs.emit(identity, 'preparation' if preparing else 'rollback' if rollback else 'decommission' if decommission else 'execution', 'info', 'Serialized worker started')
             callback = lambda phase, level, message: self.jobs.emit(identity, phase, level, message)
-            result = invoke_approved_execution(self.app, executor, 'prepare_plan' if preparing else 'rollback' if rollback else 'execute', copy.deepcopy(job), callback)
+            if decommission:
+                if runner is None:  # Re-checked here so a stale item fails closed.
+                    raise RuntimeError('Decommission capability unavailable')
+                result = runner(copy.deepcopy(job), callback)
+            else:
+                result = invoke_approved_execution(self.app, executor, 'prepare_plan' if preparing else 'rollback' if rollback else 'execute', copy.deepcopy(job), callback)
             if preparing:
                 check_execution_pins(self.app, job, 'preparation')
                 job['prepared_plan'] = safe_prepared_plan(result)
@@ -474,7 +599,13 @@ class Worker:
                     self.store.audit('system', 'job.prepared', identity)
                 self.jobs.emit(identity, 'approval', 'info', 'Saved plan prepared; awaiting explicit administrator approval')
             else:
-                if not isinstance(result, dict) or result.get('status') not in {'succeeded', 'failed', 'rolled_back', 'rollback_failed'}:
+                if decommission:
+                    # Only the single verified terminal status is accepted; a
+                    # partial or unproven retirement is a persistent failure.
+                    if (not isinstance(result, dict) or result.get('status') != DECOMMISSION_VERIFIED
+                            or result.get('requires_manual_review') is True):
+                        raise RuntimeError('Decommission provider did not verify retirement')
+                elif not isinstance(result, dict) or result.get('status') not in {'succeeded', 'failed', 'rolled_back', 'rollback_failed'}:
                     raise RuntimeError('Execution provider returned an invalid terminal result')
                 with self.store.lock:
                     job = self.jobs.get(identity)
@@ -482,9 +613,11 @@ class Worker:
                     job['requires_manual_review'] = job.get('requires_manual_review', False) or result.get('requires_manual_review') is True
                     self.store.put('jobs', identity, job)
                     completion = {'job_id': identity, 'status': job['status'],
-                                  'operation': 'rollback' if rollback else 'execute', 'environment': job['environment']}
+                                  'operation': 'rollback' if rollback else 'decommission' if decommission else 'execute', 'environment': job['environment']}
                     self.store.audit('system', 'job.' + result['status'], identity)
-                self.jobs.emit(identity, 'complete', 'info' if result['status'] in {'succeeded', 'rolled_back'} else 'error', 'Execution finished: ' + result['status'])
+                verified = result['status'] in {'succeeded', 'rolled_back', DECOMMISSION_VERIFIED}
+                self.jobs.emit(identity, 'complete', 'info' if verified else 'error',
+                               ('Service retirement finished: ' if decommission else 'Execution finished: ') + result['status'])
         except (Exception, SystemExit, KeyboardInterrupt) as exc:
             if completion is not None:
                 # Publication is final for this operation. Audit/event failures
@@ -494,15 +627,18 @@ class Worker:
             # Never persist arbitrary upstream exception text or raw command output.
             with self.store.lock:
                 job = self.jobs.get(identity)
-                message = ('Plan preparation failed; inspect private provider evidence' if preparing else
+                message = ('Service retirement failed; inspect private provider evidence (' + type(exc).__name__ + ')' if decommission else
+                           'Plan preparation failed; inspect private provider evidence' if preparing else
                            'Execution denied by current admission policy' if isinstance(exc, HTTPException) else
                            'Execution failed; inspect private provider evidence (' + type(exc).__name__ + ')')
-                job.update(status='rollback_failed' if rollback else 'failed', error=message, finished_at=now())
-                if preparing or isinstance(exc, (ExecutionTrustError, SystemExit, KeyboardInterrupt)):
+                job.update(status=('decommission_failed' if decommission else
+                                   'rollback_failed' if rollback else 'failed'),
+                           error=message, finished_at=now())
+                if decommission or preparing or isinstance(exc, (ExecutionTrustError, SystemExit, KeyboardInterrupt)):
                     job['requires_manual_review'] = True
                 self.store.put('jobs', identity, job)
                 completion = {'job_id': identity, 'status': job['status'],
-                              'operation': 'rollback' if rollback else 'execute', 'environment': job['environment']}
+                              'operation': 'rollback' if rollback else 'decommission' if decommission else 'execute', 'environment': job['environment']}
                 self.store.audit('system', 'job.failed', identity, {'error_type': type(exc).__name__})
             self.jobs.emit(identity, 'complete', 'error', message)
         finally:

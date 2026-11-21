@@ -28,6 +28,9 @@ def queued_api(tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, name, module)
     spec.loader.exec_module(module)
+    ssh_config = tmp_path / 'ssh_config'
+    ssh_config.write_text('Host infra-app infra-branch-client\n  StrictHostKeyChecking yes\n')
+    setattr(module, 'SSH_CONFIG', ssh_config)
     executor = module.Executor(tmp_path / 'state', plugins)
     runner = SimulatedAnsible()
     executor.runner = runner

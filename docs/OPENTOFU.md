@@ -28,7 +28,7 @@ or registering the extension does not make the catalogue entry executable.
 Authorized transport is exclusively:
 
 ```sh
-ssh -F /home/ubu/Desktop/infra-platform-lab/ssh_config infra-hypervisor \
+ssh -F "$KUBERWEAVER_SSH_CONFIG" infra-hypervisor \
   'virsh -c qemu:///system version'
 ```
 
@@ -147,6 +147,16 @@ nonblocking `flock` serializes this executor state root; OpenTofu state locks ar
 also enabled. Use exactly one administrator-owned state root per lab; this is
 **not a distributed lock against unrelated OpenTofu clients or hypervisor admins**.
 The application must prevent simultaneous external mutations during apply.
+
+Inside the portal, the kernel hands the executor its durable state store
+(`provider.environments`). The executor then takes an exclusive claim on the
+graph's environment and stack before an apply, refuses a stack that already has a
+committed generation from another job, and commits the applied document and the
+two resource addresses as a new generation. A failure after the attempt marker
+keeps the claim, so the stack stays blocked for review; removal requires the
+record to name the same job and commits the emptied state instead of deleting
+the record. A standalone executor keeps the per-job folder as its only record.
+See `docs/ENVIRONMENT_STATE.md`.
 
 The approved digest binds graph, generated names, saved binary plan, config,
 lockfile, OpenTofu binary, provider distribution files, executor source, reviewed

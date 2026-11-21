@@ -1,0 +1,39 @@
+flowchart LR
+  subgraph CL["CLIENTS<br/>même API"]
+    direction TB
+    CLI["CLI kw<br/>référence"]
+    GUI["GUI React<br/>présentation"]
+    AG["Agent / MCP<br/>jeton scopé"]
+  end
+
+  KN["NOYAU API · microkernel<br/>1 serveur FastAPI · 92 routes<br/>1. Auth & rôles (CSRF · jeton)<br/>2. Plan exact + coût estimé<br/>3. Approbation humaine<br/>4. Worker sérialisé (non-rejeu · audit)"]
+  REG["REGISTRE<br/>contrats versionnés<br/>provenance · pins<br/>readiness"]
+  PROV["PROVIDERS<br/>briques remplaçables<br/>execution · inventory<br/>secrets · cost<br/>diagnostics · notification"]
+  TGT["CIBLES EXISTANTES<br/>ESXi · QEMU/KVM · OCI<br/>Réseau · Cloud"]
+  LIFE["CYCLE DE VIE<br/>preuve à chaque étape<br/>Vérification<br/>Service + coût suivi<br/>Retrait vérifié"]
+  STORES["TRANSVERSE<br/>PostgreSQL (état)<br/>Vault (secrets)<br/>Git (sources)<br/>Grafana / Prom"]
+
+  CLI & GUI & AG --> KN
+  KN --> REG --> PROV --> TGT
+  PROV --> LIFE
+  LIFE -. "rollback / recovery" .-> KN
+  KN -. "état" .-> STORES
+  PROV -. "secrets · coût" .-> STORES
+  KN -. "pins" .-> STORES
+
+  classDef client fill:#e3ecfd,stroke:#2f6fed,color:#1a2233;
+  classDef kernel fill:#d8efe9,stroke:#0f9d8a,color:#1a2233;
+  classDef prov fill:#fbf3e6,stroke:#d9a441,color:#1a2233;
+  classDef target fill:#eef1f6,stroke:#8a93a3,color:#1a2233;
+  classDef store fill:#efe9fb,stroke:#a78bfa,color:#1a2233;
+  classDef gate fill:#d8efe9,stroke:#0f9d8a,color:#1a2233;
+  class CLI,GUI,AG client;
+  class KN kernel;
+  class REG,PROV prov;
+  class TGT target;
+  class STORES store;
+  class LIFE gate;
+
+  click CLI href "https://github.com/EMRD95/kuberweaver/blob/main/docs/EXTENSIONS.md" "CLI et extensions"
+  click PROV href "https://github.com/EMRD95/kuberweaver/blob/main/docs/EXTENSIONS.md" "Contrats de providers"
+  click KN href "https://github.com/EMRD95/kuberweaver/blob/main/docs/ARCHITECTURE_CIBLE.md" "Architecture cible"

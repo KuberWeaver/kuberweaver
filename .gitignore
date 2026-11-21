@@ -13,6 +13,14 @@ __pycache__/
 tools/
 *.tsbuildinfo
 
+# Brick roles are installed from their pinned requirements, never committed
+plugins/*/roles/
+# Brick collections are installed from their pinned requirements, never committed
+plugins/*/collections/
+
+# Private notes and prompts, never published
+docs/prompt/
+
 # Local credentials and infrastructure state, never publish
 *.pem
 *.key
@@ -33,3 +41,19 @@ htmlcov/
 # Generated document review images, final PDFs remain publishable
 docs/note-cadrage/apercu-page-*.png
 docs/note-cadrage/cahier-apercu-*.png
+
+*.egg-info/
+build/
+dist/
+
+# kw autopilot runtime state
+ops/autopilot-kw/.lock
+ops/autopilot-kw/runner.log
+ops/autopilot-kw/STOP
+
+# enterprise autopilot runtime state
+ops/autopilot-enterprise/.lock
+ops/autopilot-enterprise/runner.log
+ops/autopilot-enterprise/watchdog.log
+ops/autopilot-enterprise/STOP
+ops/autopilot-enterprise/reports/

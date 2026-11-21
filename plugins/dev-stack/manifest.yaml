@@ -1,7 +1,7 @@
 id: dev-stack
-name: Development Stack
+name: Frontend/backend stack
 version: 1.0.0
-description: Planned blueprint; deployment is disabled.
+description: Planned frontend/backend service stack; deployment is disabled until an adapter and targets are validated.
 category: development
 icon: code
 price_monthly: 15

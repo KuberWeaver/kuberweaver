@@ -1,0 +1,49 @@
+---
+- name: Snapshot the zabbix-server brick target
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the package state
+      ansible.builtin.command:
+        argv: ['dpkg-query', '-W', '-f=${Status}', 'zabbix-server-pgsql']
+      register: kw_package
+      changed_when: false
+      failed_when: false
+
+    - name: Read the unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'zabbix-server']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect the configuration and the database handoff
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/zabbix/zabbix_server.conf
+        - "{{ kw_config.database_handoff }}"
+      register: kw_paths
+
+    - name: Read the current configuration
+      ansible.builtin.slurp:
+        src: /etc/zabbix/zabbix_server.conf
+      register: kw_config_body
+      failed_when: false
+      no_log: true
+
+    - name: Persist the snapshot
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'zabbix-server',
+            'package_installed': 'install ok installed' in (kw_package.stdout | default('')),
+            'unit_active': (kw_unit.stdout | default('') | trim) == 'active',
+            'config_existed': kw_paths.results[0].stat.exists,
+            'handoff_existed': kw_paths.results[1].stat.exists,
+            'config_content': (kw_config_body.content | default('') | b64decode)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

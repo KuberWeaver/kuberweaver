@@ -10,6 +10,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'backend'))
 
 
+def wait_idle(app, timeout=15.0):
+    """Wait until the worker releases the queue before changing an extension."""
+    import time as _time
+
+    from kuberweaver.runtime import queue_busy
+
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        if not queue_busy(app):
+            return True
+        _time.sleep(0.02)
+    return False
+
+
 @pytest.fixture(autouse=True)
 def reviewed_redis_candidate(tmp_path, monkeypatch):
     """Only isolated test copies are promoted; shipped blueprint stays planned."""
@@ -446,6 +460,7 @@ def test_trusted_extension_through_authenticated_approved_worker(tmp_path, revie
         assert client.post(f'/api/jobs/{identity}/rollback').status_code == 200
         assert wait_job(client, identity)['status'] == 'rolled_back'
         assert not boundary.services
+        assert wait_idle(app)
         assert client.post('/api/extensions/redis-runtime/disable').status_code == 200
         assert client.get('/api/providers').json()['active']['execution']['available'] is False
         assert client.get('/api/jobs').status_code == 200

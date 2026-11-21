@@ -1,0 +1,52 @@
+---
+- name: Roll back the zabbix-web brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Restore the previous files
+      ansible.builtin.copy:
+        dest: "{{ item.key }}"
+        content: "{{ item.value }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ kw_snapshot.files | default({}) | dict2items }}"
+      no_log: true
+
+    - name: Remove a vhost that did not exist before
+      ansible.builtin.file:
+        path: /etc/apache2/sites-available/zabbix.conf
+        state: absent
+      when: not (kw_snapshot.vhost_existed | bool)
+
+    - name: Remove a frontend configuration that did not exist before
+      ansible.builtin.file:
+        path: /etc/zabbix/web/zabbix.conf.php
+        state: absent
+      when: not (kw_snapshot.config_existed | bool)
+
+    - name: Stop Apache when it was not running before this brick
+      ansible.builtin.service:
+        name: apache2
+        state: stopped
+      when: not (kw_snapshot.unit_active | bool)
+
+    - name: Remove the frontend package when the brick installed it
+      ansible.builtin.apt:
+        name: zabbix-frontend-php
+        state: absent
+        purge: true
+      when: not (kw_snapshot.package_installed | bool)
+
+    - name: Persist the rollback report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'zabbix-web',
+            'files_restored': (kw_snapshot.files | default({})) | length,
+            'package_removed': not (kw_snapshot.package_installed | bool)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

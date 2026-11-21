@@ -1,0 +1,7 @@
+{
+  "geerlingguy.postgresql": {
+    "version": "4.3.0",
+    "sha256": "4749e4d34a69afe1e3ca246a33eb3813dc7beef212546d17e08a62e3a49a9668",
+    "license": "MIT"
+  }
+}

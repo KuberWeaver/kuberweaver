@@ -1,17 +1,15 @@
 """Small durable store; all writers share one re-entrant lock."""
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import os
 from pathlib import Path
 import secrets
 import sqlite3
 import threading
-import time
 from datetime import datetime, timezone
 
+from .passwords import check_password, hash_password
 from .postgres import Connection, StorageError, acquire_controller_lock, configured_dsn, initialize
 
 
@@ -19,20 +17,9 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def hash_password(password: str, salt: str | None = None):
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 600_000)
-    return f'pbkdf2_sha256$600000${salt}${digest.hex()}'
-
-
-def check_password(password, encoded):
-    try:
-        _, rounds, salt, digest = encoded.split('$')
-        actual = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), int(rounds)).hex()
-        return hmac.compare_digest(digest, actual)
-    except (ValueError, TypeError):
-        return False
-
+# The closed set of row collections this store exposes. Anything else is an
+# unsupported statement, never an implicit table.
+TABLES = frozenset({'jobs', 'blueprints', 'settings', 'studio_artifacts', 'studio_offerings'})
 
 class Store:
     def __init__(self, path: Path, *, exclusive=False):
@@ -139,27 +126,16 @@ class Store:
                      (now(), actor, action, str(resource), json.dumps(detail or {}, ensure_ascii=False)))
 
     def put(self, table, key, value):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         column = 'key' if table == 'settings' else 'id'
         self.execute(f'INSERT OR REPLACE INTO {table}({column},body) VALUES(?,?)', (key, json.dumps(value, ensure_ascii=False)))
 
     def get(self, table, key):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         column = 'key' if table == 'settings' else 'id'
         row = self.one(f'SELECT body FROM {table} WHERE {column}=?', (key,))
         return json.loads(row['body']) if row else None
 
     def list(self, table):
-        assert table in {'jobs', 'blueprints', 'settings'}
+        assert table in TABLES
         return [json.loads(row['body']) for row in self.all(f'SELECT body FROM {table} ORDER BY rowid DESC')]
-
-    def create_session(self, user):
-        token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-        self.execute('INSERT INTO sessions VALUES(?,?,?,?)', (hashlib.sha256(token.encode()).hexdigest(), user['id'], csrf, time.time() + 8 * 3600))
-        return token, csrf
-
-    def session(self, token):
-        if not token:
-            return None
-        return self.one('SELECT users.id,username,role,csrf FROM sessions JOIN users ON user_id=users.id WHERE token_hash=? AND expires>?',
-                        (hashlib.sha256(token.encode()).hexdigest(), time.time()))

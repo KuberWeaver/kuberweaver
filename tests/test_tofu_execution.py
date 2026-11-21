@@ -2,7 +2,15 @@
 import hashlib
 import importlib
 import json
+import sys
+from pathlib import Path
+
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
+
+from kuberweaver.environment_state import EnvironmentStates
+from kuberweaver.storage import Store
 
 
 @pytest.fixture(autouse=True)
@@ -157,10 +165,10 @@ def executor(tmp_path):
     return module.TofuExecutor(tmp_path / 'state', binary=binary, runner=boundary), boundary
 
 
-def job():
+def job(identity='job-1'):
     g = graph()
     module = importlib.import_module('backend.kuberweaver.tofu_execution')
-    return {'id': 'job-1', 'graph': g, 'approved_by': 'admin', 'approved_at': 'reviewed',
+    return {'id': identity, 'graph': g, 'approved_by': 'admin', 'approved_at': 'reviewed',
             'approved_graph_hash': module.digest(g),
             'approved_execution_provider': {'name': 'opentofu'}}
 
@@ -413,3 +421,62 @@ def test_executable_distribution_pins_preserved(tmp_path, artifact):
     assert ex.execute(j, lambda *a: None)['status'] == 'failed'
     assert not any('apply' in a for a in boundary.calls)
 
+
+
+def linked_executor(tmp_path):
+    ex, boundary = executor(tmp_path)
+    ex.environments = EnvironmentStates(Store(tmp_path / 'kernel'))
+    return ex, boundary
+
+
+def test_an_applied_create_commits_one_environment_generation(tmp_path):
+    ex, boundary = linked_executor(tmp_path)
+    j = job('a' * 32)
+    j['approved_tofu_plan'] = ex.prepare_plan(j)['plan_digest']
+    assert ex.execute(j, lambda *a: None)['status'] == 'succeeded'
+    view = ex.environments.get('dev', 'vm-test')
+    assert view['generation'] == 1
+    assert view['job_id'] == j['id']
+    assert view['lease'] is None
+    assert [row['address'] for row in view['resources']] == ['libvirt_domain.vm', 'libvirt_volume.disk']
+    stored = ex.environments.document('dev', 'vm-test')
+    assert [row['address'] for row in stored['values']['root_module']['resources']] == [
+        'libvirt_domain.vm', 'libvirt_volume.disk']
+
+
+def test_an_apply_is_refused_while_another_job_holds_the_claim(tmp_path):
+    ex, boundary = linked_executor(tmp_path)
+    claimed = ex.environments.acquire('dev', 'vm-test', 'b' * 32)
+    j = job('a' * 32)
+    j['approved_tofu_plan'] = ex.prepare_plan(j)['plan_digest']
+    assert ex.execute(j, lambda *a: None)['status'] == 'failed'
+    assert not any('apply' in call for call in boundary.calls)
+    assert ex.environments.get('dev', 'vm-test')['lease']['job_id'] == 'b' * 32
+    assert ex.environments.release(claimed) is True
+
+
+def test_an_apply_is_refused_when_another_job_already_committed_state(tmp_path):
+    ex, boundary = linked_executor(tmp_path)
+    other = ex.environments.acquire('dev', 'vm-test', 'b' * 32)
+    ex.environments.commit(other, {'values': {}}, [{'address': 'libvirt_domain.vm'}])
+    j = job('a' * 32)
+    j['approved_tofu_plan'] = ex.prepare_plan(j)['plan_digest']
+    assert ex.execute(j, lambda *a: None)['status'] == 'failed'
+    assert not any('apply' in call for call in boundary.calls)
+    view = ex.environments.get('dev', 'vm-test')
+    assert view['generation'] == 1 and view['job_id'] == 'b' * 32
+    assert view['lease'] is None
+
+
+def test_a_removal_commits_an_empty_generation_for_the_owning_job(tmp_path):
+    ex, boundary = linked_executor(tmp_path)
+    j = job('a' * 32)
+    j['approved_tofu_plan'] = ex.prepare_plan(j)['plan_digest']
+    assert ex.execute(j, lambda *a: None)['status'] == 'succeeded'
+    j['approved_tofu_removal'] = ex.prepare_removal(j)['plan_digest']
+    assert ex.rollback(j, lambda *a: None)['status'] == 'rolled_back'
+    view = ex.environments.get('dev', 'vm-test')
+    assert view['generation'] == 2
+    assert view['resources'] == [] and view['resource_count'] == 0
+    assert view['job_id'] == j['id'] and view['lease'] is None
+    assert ex.environments.document('dev', 'vm-test')['values']['root_module']['resources'] == []

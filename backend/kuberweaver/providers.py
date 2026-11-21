@@ -15,7 +15,10 @@ from .storage import now
 CONSUMER_METHODS = {'inventory': ('read',), 'diagnostics': ('read',),
                     'execution': ('execute', 'rollback'), 'notifications': ('send',),
                     'secrets': ('resolve',)}
-DEFAULT_BINDINGS = {'inventory': 'gns3', 'diagnostics': 'rules', 'execution': 'default',
+OPTIONAL_KINDS = frozenset({'inventory'})
+
+# Inventory is opt-in: a topology source is a lab convenience, not a requirement.
+DEFAULT_BINDINGS = {'inventory': '', 'diagnostics': 'rules', 'execution': 'default',
                     'notifications': 'local-outbox', 'secrets': 'restricted-file'}
 
 
@@ -29,6 +32,12 @@ def resolve_provider(app, kind, name=None):
             provider.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
         if hasattr(provider, 'connections'):
             provider.connections = getattr(app.state, 'connections', None)
+        if hasattr(provider, 'ssh_keys'):
+            provider.ssh_keys = getattr(app.state, 'ssh_keys', None)
+        if hasattr(provider, 'environments'):
+            # Durable stack state belongs to the kernel, not to a provider's
+            # per-job folder, so a resolved executor is handed the one store.
+            provider.environments = getattr(app.state, 'environment_states', None)
     return provider
 
 
@@ -121,14 +130,19 @@ def graph_execution_name(app, graph):
 
 def execution_binding(app, name=None):
     name = name if name is not None else app.state.provider_bindings['execution']
-    resolve_provider(app, 'execution', name)
+    provider = resolve_provider(app, 'execution', name)
     try:
         provenance = provider_provenance(app, 'execution', name)
+        fingerprint = getattr(provider, 'binding_fingerprint', None)
+        configuration = fingerprint() if callable(fingerprint) else None
     except (OSError, TypeError, ValueError):
-        raise HTTPException(503, 'Execution provider source provenance unavailable')
+        raise HTTPException(503, 'Execution provider source or administrator configuration unavailable') from None
     if app.state.provider_loaded_sources.get(('execution', name)) != provenance:
         raise HTTPException(503, 'Execution provider source changed since registration; reload and approve again')
-    return {'name': name, 'provenance': provenance}
+    binding = {'name': name, 'provenance': provenance}
+    if configuration is not None:
+        binding['configuration'] = configuration
+    return binding
 
 
 def provider_listing(app):
@@ -379,6 +393,17 @@ def register_builtins(registry, app):
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
     registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
+    from .local_execution import LocalExecutor
+    registry.register('execution', LocalExecutor.executor_id,
+                      LocalExecutor(app.state.state_dir, plugins_dir=app.state.catalog.directory),
+                      {'status': 'configured', 'description': 'Administrator-pinned rootless OCI and QEMU TCG on the controller.'})
+    from .adoption import connection_inspector
+    from .workload_execution import WorkloadProvider
+    registry.register('execution', WorkloadProvider.executor_id,
+                      WorkloadProvider(app.state.state_dir, app.state.catalog.directory,
+                                       store=app.state.store, inspector=connection_inspector(app)),
+                      {'status': 'configured',
+                       'description': 'Pinned Ansible workload bricks on one recorded guest; one saved plan per job.'})
     from .notifications import register_notifications
     register_notifications(registry, app)
     config = app.state.state_dir / 'config' / 'secrets.json'
@@ -411,6 +436,6 @@ def register_builtins(registry, app):
 
 def integrations(app):
     listing = provider_listing(app)
-    rows = [{'id': item['name'], **item} for item in listing['active'].values()]
+    rows = [{'id': item['name'], **item} for item in listing['active'].values() if item.get('name')]
     rows.append({'id': 'local-gitops', 'name': 'Local GitOps', 'kind': 'gitops', 'status': 'configured', 'read_only': False})
     return rows + OPTIONAL

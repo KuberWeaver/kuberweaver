@@ -1,50 +1,50 @@
-# PostgreSQL, instance locale basculée
+# PostgreSQL storage and recovery
 
-Les données de l’instance ont été importées dans la base cible `kuberweaver` puis relues indépendamment : chaque ligne, son ordre historique et ses empreintes correspondent à SQLite. La configuration privée est publiée et le portail est actif sur `http://127.0.0.1:8088` avec PostgreSQL. La sélection effective du service et son verrou contrôleur PostgreSQL ont été vérifiés, ainsi que les réponses HTTP 200 du portail et 401 des routes privées sans authentification. SQLite et ses sauvegardes sont conservés intacts. Les secrets ne doivent apparaître ni dans les API, ni dans les commandes affichées ou les rapports.
+The documented local installation was migrated to the `kuberweaver` database. Independent readback matched the SQLite rows, historical order and fingerprints. Historical checks covered the selected backend, PostgreSQL controller lock, portal HTTP 200 and unauthenticated private-route HTTP 401. These are migration records, not a fresh health check. SQLite and its backups were retained intact. Never include secrets in API responses, displayed commands or reports.
 
-Preuve privée d’import : `data/evidence/postgresql-cutover.json`. Une archive native PostgreSQL a également été produite dans `data/backups/postgresql-after-import.dump`, mode 0600 ; son catalogue de neuf tables de données est lisible par `pg_restore --list`. Cette inspection n’est pas un test complet de restauration.
+Private import evidence: `data/evidence/postgresql-cutover.json`. The native archive `data/backups/postgresql-after-import.dump` was created with mode 0600; `pg_restore --list` could read its nine-table data catalogue. **Catalogue inspection is not a complete restore test.**
 
-## Infrastructure réellement démarrée
+## Documented local infrastructure
 
-- PostgreSQL **18.7**, image officielle épinglée : `postgres@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc`.
-- Conteneur propre au projet : `kw-postgresql-v2`.
-- Volume persistant dédié : `kw-postgresql-v2-data`.
-- Publication locale seulement : `127.0.0.1:15433`.
-- Bases séparées : `kuberweaver` pour la migration, `kuberweaver_test` pour les tests isolés par schéma.
-- Rôle applicatif propriétaire de ces bases, sans superutilisateur, création de bases, création de rôles ou réplication.
-- Client installé dans `.venv` : `psycopg[binary]==3.3.9`.
+- PostgreSQL **18.7**, pinned official image: `postgres@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc`.
+- Project-owned container: `kw-postgresql-v2`.
+- Dedicated persistent volume: `kw-postgresql-v2-data`.
+- Loopback publication only: `127.0.0.1:15433`.
+- Separate databases: `kuberweaver` for migrated state and `kuberweaver_test` for schema-isolated tests.
+- Application role owns these databases without superuser, database-creation, role-creation or replication privileges.
+- Client dependency in `.venv`: `psycopg[binary]==3.3.9`.
 
-Les connexions sur le loopback sont une configuration de laboratoire sans TLS de bout en bout. Ce montage mono-hôte n’est pas une installation HA ni une autorisation de lancer plusieurs Workers.
+Loopback connections are a lab configuration without end-to-end TLS. This single-host setup is not HA and does not authorize multiple workers.
 
-## Fichiers privés
+## Private configuration
 
-Les URL de connexion sont préparées dans `data/postgresql/target-url` et `data/postgresql/test-url`, mode 0600 sous répertoire 0700. Leur contenu ne doit pas être affiché. Le bootstrap administratif est également privé ; il n’est pas un compte utilisé par l’API.
+Connection URLs are stored in `data/postgresql/target-url` and `data/postgresql/test-url`, mode 0600 under a 0700 directory. Do not display their contents. Administrative bootstrap is private and is not the API account.
 
-La configuration active est `data/config/database-url`, mode 0600, explicitement sélectionnée par `KUBERWEAVER_DATABASE_URL_FILE` dans le service local. Elle a été publiée après migration et vérification complète. Une configuration PostgreSQL invalide ou un serveur indisponible ne doit jamais provoquer de repli silencieux vers SQLite.
+The active URL file is `data/config/database-url`, mode 0600, explicitly selected by `KUBERWEAVER_DATABASE_URL_FILE` in the local service. It was installed after migration and verification. An invalid PostgreSQL configuration or unavailable server must never silently fall back to SQLite.
 
-## Conservation des données
+## Data preservation and backups
 
-Sauvegarde cohérente obtenue par l’API SQLite backup, vérifiée par `integrity_check` :
+A consistent SQLite backup, obtained with its backup API and checked with `integrity_check`, is recorded in:
 
 `data/backups/pre-postgresql-20261115T214121Z/manifest.json`
 
-Ce manifeste conserve les comptes et empreintes de chaque table. La source contient notamment trois comptes, quinze demandes, vingt-neuf sessions et cent événements d’audit. Les hashes de mots de passe, identifiants, sessions, paramètres et journaux doivent être conservés ; aucun réensemencement de comptes ne doit remplacer les données migrées.
+The manifest preserves table counts and fingerprints. The source contained three accounts, fifteen requests, twenty-nine sessions and one hundred audit events. Preserve password hashes, IDs, sessions, settings and journals; reseeding accounts is not migration.
 
-Le backend a changé sans refonte des objets métier. Les documents JSON existants restent sous leur contrat actuel ; la migration n’introduit ni nouvel orchestrateur, ni schéma universel de CMDB. Les notifications utilisent également PostgreSQL quand celui-ci est sélectionné, sans nouveau fichier SQLite.
+The backend changed without redesigning business objects. Existing JSON documents keep their contracts; migration does not introduce another orchestrator or universal CMDB schema. Notifications also use PostgreSQL when selected, without a new SQLite file. The detailed historical plan is `plans/postgresql-cutover.md`.
 
-Le plan détaillé est dans `plans/postgresql-cutover.md`.
+Back up PostgreSQL as well as private files, snapshots and vault material. Backing up `data/` alone does not capture the database volume. Test restoration before durable operation.
 
-## Retour arrière explicite, jamais automatique
+## Explicit rollback, never automatic
 
-La sauvegarde SQLite a été réellement réimportée et vérifiée sur une base PostgreSQL jetable, puis exercée par HTTP. L’ancienne base reste intacte ; elle représente l’état au moment de la migration, pas les futures écritures PostgreSQL.
+The retained SQLite backup was imported and verified in a disposable PostgreSQL database and exercised over HTTP. The original SQLite database represents the migration instant, not subsequent PostgreSQL writes.
 
-1. Arrêter le portail avec `systemctl --user stop kuberweaver.service` et conserver une sauvegarde PostgreSQL courante avant toute décision.
-2. Comparer l’état PostgreSQL à la preuve de migration. Si des écritures ont eu lieu depuis, ne pas reprendre aveuglément SQLite : cela abandonnerait ces données. La migration inverse PostgreSQL vers SQLite n’est pas implémentée ; une exportation et réconciliation contrôlées sont alors nécessaires.
-3. Un retour à l’instantané pré-migration exige de choisir explicitement cet ancien état, de déplacer la configuration `data/config/database-url` vers un emplacement privé conservé et de retirer explicitement les variables de sélection PostgreSQL du service. Son environnement impose volontairement `KUBERWEAVER_DATABASE_URL_FILE` : effacer uniquement le fichier fait échouer le démarrage, sans activer SQLite.
-4. Vérifier les comptes et demandes de l’état choisi avant de rouvrir le portail. Ne pas supprimer le volume PostgreSQL ni les sauvegardes pour effectuer ce retour.
+1. Stop the portal with `systemctl --user stop kuberweaver.service` and keep a current PostgreSQL backup before deciding.
+2. Compare PostgreSQL state with migration evidence. If writes occurred afterward, do not blindly resume SQLite: those writes would be lost. Reverse PostgreSQL-to-SQLite migration is not implemented; controlled export and reconciliation are required.
+3. Reverting to the pre-migration snapshot requires explicitly choosing that old state, moving `data/config/database-url` to a retained private location and explicitly removing PostgreSQL selection variables from the service. Its environment deliberately requires `KUBERWEAVER_DATABASE_URL_FILE`: deleting the file alone makes startup fail rather than enabling SQLite.
+4. Verify accounts and requests in the selected state before reopening the portal. Do not delete the PostgreSQL volume or backups to perform rollback.
 
-## Démarrage local et secrets
+## Startup and vault boundary
 
-L’unité `ops/kuberweaver.service`, également utilisée par le service utilisateur local, sélectionne explicitement le fichier privé PostgreSQL. Elle ne démarre plus implicitement le tunnel vers le coffre distant. Cette modification ne change ni les liaisons de fournisseurs ni la configuration de cet ancien coffre.
+`ops/kuberweaver.service`, also used by the documented local user service, explicitly selects the private PostgreSQL URL file. It does not implicitly start the old remote vault tunnel. This does not change provider bindings or the historical vault configuration.
 
-Le nouveau coffre simple est l’extension Fernet `local-vault`, installée et activée, documentée dans `../examples/extensions/local-vault/README.md`. Le pilote ESXi en lecture seule est également disponible, mais aucune découverte authentifiée ou création de VM n’a été exécutée. Il conserve les références de secrets, les contrôles humains/agents et le connecteur OpenBao existant, sans nouveau service réseau. Sa clé locale ne protège pas contre un accès au compte système ou à root.
+The optional Fernet `local-vault` extension is documented in `../examples/extensions/local-vault/README.md`. Its key does not protect against access to the OS account or root. ESXi discovery and provisioning are separate capabilities; storage migration is not evidence of an authenticated discovery or VM creation.

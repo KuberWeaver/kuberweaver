@@ -16,8 +16,13 @@ import re
 import subprocess
 from xml.etree import ElementTree as ET
 
+try:
+    from .configuration import require_ssh_config, ssh_config
+except ImportError:  # Standalone loading used by provisioning tests.
+    from backend.kuberweaver.configuration import require_ssh_config, ssh_config
+
 ROOT = Path(__file__).resolve().parents[2]
-SSH_CONFIG = Path('/home/ubu/Desktop/infra-platform-lab/ssh_config')
+SSH_CONFIG = ssh_config()
 ALIAS = 'infra-hypervisor'
 PROVIDER_VERSION = '0.9.9'
 ADDRESSES = {'libvirt_domain.vm', 'libvirt_volume.disk'}
@@ -34,11 +39,14 @@ def identifier(value):
 
 
 class TofuExecutor:
-    def __init__(self, state_dir, *, binary=None, runner=None, template_dir=None):
+    def __init__(self, state_dir, *, binary=None, runner=None, template_dir=None, environments=None):
         self.state_dir = Path(state_dir).absolute()
         self.binary = Path(binary or ROOT / 'tools/tofu').absolute()
         self.runner = runner or subprocess.run
         self.template_dir = Path(template_dir or ROOT / 'plugins/libvirt-vm')
+        # Set by the kernel when the extension runs inside the portal; a
+        # standalone executor keeps its per-job folder as its only record.
+        self.environments = environments
 
     def read(self):
         """Cheap registry/status metadata; never claims applied capability."""
@@ -171,11 +179,12 @@ class TofuExecutor:
 
     def _host_trust(self):
         # ssh -G must itself be non-executing: Include/Match exec cannot be audited here.
-        for line in SSH_CONFIG.read_text().splitlines():
+        config = require_ssh_config(SSH_CONFIG)
+        for line in config.read_text().splitlines():
             key = re.split(r'[\s=]+', line.strip(), maxsplit=1)[0].lower() if line.strip() else ''
             if key in {'include', 'match'}:
                 raise ValueError('Dynamic SSH configuration is unsupported')
-        result = self.runner(['ssh', '-G', '-F', str(SSH_CONFIG), '-o', 'BatchMode=yes', ALIAS],
+        result = self.runner(['ssh', '-G', '-F', str(config), '-o', 'BatchMode=yes', ALIAS],
                              capture_output=True, text=True, timeout=15)
         if result.returncode:
             raise ValueError('Cannot inspect effective SSH host trust')
@@ -293,15 +302,48 @@ class TofuExecutor:
     def _state(self, folder):
         return json.loads(self._command(folder, 'show', '-json').stdout)
 
+    def _claim(self, job):
+        """Take the kernel's exclusive claim on this graph's environment and stack."""
+        if self.environments is None:
+            return None
+        graph = job.get('graph', {})
+        return self.environments.acquire(graph.get('environment'), graph.get('name'), job['id'])
+
+    def _state_point(self, job):
+        if self.environments is None:
+            return None
+        graph = job.get('graph', {})
+        return self.environments.get(graph.get('environment'), graph.get('name'))
+
+    def _release(self, lease):
+        try:
+            self.environments.release(lease)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _resource_rows(resources):
+        return [{'address': row['address'], 'type': row.get('type'), 'name': row.get('name'),
+                 'mode': row.get('mode', 'managed')} for row in resources]
+
     def execute(self, job, emit):
+        lease = None
+        mutating = False
         try:
             with self._lock():
                 folder = self._folder(job['id'])
                 record = self._approved(job, folder)
                 if (folder / 'terraform.tfstate').exists() or (folder / 'attempt.json').exists():
                     raise ValueError('Existing state or previous apply attempt needs manual review; updates unsupported')
+                lease = self._claim(job)
+                point = self._state_point(job)
+                if point is not None and point['generation'] and point['job_id'] != job['id']:
+                    raise ValueError('Stack already has applied state from another job; updates unsupported')
                 self._absent(record)
                 self._write(folder / 'attempt.json', {'job_id': job['id'], 'operation': 'create'})
+                # An apply may have mutated the host from here on, so a failure
+                # keeps the claim and the stack stays blocked for review.
+                mutating = True
                 # Apply ONLY the exact approved binary plan. No implicit new plan.
                 self._command(folder, 'apply', '-input=false', '-no-color', '-lock=true', '-lock-timeout=5s', 'create.plan')
                 state = self._state(folder)
@@ -310,10 +352,17 @@ class TofuExecutor:
                     raise ValueError('Created resource readback does not match ownership scope')
                 remote = self._remote(record, state)
                 self._write(folder / 'owned.json', {'job_id': job['id'], 'state_hash': digest(state), 'remote': remote})
+                if lease is not None:
+                    # The per-job folder stays OpenTofu's working copy; this
+                    # commit is what the portal treats as the source of truth.
+                    self.environments.commit(lease, state, self._resource_rows(resources))
+                    lease = None
                 emit('opentofu', 'info', 'Owned stopped VM definition and blank disk created; OS boot is not provided')
                 return {'status': 'succeeded', 'operation': 'create-stopped-vm', 'name': record['name']}
         except Exception:
             # Never expose provider stdout, stderr, exception text or plan/state.
+            if lease is not None and not mutating:
+                self._release(lease)
             return {'status': 'failed', 'requires_manual_review': True,
                     'error': 'OpenTofu create blocked or failed; no automatic destroy; inspect private state'}
 
@@ -395,6 +444,8 @@ class TofuExecutor:
 
     def rollback(self, job, emit):
         """Narrow approved removal, NOT restoration or recovery of failed applies."""
+        lease = None
+        mutating = False
         try:
             with self._lock():
                 folder = self._folder(job['id'])
@@ -410,15 +461,29 @@ class TofuExecutor:
                     raise ValueError('Saved removal plan changed')
                 if hashlib.sha256((folder / 'owned.json').read_bytes()).hexdigest() != removal['ownership_hash']:
                     raise ValueError('Ownership evidence changed')
+                lease = self._claim(job)
+                point = self._state_point(job)
+                if lease is not None and (point is None or not point['generation']
+                                          or point['job_id'] != job['id']):
+                    raise ValueError('Removal requires the applied state recorded by this exact job')
                 record = self._owned_unchanged(job, folder)
                 self._write(folder / 'remove-attempt.json', {'job_id': job['id'], 'operation': 'remove-owned-stopped-vm'})
+                mutating = True
                 self._command(folder, 'apply', '-input=false', '-no-color', '-lock=true', '-lock-timeout=5s', 'destroy.plan')
-                remaining = self._state(folder).get('values', {}).get('root_module', {}).get('resources', [])
+                state = self._state(folder)
+                remaining = state.get('values', {}).get('root_module', {}).get('resources', [])
                 if remaining:
                     raise ValueError('Removal readback still contains resources')
                 self._absent(record)
+                if lease is not None:
+                    # Removal is an applied generation too: the stack keeps a
+                    # record with no resources rather than losing its history.
+                    self.environments.commit(lease, state, [])
+                    lease = None
                 emit('opentofu', 'info', 'Removed only this job-owned stopped VM and disk; not universal restoration')
                 return {'status': 'rolled_back', 'operation': 'remove-owned-stopped-vm'}
         except Exception:
+            if lease is not None and not mutating:
+                self._release(lease)
             return {'status': 'rollback_failed', 'requires_manual_review': True,
                     'error': 'Owned-resource removal blocked or failed; no blind destroy or automatic retry'}

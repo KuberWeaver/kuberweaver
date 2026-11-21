@@ -122,16 +122,16 @@ def test_real_connection_http_mcp_and_browser(tmp_path):
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 page.goto(base_url)
-                page.get_by_role('button', name='Connexions', exact=True).click()
-                page.get_by_role('heading', name='Connexions hyperviseur').wait_for()
+                page.get_by_role('button', name='Connections', exact=True).click()
+                page.get_by_role('heading', name='Hypervisor connections').wait_for()
                 page.get_by_text('Protocol fixture, not ESXi', exact=True).wait_for()
-                page.get_by_role('button', name='Découvrir l’inventaire', exact=True).click()
-                page.get_by_role('status').filter(has_text='Observation enregistrée').wait_for()
+                page.get_by_role('button', name='Discover inventory', exact=True).click()
+                page.get_by_role('status').filter(has_text='Observation saved').wait_for()
                 assert page.get_by_role('table', name='Datastores').get_by_text('Fixture storage').count() == 1
                 assert 'fixture-password-only' not in page.locator('body').inner_text()
                 assert not errors, errors
                 page.set_viewport_size({'width': 390, 'height': 844})
-                assert page.get_by_role('heading', name='Connexions hyperviseur').is_visible()
+                assert page.get_by_role('heading', name='Hypervisor connections').is_visible()
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
             finally:
                 context.close()

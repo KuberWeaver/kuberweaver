@@ -1,7 +1,7 @@
 id: vsphere-vm
 name: vSphere VM (blank disk, stopped contract)
 version: 1.0.0
-description: Opt-in create-only prototype. No OS; blocked until strict PKI and a reviewed stopped-create provider contract are available. Not ESXi-certified.
+description: Planned create-only VM definition without an OS. Blocked until strict PKI and a reviewed powered-off-create provider contract are available; not validated on ESXi.
 category: compute
 icon: server
 price_monthly: 0

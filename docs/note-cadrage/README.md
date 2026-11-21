@@ -1,16 +1,16 @@
-# Documents courts du projet
+# Project presentation documents
 
-- KuberWeaver_note_de_cadrage.pdf : deux pages avec une infographie du parcours.
-- KuberWeaver_note_de_cadrage.txt : texte modifiable de cette note.
-- ../CAHIER_DES_CHARGES_KUBERWEAVER.pdf : cahier des charges simplifié.
-- ../CAHIER_DES_CHARGES_KUBERWEAVER.md : source principale du cahier des charges.
-- ../ARCHITECTURE_CIBLE.md : propositions sur PostgreSQL, les services et les plugins, non encore implémentées.
+- `KuberWeaver_note_de_cadrage.pdf`: historical two-page brief with a workflow infographic.
+- `KuberWeaver_note_de_cadrage.txt`: editable text of that brief.
+- `../CAHIER_DES_CHARGES_KUBERWEAVER.pdf`: generated requirements presentation.
+- `../CAHIER_DES_CHARGES_KUBERWEAVER.md`: current requirements source.
+- `../ARCHITECTURE_CIBLE.md`: architecture direction, distinguishing the delivered PostgreSQL migration from proposed service lifecycle and plugin work.
 
-L’ancien cahier des charges est conservé dans ../archives/. L’export ../cadrage-mentor/ reste historique et n’est pas synchronisé avec la version simplifiée.
+The old requirements are retained in `../archives/`. `../cadrage-mentor/` is a historical export not synchronized with the simplified wording. The English PDF/TXT brief retains explicitly historical evidence. The requirements PDF is regenerated from its current English Markdown source; both generators and extracted output have been checked.
 
-## Régénérer les PDF
+## Regenerate PDFs
 
-Depuis la racine du dépôt, avec un environnement documentaire distinct de celui de l’application :
+From the repository root, using a documentation environment separate from the application:
 
 ```sh
 python3 -m venv .venv-docs
@@ -19,8 +19,8 @@ python3 -m venv .venv-docs
 .venv-docs/bin/python docs/generer_cahier_des_charges.py
 ```
 
-Les scripts utilisent les polices DejaVu installées dans /usr/share/fonts/truetype/dejavu/ sous Linux. Adapter ce chemin sur un autre système. Les aperçus PNG servent au contrôle visuel local et sont exclus de Git ; les PDF finaux sont publiés.
+The scripts use Linux DejaVu fonts under `/usr/share/fonts/truetype/dejavu/`; adapt that path on another OS. PNG previews are for local visual inspection and ignored by Git; final PDFs are published artifacts.
 
-La note conserve son propre texte dans generer_note.py ; après modification de ce script, régénérer simultanément le PDF et le TXT. Le cahier des charges PDF est généré directement depuis son Markdown.
+The brief embeds its own text in `generer_note.py`; updating that source requires regenerating PDF and TXT together. The requirements PDF is generated from Markdown. Review generated output before publication, including language and stale claims.
 
-Aucun secret, compte local, fichier SQLite ou état privé du laboratoire n’est nécessaire pour lire ces documents.
+No secret, local account, SQLite file or private lab state is required to read these documents.

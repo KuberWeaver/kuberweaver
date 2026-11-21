@@ -1,77 +1,54 @@
-# Vérification du prototype
+# Verification history
 
-## Exécution indépendante depuis le portail
+This document indexes recorded acceptance of the web-service workflow. It is **historical evidence**, not a new run against the current tree or proof of production maturity. Later storage/hypervisor records are described in `V2_HYPERVISORS.md`. Runtime evidence remains private and requires secret review before sharing.
 
-Le contrôle FastAPI sert le frontend construit sur `http://127.0.0.1:8088`. Le portail a été testé avec un navigateur Chromium réel, sans backend simulé pour ces acceptations.
+## Independent portal acceptance
 
-- Connexion, canvas initialement vide, ajout NGINX, formulaire issu du schéma.
-- Validation serveur, sauvegarde du blueprint et création d'une demande.
-- Approbation dans le navigateur, puis vraie exécution Ansible sur `app` et `branch-client`.
-- Réponses HTTP sur les deux management IPs, confirmées séparément par SSH.
-- Coût calculé côté serveur et détail par ressource visibles avant le bouton d'approbation.
-- Refus d'une demande dans le navigateur, état rejeté relu par API.
-- Neuf sections testées à 390 pixels sans débordement horizontal de page.
-- Contrôles d'édition interdits pour le lecteur.
-- Aucune exception JavaScript pendant les acceptations navigateur finales.
+FastAPI served the built frontend at `http://127.0.0.1:8088`. A real Chromium browser, without a mocked backend for these acceptances, exercised:
 
-Preuves : `data/evidence/browser-acceptance.json`, `browser-final.json` et captures `portal-*.png`.
+- Login, an initially empty canvas, NGINX addition and schema-generated form.
+- Server validation, blueprint save and request submission.
+- Browser approval followed by real Ansible execution on `app` and `branch-client`.
+- HTTP responses on both management IPs, independently checked through SSH.
+- Server-calculated cost and per-resource breakdown before approval.
+- Browser rejection with rejected status read back through the API.
+- Nine sections at 390-pixel width without horizontal page overflow.
+- Disabled viewer editing controls and no JavaScript exceptions during final acceptance.
 
-## Retours arrière réels
+Evidence: `data/evidence/browser-acceptance.json`, `browser-final.json` and `portal-*.png` captures.
 
-Un état NGINX `1.0.0` a été installé sur les deux cibles. Une mise à jour `2.0.0` avec échec volontaire de la vérification rolling a restauré `1.0.0` sur les deux cibles, y compris le canary déjà réussi. Une seconde mise à jour sans échec a effectivement servi `2.0.0`, puis le rollback manuel a restauré `1.0.0`.
+## Actual rollback
 
-Les vérifications des deux invités utilisent des processus SSH indépendants de l'exécuteur. Le test direct de l'exécuteur couvre aussi Apache et la restauration d'absence quand aucun conteneur n'existait auparavant.
+NGINX `1.0.0` was installed on both targets. An update to `2.0.0` with intentional rolling-healthcheck failure restored `1.0.0` on both, including the previously successful canary. A successful second update served `2.0.0`, then manual rollback restored `1.0.0`.
 
-Preuves : `data/evidence/api-live-acceptance.json`, `execution-live.json`, journaux/snapshots privés sous `data/jobs/` et `data/execution/`.
+Independent SSH processes checked both guests. Direct executor acceptance also covered Apache and restoration to absence when no container previously existed. Evidence: `data/evidence/api-live-acceptance.json`, `execution-live.json`, and private journals/snapshots under `data/jobs/` and `data/execution/`.
 
-La reprise d'un rollback partiellement échoué est couverte à travers l'API et le vrai exécuteur avec une frontière Ansible injectée en test. Elle n'est pas présentée comme une nouvelle panne réseau provoquée sur le lab réel.
+Retry of partially failed rollback was tested through the API and real executor with an injected Ansible boundary. That is not a newly induced network failure on the real lab. Web-container rollback does not prove database consistency, network-device recovery or VM rollback.
 
-## Modularité exercée, pas seulement déclarée
+## Exercised modularity
 
-L'exemple `lab-notes`, livré séparément du noyau, a été installé désactivé, activé explicitement et sélectionné depuis Intégrations.
+The separately packaged `lab-notes` extension was installed disabled, explicitly enabled and selected through Integrations. A real job emitted `job_finished`; the extension persisted the event and `/api/diagnostics` returned its job ID/provenance. Disabling the still-selected provider made only that endpoint unavailable while inventory and jobs remained readable. Explicitly selecting `rules` restored diagnostics. Kernel Python fingerprints remained unchanged throughout.
 
-Un vrai job a émis `job_finished`. L'extension a persisté cet événement, et `/api/diagnostics` a rendu le même identifiant de job avec sa provenance. Désactiver cette extension alors qu'elle restait sélectionnée a donné une indisponibilité explicite sur ce seul endpoint, tandis que l'inventaire et les jobs restaient consultables. La sélection explicite du fournisseur `rules` a rétabli le diagnostic. Les empreintes de tous les fichiers Python du noyau sont restées identiques pendant ce cycle.
+Evidence: `data/evidence/modularity-live.json`. The example was left disabled. Historical final bindings included OpenBao, which did not imply deployment keys were injected from it.
 
-Preuve : `data/evidence/modularity-live.json`. L'exemple est laissé désactivé ; les liaisons finales incluent la source de secrets OpenBao, sans prétendre injecter les clés de déploiement depuis le coffre.
+## Historical tests and build
 
-## Tests et build
+The earlier integration record reported 159 backend/SDK/executor/secrets tests without failures/errors, 35 frontend passes, successful TypeScript/Vite build and no `npm audit` findings at that time. JUnit: `data/evidence/parent-suite.xml`. These are not current test counts and an audit result is not security certification.
 
-Résultat relu par le contrôleur parent :
+## Persistence and operations
 
-- Backend, SDK, exécuteur et secrets : 159 tests, zéro échec et zéro erreur.
-- Frontend : 35 tests passants.
-- TypeScript et build Vite : réussis.
-- `npm audit` : zéro vulnérabilité signalée au moment de la vérification, ce qui n'est pas une certification de sécurité.
+The earlier record describes active user systemd services for the portal and OpenBao tunnel, linked but not enabled at boot. A real application restart preserved jobs and provider bindings; interrupted work was not automatically replayed. Evidence: `data/evidence/restart.json`. See `POSTGRESQL.md` for the later service configuration, which does not implicitly start the historical tunnel.
 
-Rapport JUnit : `data/evidence/parent-suite.xml`.
+Historical OpenBao readback through its supervised tunnel covered initialized/unsealed state, persistent storage, a limited application token and out-of-policy denial. Evidence: `data/evidence/openbao.json`. Bootstrap custody, unseal, expiry and transport limitations remain in `SECRETS.md`; do not infer current reachability from the old record.
 
-## Persistance et exploitation
+## Preserved scope
 
-Le portail et le tunnel OpenBao sont des services systemd utilisateur actifs. Ils sont liés mais non activés au démarrage automatique. Un redémarrage réel du service applicatif a conservé les jobs et les liaisons de fournisseurs. Les opérations interrompues ne sont pas rejouées sans revue.
+The recorded acceptance retained four original framing-file SHA-256 values, existing GNS3 project IDs and twenty lab link IDs. The original port-8080 application still served `1.0.2`; KuberWeaver deployments used only owned resources and management ports. No GitHub push or production deployment was part of that acceptance. Evidence: `data/evidence/source-brief-hashes.json`, `parent-baseline.json`, `parent-boundaries.json`.
 
-Preuve : `data/evidence/restart.json`.
+## Review and cleanup records
 
-OpenBao a été relu via son tunnel supervisé : service initialisé/unsealed, stockage persistant, token applicatif à privilèges limités, refus des opérations hors politique. Le service et les fichiers de bootstrap restent soumis aux limites détaillées dans `docs/SECRETS.md`.
+An independent specification review initially blocked provider-selection bypasses. Fixes added provider-consumption/event tests; the second review passed the four identified gaps. Unsupported OpenTofu/cloud/Cisco/pfSense paths and unconfigured ChatOps, execution-secret and AI inference integrations were not given simulated deployment success.
 
-Preuve : `data/evidence/openbao.json`.
+A quality review then found incomplete approval fingerprinting of shared executable dependencies. The correction included the shared lifecycle directory, actual executor and inherited sources with command-boundary revalidation. Twenty-three additional tests covered drift. The recorded parent rerun covered the 159-test suite and API/browser/modularity acceptance on that build. Targeted review passed without remaining blockers **within its reviewed scope**, not as a sandbox or hostile-filesystem-race certification.
 
-## Périmètre préservé
-
-- Les quatre fichiers du cadrage original ont conservé leurs SHA-256.
-- Les identifiants des projets GNS3 existants sont inchangés.
-- Les vingt identifiants de liens du lab sont inchangés.
-- L'application d'origine sur le port 8080 sert toujours sa version `1.0.2`.
-- Les déploiements du prototype occupent uniquement leurs ressources nommées et leurs ports de management.
-- Aucun push GitHub ni déploiement de production.
-
-Preuves : `data/evidence/source-brief-hashes.json`, `parent-baseline.json`, `parent-boundaries.json`.
-
-## Relectures
-
-La revue indépendante de conformité a d'abord bloqué des parcours qui contournaient la sélection des fournisseurs. Ces écarts ont été corrigés, avec des tests de consommation réelle des providers et d'événements. La seconde revue de conformité a rendu PASS sur les quatre écarts identifiés.
-
-Les limites OpenTofu, cloud, Cisco/pfSense, ChatOps, secrets d'exécution et inférence IA restent explicitement visibles dans le README. Aucun résultat de déploiement n'est simulé pour ces fonctions non implémentées.
-
-La revue qualité indépendante a identifié un dernier défaut : les dépendances exécutables partagées n'entraient pas toutes dans l'empreinte d'approbation. La correction inclut désormais le répertoire de lifecycle partagé, l'implémentation réelle de l'exécuteur et ses sources héritées, avec revalidation avant les commandes. Vingt-trois tests supplémentaires couvrent ces dérives. Le contrôleur parent a relancé les 159 tests et les acceptations API, navigateur et modularité sur le build final. La relecture ciblée de cette correction a rendu PASS, sans défaut bloquant restant dans le périmètre examiné. Cela n'est ni une sandbox ni une certification contre les courses de fichiers hostiles.
-
-Les ressources de la démonstration directe sur le port 18090 ont ensuite été restaurées à leur absence initiale sur les deux cibles, pour laisser le port par défaut libre au premier essai utilisateur. Le déploiement de démonstration du portail sur 18091 reste présent, en version 1.0.0. Preuve de nettoyage : `data/evidence/default-port-cleanup.json`.
+The direct example's port-18090 resources were restored to initial absence on both targets; the portal example on 18091 remained at `1.0.0`. Evidence: `data/evidence/default-port-cleanup.json`. Inspect actual current ownership before reuse; historical cleanup is not a live port check.

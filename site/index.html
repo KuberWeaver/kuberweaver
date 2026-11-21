@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KuberWeaver: self-hosted infrastructure management with a governed request workflow</title>
+<meta name="description" content="KuberWeaver is a prototype open source platform for self-hosted infrastructure management: a service catalogue, governed requests with explicit approval, verifiable Ansible execution and durable environment state. GPL-3.0-or-later.">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="#top">KuberWeaver</a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Open navigation menu">
+      <span class="nav-toggle-bar" aria-hidden="true"></span>
+      <span class="nav-toggle-bar" aria-hidden="true"></span>
+      <span class="nav-toggle-bar" aria-hidden="true"></span>
+    </button>
+    <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+      <ul class="nav-list">
+        <li><a href="#problem">Problem</a></li>
+        <li><a href="#capabilities">Capabilities</a></li>
+        <li><a href="#boundaries">Boundaries</a></li>
+        <li><a href="#contribute">Contribute</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div class="container">
+      <ul class="badges">
+        <li>Open source: GPL-3.0-or-later</li>
+        <li>Currently a prototype</li>
+      </ul>
+      <h1 class="hero-title">KuberWeaver</h1>
+      <p class="hero-lede">One governed workflow from service catalogue to verified execution.</p>
+      <p class="hero-sub">Self-hosted infrastructure management with a governed request workflow.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#install">Install it</a>
+        <a class="btn btn-secondary" href="#boundaries">Read the limits first</a>
+      </div>
+      <p class="hero-note">No Kubernetes required. No embedded AI model. The server binds to 127.0.0.1.</p>
+    </div>
+  </section>
+
+  <section class="section" id="problem" aria-labelledby="problem-heading">
+    <div class="container">
+      <h2 id="problem-heading">The problem</h2>
+      <p class="lede">Infrastructure changes still happen through manual clicks, isolated scripts and private shell history.</p>
+      <p>When something goes wrong afterwards, three plain questions usually have no shared answer: who requested the change, who approved it, and which exact steps ran. There is no admission check before execution, no record that survives the session, and no evidence that what was deployed matches what was approved.</p>
+      <p>KuberWeaver exists to make those answers ordinary rather than heroic.</p>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="capabilities" aria-labelledby="capabilities-heading">
+    <div class="container">
+      <h2 id="capabilities-heading">What KuberWeaver does</h2>
+      <p class="lede">Each item below is implemented in the repository today. The <a href="#boundaries">boundary table</a> further down states exactly how far each one goes.</p>
+
+      <div class="card-grid">
+        <article class="card">
+          <h3>Service catalogue</h3>
+          <p>Services are described by declarative manifests and JSON Schemas. You compose a blueprint of resources and services, and the forms and validation come from the plugins rather than from hard-coded client branches.</p>
+        </article>
+        <article class="card">
+          <h3>Governed requests</h3>
+          <p>An operator validates a plan, submits a request and waits. An administrator reviews the exact plan and approves it. Canonical hooks observe events but cannot replace validation or approval.</p>
+        </article>
+        <article class="card">
+          <h3>Verifiable execution</h3>
+          <p>The lab Ansible executor runs backup, canary, verification, rolling deployment and final verification. Commit and HTTP evidence remain available after the job ends.</p>
+        </article>
+        <article class="card">
+          <h3>Durable environment state</h3>
+          <p>One encrypted, generation-numbered record per environment and stack. An exclusive apply claim serializes operations, every authenticated call leaves an audit row, and a nightly read-only comparison reports drift without remediation.</p>
+        </article>
+        <article class="card">
+          <h3>Managed SSH keys</h3>
+          <p>Keys are generated into the vault, selected for an operation, disabled on rotation and exported only explicitly. Connection secrets live in the secret source, not in command lines.</p>
+        </article>
+        <article class="card">
+          <h3>Revocable agent access</h3>
+          <p>A human administrator issues tokens with a maximum role, explicit scopes and an expiry. Revocation blocks new requests immediately. MCP exposes typed domain tools, never arbitrary shell commands.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="boundaries" aria-labelledby="boundaries-heading">
+    <div class="container">
+      <h2 id="boundaries-heading">What it does / what it does not do</h2>
+      <p class="lede">This table reproduces the capability boundaries of the project README. It is the most important section of this page because it defines the supported scope, the conditions and the known gaps.</p>
+
+      <div class="table-wrap">
+        <table class="limits-table">
+          <thead>
+            <tr>
+              <th scope="col">Capability</th>
+              <th scope="col">Supported scope and limits</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Catalogue, blueprint storage and governed deployment</td>
+              <td>Available through the API and the <code>kw</code> CLI.</td>
+            </tr>
+            <tr>
+              <td>Sessions, RBAC, CSRF, quotas and approval</td>
+              <td>Local accounts plus an optional, disabled-by-default OpenID Connect sign-in that binds to an existing local account; no per-object authorization.</td>
+            </tr>
+            <tr>
+              <td>NGINX and Apache</td>
+              <td>Real Ansible deployment on two allowlisted GNS3 guests, with HTTP verification.</td>
+            </tr>
+            <tr>
+              <td>Canary, rolling and rollback</td>
+              <td>Exercised for managed web workloads; not a universal recovery guarantee.</td>
+            </tr>
+            <tr>
+              <td>VMware Ubuntu OVF import</td>
+              <td>Create-only workflow documented separately; no update, deletion, rollback or automatic cleanup after an ambiguous failure. Target OS/SSH acceptance requires an authorized real import.</td>
+            </tr>
+            <tr>
+              <td>ESXi discovery</td>
+              <td>Separate read-only provider; observed VMs are not proof of a running guest OS.</td>
+            </tr>
+            <tr>
+              <td>OpenTofu/libvirt and blank-disk vSphere blueprint</td>
+              <td>Planned/disabled with documented transport and powered-off-create blockers; not promoted by the separate OVF workflow.</td>
+            </tr>
+            <tr>
+              <td>Redis persistence</td>
+              <td>Service-specific lifecycle and restore tests; shipped manifest remains planned and runtime disabled pending real target acceptance.</td>
+            </tr>
+            <tr>
+              <td>Frontend/backend stack, Cisco IOS, pfSense and cloud entries</td>
+              <td>Planned and disabled; no validated adapter/target path.</td>
+            </tr>
+            <tr>
+              <td>GitOps</td>
+              <td>Local approved-plan commits; optional remote publication verifies the exact SHA. Test-repository evidence is not a hosted customer delivery pipeline.</td>
+            </tr>
+            <tr>
+              <td>FinOps</td>
+              <td>Internal tariff estimates, not cloud billing or measured consumption.</td>
+            </tr>
+            <tr>
+              <td>Diagnostics</td>
+              <td>Deterministic rules; optional LLM provider requires explicit configuration.</td>
+            </tr>
+            <tr>
+              <td>Notifications and ChatOps</td>
+              <td>Durable outbox, webhook delivery and signed callback exercised locally; no certified Slack/Teams integration or configured external SaaS recipient.</td>
+            </tr>
+            <tr>
+              <td>Secrets</td>
+              <td>Replaceable OpenBao and local Fernet providers; local custody and transport limits apply.</td>
+            </tr>
+            <tr>
+              <td>Execution credentials</td>
+              <td>Operation-scoped injection, isolation and cleanup; does not imply existing lab keys were replaced.</td>
+            </tr>
+            <tr>
+              <td>External API/MCP clients</td>
+              <td>Explicit role/scopes, expiry and revocation; no automatic approval.</td>
+            </tr>
+            <tr>
+              <td>Observability</td>
+              <td>Local metrics and authenticated snapshot; validated rules/dashboard files do not mean a deployed Prometheus/Grafana stack.</td>
+            </tr>
+            <tr>
+              <td>Public marketplace, payments and untrusted-code isolation</td>
+              <td>Not provided.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="table-note">Two declarations deserve the same caution: <code>disk_gb</code> is a budgeting declaration, not an enforced disk quota, and <code>public_cidr</code> is an admission guard, not an installed firewall rule.</p>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="contribute" aria-labelledby="contribute-heading">
+    <div class="container">
+      <h2 id="contribute-heading">Contribute</h2>
+      <p class="lede">Three ways to help, ordered by commitment.</p>
+
+      <div class="card-grid">
+        <article class="card">
+          <h3>1. Report a bug</h3>
+          <p>Open an issue with the command, the input and the observed behaviour. Silent refusals and accepted bad input count as bugs, not as edge cases.</p>
+        </article>
+        <article class="card">
+          <h3>2. Write a plugin brick</h3>
+          <p>A brick is one folder containing a <code>manifest.yaml</code>, its JSON Schema and the Ansible roles or playbooks. The kernel discovers it; you do not touch the core.</p>
+        </article>
+        <article class="card">
+          <h3>3. Write an extension</h3>
+          <p>An independently installable Python package registers a provider or a canonical hook through the SDK. It is installed, checked by <code>doctor</code>, then enabled explicitly.</p>
+        </article>
+      </div>
+
+      <p class="section-link"><a class="text-link" href="https://github.com/EMRD95/kuberweaver/blob/main/CONTRIBUTING.md">Read CONTRIBUTING.md for branches, checks and pull request rules.</a></p>
+    </div>
+  </section>
+
+  <section class="section" id="install" aria-labelledby="install-heading">
+    <div class="container">
+      <h2 id="install-heading">Installation</h2>
+      <p class="lede">The documented path uses <code>uv</code> and installs the <code>kw</code> CLI. Python 3.12 or newer is required.</p>
+
+      <figure class="code-panel">
+        <figcaption>From the README installation section.</figcaption>
+        <pre><code>uv venv .venv
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt -r requirements-infrastructure.txt -r requirements-postgresql.txt -r requirements-local-vault.txt
+uv pip install --python .venv/bin/python -e . --no-deps   # installs the `kw` CLI</code></pre>
+      </figure>
+
+      <p>The server listens on <code>127.0.0.1:8088</code>. The documented installation uses user systemd units from <code>ops/</code>; they are not enabled automatically at boot, and the service is not meant to be exposed directly to the Internet.</p>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="faq" aria-labelledby="faq-heading">
+    <div class="container">
+      <h2 id="faq-heading">FAQ</h2>
+
+      <details class="faq-item">
+        <summary>Is KuberWeaver production ready?</summary>
+        <p>No. It is a prototype. The documented installation runs on workstation loopback for a lab, with local accounts and no high availability, SSO, multi-tenancy or sandboxed marketplace. Treat the <a href="#boundaries">capability boundaries</a> as the authoritative scope.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I use KuberWeaver under a commercial license?</summary>
+        <p>The project is GPL-3.0-or-later. A commercial license is available for organizations that cannot accept copyleft terms, and the terms are agreed with the maintainer before any derived product is distributed. This page does not grant any license and does not set pricing.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>Does it require Kubernetes or an AI model?</summary>
+        <p>No. KuberWeaver does not embed an AI model and does not require Kubernetes. An optional LLM provider can be used for diagnostics, but only when it is configured explicitly.</p>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>KuberWeaver is free software under GPL-3.0-or-later. A commercial license is available.</p>
+    <p><a class="text-link" href="https://github.com/EMRD95/kuberweaver">github.com/EMRD95/kuberweaver</a></p>
+    <p class="fine-print">Static site: no CDN, no web fonts, no tracker, no analytics. The only external references are links to the project repository.</p>
+  </div>
+</footer>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>

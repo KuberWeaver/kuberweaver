@@ -4,6 +4,7 @@ No hypervisor is contacted. InventoryStub implements the pyVmomi accessor/method
 boundary; it does not replace discovery or normalization. TLS tests additionally
 exercise the real SOAP adapter/serializer with an in-memory HTTPS boundary.
 """
+import hashlib
 import importlib.util
 import json
 import socket
@@ -20,6 +21,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 CONNECTION = {"endpoint": "https://192.0.2.10", "tls_sha256": None}
 CREDENTIALS = json.dumps({"username": "offline-reader", "password": "synthetic-password"}).encode()
 UUID = "11111111-1111-4111-8111-111111111111"
+MARKER = "kuberweaver-job:" + "a" * 32
 
 
 @pytest.fixture(autouse=True)
@@ -65,11 +67,13 @@ class InventoryStub:
         self.vm = self.object(vim.VirtualMachine, "vm-2", name="z-vm", summary=vim.vm.Summary(
             config=vim.vm.Summary.ConfigSummary(name="z-vm", uuid=UUID, numCpu=2,
                                                memorySizeMB=1024, annotation="synthetic-vm-secret"),
-            runtime=vim.vm.RuntimeInfo(powerState="poweredOff")))
+            runtime=vim.vm.RuntimeInfo(powerState="poweredOff")),
+            config=vim.vm.ConfigInfo(annotation=MARKER))
         self.vm_first = self.object(vim.VirtualMachine, "vm-1", name="a-vm", summary=vim.vm.Summary(
             config=vim.vm.Summary.ConfigSummary(name="a-vm", uuid="22222222-2222-4222-8222-222222222222",
                                                numCpu=1, memorySizeMB=512),
-            runtime=vim.vm.RuntimeInfo(powerState="poweredOn")))
+            runtime=vim.vm.RuntimeInfo(powerState="poweredOn")),
+            config=vim.vm.ConfigInfo(annotation="operator note, not a portal marker"))
         self.entities = [self.network, self.vm, self.ds, self.pool, self.host,
                          self.vm_first, self.network_first, self.ds_first]
         self.properties[("licenseManager", "licenses")] = [vim.LicenseManager.LicenseInfo(
@@ -121,6 +125,21 @@ class InventoryStub:
         self.disconnected.append(si)
 
 
+def test_discovery_accepts_real_sdk_integer_types():
+    from pyVmomi.VmomiSupport import long as sdk_long
+    module = load_driver()
+    inventory = InventoryStub()
+    summary = inventory.properties[("ds-2", "summary")]
+    summary.capacity = sdk_long(4096)
+    summary.freeSpace = sdk_long(1024)
+    result = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect).discover(
+        CONNECTION, CREDENTIALS)
+    datastore = next(row for row in result["datastores"] if row["id"] == "ds-2")
+    assert datastore["capacity_bytes"] == 4096
+    assert type(datastore["capacity_bytes"]) is int
+    assert type(datastore["free_bytes"]) is int
+
+
 def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
     module = load_driver()
     inventory = InventoryStub()
@@ -137,8 +156,9 @@ def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
         "resource_pools": [{"id": "pool-1", "name": "Resources"}],
         "virtual_machines": [
             {"id": "vm-1", "name": "a-vm", "uuid": "22222222-2222-4222-8222-222222222222",
-             "power_state": "poweredOn", "cpu": 1, "memory_mb": 512},
-            {"id": "vm-2", "name": "z-vm", "uuid": UUID, "power_state": "poweredOff", "cpu": 2, "memory_mb": 1024}],
+             "power_state": "poweredOn", "cpu": 1, "memory_mb": 512, "ownership_sha256": None},
+            {"id": "vm-2", "name": "z-vm", "uuid": UUID, "power_state": "poweredOff", "cpu": 2,
+             "memory_mb": 1024, "ownership_sha256": hashlib.sha256(MARKER.encode()).hexdigest()}],
     }
     assert inventory.events == ["destroy", "disconnect"]
     assert inventory.disconnected == [inventory.si]
@@ -146,6 +166,7 @@ def test_discovery_normalizes_sorted_whitelist_from_real_vim_objects():
     assert "SYNTHETIC-LICENSE-KEY" not in output
     assert "synthetic-vm-secret" not in output
     assert "synthetic-password" not in output
+    assert MARKER not in output
 
 
 def test_default_connection_uses_pki_timeout_and_no_global_session(monkeypatch):
@@ -659,6 +680,23 @@ def test_readback_preserves_uuid_case_exactly():
         driver.read_resource(CONNECTION, CREDENTIALS, identity.lower())
 
 
+def test_readback_reports_ownership_digest_and_never_the_annotation():
+    module = load_driver()
+    inventory = InventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    current = driver.read_resource(CONNECTION, CREDENTIALS, UUID)
+    assert current["ownership_sha256"] == hashlib.sha256(MARKER.encode()).hexdigest()
+    assert MARKER not in json.dumps(current)
+    foreign = driver.read_resource(CONNECTION, CREDENTIALS, "22222222-2222-4222-8222-222222222222")
+    assert foreign["ownership_sha256"] is None
+    # A changed annotation changes the proof; a cleared one removes it.
+    inventory.properties[("vm-2", "config")].annotation = "kuberweaver-job:" + "b" * 32
+    changed = driver.read_resource(CONNECTION, CREDENTIALS, UUID)
+    assert changed["ownership_sha256"] == hashlib.sha256(("kuberweaver-job:" + "b" * 32).encode()).hexdigest()
+    inventory.properties[("vm-2", "config")].annotation = ""
+    assert driver.read_resource(CONNECTION, CREDENTIALS, UUID)["ownership_sha256"] is None
+
+
 def test_inventory_order_is_stable_when_remote_order_changes():
     module = load_driver()
     inventory = InventoryStub()
@@ -717,7 +755,7 @@ def test_dependency_is_optional_at_registration(monkeypatch):
         driver.discover({}, b"{}")
 
 
-def test_extension_registers_read_only_hypervisor_through_real_sdk():
+def test_extension_registers_esxi_hypervisor_with_discovery_and_destruction():
     from kuberweaver.extensions import ExtensionRegistry
 
     registry = ExtensionRegistry()
@@ -725,9 +763,69 @@ def test_extension_registers_read_only_hypervisor_through_real_sdk():
     assert any(r.get("id") == "esxi-runtime" and r["status"] == "loaded" for r in reports)
     assert registry.list("hypervisor") == [{
         "kind": "hypervisor", "name": "esxi", "label": "VMware ESXi",
-        "read_only": True, "available": True,
+        "read_only": False, "available": True,
     }]
     driver = registry.get("hypervisor", "esxi")
     assert callable(driver.discover)
+    assert callable(driver.destroy_resource)
     for mutation in ("execute", "rollback", "create", "delete", "update", "power_on"):
         assert not hasattr(driver, mutation)
+
+
+class DestroyInventoryStub(InventoryStub):
+    """Adds the destroy method boundary on top of the read-only transport stub."""
+
+    def __init__(self, power="poweredOff"):
+        super().__init__()
+        self.destroyed = []
+        self.powered_off = []
+        self.task = self.object(vim.Task, "task-1", info=vim.TaskInfo(state="success"))
+        self.properties[("vm-2", "summary")].runtime.powerState = power
+        self.vm_view = vim.view.ContainerView("vm-view", self)
+        self.properties[("vm-view", "view")] = [
+            entity for entity in self.entities if isinstance(entity, vim.VirtualMachine)]
+
+    def InvokeMethod(self, obj, info, args):
+        if info.name == "CreateContainerView" and set(args[1]) == {vim.VirtualMachine}:
+            return self.vm_view
+        if isinstance(obj, vim.VirtualMachine) and info.name == "PowerOff":
+            self.powered_off.append(obj._GetMoId())
+            self.properties[(obj._GetMoId(), "summary")].runtime.powerState = "poweredOff"
+            return self.task
+        if isinstance(obj, vim.VirtualMachine) and info.name == "Destroy":
+            self.destroyed.append(obj._GetMoId())
+            self.properties[("vm-view", "view")] = [
+                entity for entity in self.properties[("vm-view", "view")]
+                if entity._GetMoId() != obj._GetMoId()]
+            return self.task
+        return super().InvokeMethod(obj, info, args)
+
+
+def test_destroy_resource_powers_off_destroys_and_confirms_absence():
+    module = load_driver()
+    inventory = DestroyInventoryStub(power="poweredOn")
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    assert driver.destroy_resource(CONNECTION, CREDENTIALS, UUID, MARKER) is True
+    assert inventory.powered_off == ["vm-2"]
+    assert inventory.destroyed == ["vm-2"]
+    assert inventory.disconnected == [inventory.si]
+
+
+def test_destroy_resource_refuses_a_foreign_marker_without_touching_the_vm():
+    module = load_driver()
+    inventory = DestroyInventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    with pytest.raises(module.ESXiError):
+        driver.destroy_resource(CONNECTION, CREDENTIALS, UUID, "kuberweaver-job:" + "b" * 32)
+    assert inventory.destroyed == []
+    assert inventory.powered_off == []
+
+
+def test_destroy_resource_refuses_an_unknown_uuid():
+    module = load_driver()
+    inventory = DestroyInventoryStub()
+    driver = module.ESXiDriver(connector=inventory.connect, disconnector=inventory.disconnect)
+    with pytest.raises(module.ESXiError):
+        driver.destroy_resource(CONNECTION, CREDENTIALS,
+                                "99999999-9999-4999-8999-999999999999", MARKER)
+    assert inventory.destroyed == []

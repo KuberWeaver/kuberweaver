@@ -1,10 +1,11 @@
-"""Standalone ESXi read-only discovery extension (trusted SDK protocol v1)."""
+"""Standalone ESXi extension: read-only discovery plus owned-VM destruction."""
 import hashlib
 import hmac
 import ipaddress
 import json
 import re
 import ssl
+import time
 from urllib.parse import urlsplit
 
 try:
@@ -32,9 +33,10 @@ def _text(value):
 
 
 def _integer(value, minimum=0):
-    if type(value) is not int or value < minimum:
+    # The SOAP deserializer returns VmomiSupport.long (an int subclass).
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise _InvalidInventory
-    return value
+    return int(value)
 
 
 def _vm(entity):
@@ -49,10 +51,18 @@ def _vm(entity):
             name != summary.config.name or
             summary.runtime.powerState not in {"poweredOn", "poweredOff", "suspended"}):
         raise _InvalidInventory
+    # The annotation is free-form operator text, so only a portal marker leaves
+    # the driver, and only as a digest an adoption can compare against.
+    config = entity.config
+    annotation = None if config is None else config.annotation
+    if annotation is not None and not isinstance(annotation, str):
+        raise _InvalidInventory
+    marker = annotation if annotation and annotation.startswith("kuberweaver-job:") else ""
     return {"id": _text(entity._GetMoId()), "name": name, "uuid": identity,
             "power_state": summary.runtime.powerState,
             "cpu": _integer(summary.config.numCpu, 1),
-            "memory_mb": _integer(summary.config.memorySizeMB, 1)}
+            "memory_mb": _integer(summary.config.memorySizeMB, 1),
+            "ownership_sha256": hashlib.sha256(marker.encode("utf-8")).hexdigest() if marker else None}
 
 
 class _PinnedTLSContext(ssl.SSLContext):
@@ -217,6 +227,71 @@ class ESXiDriver:
                 return row
         raise ESXiError("ESXi resource not found")
 
+    def destroy_resource(self, connection: dict, credentials: bytes, identity: str, marker: str) -> bool:
+        """Destroy one owned VM and confirm it is gone; True only then.
+
+        Ownership is re-proven against the live annotation before any mutation,
+        the VM is powered off first, and absence is re-read after the destroy
+        task. Any other outcome raises so the portal records manual review.
+        """
+        if vim is None:
+            raise ESXiError("ESXi dependency unavailable")
+        if (not isinstance(identity, str) or
+                re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", identity) is None):
+            raise ESXiError("ESXi invalid resource identity")
+        if not isinstance(marker, str) or re.fullmatch(r"kuberweaver-job:[0-9a-f]{32}", marker) is None:
+            raise ESXiError("ESXi invalid ownership marker")
+        _validate_connection(connection)
+        auth = _credentials(credentials)
+        try:
+            return self._destroy(connection, auth, identity, marker)
+        except ESXiError:
+            raise
+        except vim.fault.InvalidLogin:
+            raise ESXiError("ESXi authentication failed") from None
+        except TimeoutError:
+            raise ESXiError("ESXi connection timed out") from None
+        except ssl.SSLError:
+            raise ESXiError("ESXi TLS verification failed") from None
+        except Exception:
+            raise ESXiError("ESXi destruction failed") from None
+
+    def _destroy(self, connection, auth, identity, marker):
+        si = self._connector(connection=connection, username=auth["username"], password=auth["password"])
+        try:
+            content = si.RetrieveContent()
+            view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+            try:
+                target = next((vm for vm in view.view if vm.summary.config.uuid == identity), None)
+                if target is None:
+                    raise ESXiError("ESXi resource not found")
+                annotation = target.config.annotation if target.config is not None else None
+                live_marker = (annotation if isinstance(annotation, str)
+                               and annotation.startswith("kuberweaver-job:") else "")
+                if hashlib.sha256(live_marker.encode("utf-8")).hexdigest() != \
+                        hashlib.sha256(marker.encode("utf-8")).hexdigest():
+                    raise ESXiError("ESXi ownership marker mismatch")
+                if target.summary.runtime.powerState == "poweredOn":
+                    self._wait_task(target.PowerOffVM_Task())
+                self._wait_task(target.Destroy_Task())
+                if any(vm.summary.config.uuid == identity for vm in view.view):
+                    raise ESXiError("ESXi destruction not confirmed")
+                return True
+            finally:
+                view.Destroy()
+        finally:
+            self._disconnector(si)
+
+    @staticmethod
+    def _wait_task(task):
+        deadline = time.monotonic() + 180
+        while task.info.state not in ("success", "error"):
+            if time.monotonic() > deadline:
+                raise ESXiError("ESXi task timed out")
+            time.sleep(0.5)
+        if task.info.state != "success":
+            raise ESXiError("ESXi task failed")
+
     def _discover(self, connection, auth):
         si = self._connector(connection=connection, username=auth["username"], password=auth["password"])
         try:
@@ -286,4 +361,4 @@ class ESXiDriver:
 
 def register(ctx):
     ctx.register("hypervisor", "esxi", ESXiDriver(),
-                 {"label": "VMware ESXi", "read_only": True, "available": vim is not None})
+                 {"label": "VMware ESXi", "read_only": False, "available": vim is not None})

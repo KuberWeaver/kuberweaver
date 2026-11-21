@@ -11,6 +11,7 @@ import secrets
 from fastapi import Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from .catalog import Catalog
+from . import reporting
 from .policy import Admission
 
 
@@ -25,10 +26,18 @@ def install_api(app, plugins_dir, executor=None):
     app.state.executor = executor if executor is not None else Executor(store.path, plugins_dir)
     jobs = app.state.jobs = Jobs(app)
     app.state.worker = Worker(app)
+    from .environment_state import install_environment_state_api
+    install_environment_state_api(app)
+    from .declarations import install_declarations_api
+    install_declarations_api(app, app.state.environment_states)
     from .runtime import configure
     configure(app)
+    from .ssh_keys import install_ssh_keys_api
+    install_ssh_keys_api(app)
     from .connections import install_connections_api
     install_connections_api(app)
+    from .dashboards import install_dashboards_api
+    install_dashboards_api(app)
     if hasattr(app.state.executor, 'secret_resolver'):
         app.state.executor.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
     from .notification_dispatcher import NotificationDispatcher
@@ -39,6 +48,8 @@ def install_api(app, plugins_dir, executor=None):
     install_operations_api(app)
     from .chatops import install_chatops_api
     install_chatops_api(app)
+    from .studio import install_studio_api
+    install_studio_api(app)
 
     @app.post('/api/jobs', status_code=201)
     def submit_job(data: JobRequest, current=Depends(role('admin', 'operator'))):
@@ -71,7 +82,31 @@ def install_api(app, plugins_dir, executor=None):
     @app.post('/api/plans/validate')
     def validate(graph: Graph, current=Depends(user)):
         jobs.notify('before_plan', {'job_id': None, 'status': 'planning', 'operation': 'validate', 'environment': graph.environment})
-        return admission.validate(graph.model_dump(), current['role'])
+        value = graph.model_dump()
+        report = admission.validate(value, current['role'])
+        execution: dict[str, str | bool] = {'status': 'not_checked', 'target_connectivity': 'not_checked'}
+        if report['allowed']:
+            from .providers import execution_binding, graph_execution_name
+            try:
+                name = graph_execution_name(app, value)
+                execution['provider'] = name
+                execution_binding(app, name)
+                provider = resolve_provider(app, 'execution', name)
+                ready = getattr(provider, 'ready', None)
+                if callable(ready):
+                    try:
+                        if ready() is not True:
+                            raise ValueError('Provider not ready')
+                    except (OSError, ValueError):
+                        raise HTTPException(503, 'Execution provider prerequisites not met') from None
+                    execution['prerequisites'] = 'verified'
+                execution.update(status='configured',
+                                 requires_saved_plan=bool(getattr(provider, 'requires_saved_plan', False)))
+            except HTTPException as exc:
+                execution.update(status='unavailable', reason=(
+                    'The blueprint must use one execution provider.' if exc.status_code == 422
+                    else 'The execution provider is unavailable or its registration has changed.'))
+        return {**report, 'execution': execution}
 
     @app.get('/api/settings')
     def settings(current=Depends(user)):
@@ -97,6 +132,14 @@ def install_api(app, plugins_dir, executor=None):
 
     @app.get('/api/infrastructure')
     def infrastructure(current=Depends(user)):
+        if getattr(app.state, 'provider_config_error', None):
+            raise HTTPException(503, 'Provider binding configuration is invalid')
+        if not app.state.provider_bindings.get('inventory'):
+            result = {'bound': False, 'provider': None, 'source': None,
+                      'nodes': [], 'links': [], 'errors': [],
+                      'message': 'No inventory provider is selected. Bind one in Providers to read live topology.'}
+            app.state.inventory_cache = result
+            return result
         result = resolve_provider(app, 'inventory').read()
         app.state.inventory_cache = result
         return result
@@ -160,6 +203,10 @@ def install_api(app, plugins_dir, executor=None):
     def enable_extension(identity: str, data: TrustRequest, current=Depends(role('admin'))):
         return change_extension(app, identity, True, current, data.trusted)
 
+    @app.get('/api/reporting')
+    def reporting_surface(current=Depends(role('admin', 'operator', 'viewer'))):
+        return reporting.describe(app.state.store)
+
     @app.post('/api/extensions/{identity}/disable')
     def disable_extension(identity: str, current=Depends(role('admin'))):
         return change_extension(app, identity, False, current)
@@ -212,7 +259,7 @@ def install_api(app, plugins_dir, executor=None):
     @app.get('/api/overview')
     def overview(current=Depends(user)):
         all_jobs = store.list('jobs')
-        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed')}
+        counts = {status: sum(job['status'] == status for job in all_jobs) for status in ('pending_approval', 'approving', 'queued', 'running', 'rolling_back', 'decommission_queued', 'decommissioning', 'succeeded', 'failed', 'rejected', 'rolled_back', 'rollback_failed', 'decommissioned', 'decommission_failed')}
         counts.update(jobs=len(all_jobs), plugins=len(catalog.discover()), blueprints=len(store.list('blueprints')),
                       nodes=len(getattr(app.state, 'inventory_cache', {}).get('nodes', [])), pending_approvals=counts['pending_approval'])
         return {'counts': counts, 'recent_jobs': [jobs.present(job) for job in all_jobs[:10]], 'costs': costs(), 'integrations': integration_list(app)}
@@ -239,14 +286,15 @@ def install_api(app, plugins_dir, executor=None):
                     refreshed = app.state.agent_tokens.authenticate(bearer)
                     if not refreshed or not ({'read', 'read:jobs'} & set(refreshed['scopes'])):
                         return
-                elif not store.session(request.cookies.get('kw_session')):
+                elif not app.state.sessions.resolve(request.cookies.get('kw_session')):
                     return
                 job = jobs.get(identity)
                 for event in job['events']:
                     if event['id'] > cursor:
                         cursor = event['id']
                         yield f'id: {cursor}\nevent: log\ndata: {json.dumps(event)}\n\n'
-                if job['status'] in {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected'}:
+                if job['status'] in {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected',
+                                     'decommissioned', 'decommission_failed'}:
                     yield 'event: done\ndata: ' + json.dumps({'status': job['status']}) + '\n\n'
                     return
                 yield ': heartbeat\n\n'

@@ -1,234 +1,202 @@
 # KuberWeaver
-## Présentation du projet et cahier des charges
+## Historical project overview and requirements
 
-Version 1.3, 6 novembre 2026  
-Établissement et campus : EFREI Paris  
-Destinataires : mentor, intervenants techniques et équipe projet  
-Statut : proposition de cadrage à relire et à valider humainement
+Version 1.3, 6 November 2026
 
-> Ce document distingue la vision produit, le prototype déjà réalisé et les évolutions proposées. Une fonctionnalité décrite au futur n'est pas une fonctionnalité livrée. Les priorités et jalons ci-dessous constituent une proposition, pas un engagement de calendrier approuvé.
+Institution/campus: EFREI Paris
 
-## Sommaire
+Audience: mentor, technical reviewers and project team
 
-1. Synthèse pour un lecteur extérieur
-2. Besoin et objectifs
-3. Périmètre, utilisateurs et responsabilités
-4. État réel du prototype
-5. Parcours fonctionnels attendus
-6. Architecture et choix techniques
-7. Modèle de plugins et intégration frontend
-8. Exigences fonctionnelles et critères de recette
-9. Exigences non fonctionnelles
-10. Données, sécurité et exploitation
-11. Stratégie de tests et démonstration
-12. Organisation, jalons et livrables
-13. Risques et décisions à prendre
-14. Méthode de cadrage, traçabilité et sources
+Status: historical framing proposal requiring human review and approval
 
-## 1. Synthèse pour un lecteur extérieur
+> This English edition retains the historical scope, requirement IDs, acceptance criteria and reference responsibilities. It is not a current capability report. Future-tense requirements are not delivered features, and proposed priorities/milestones are not an approved schedule. Later storage and provisioning work is documented in the current README and operator guides.
 
-KuberWeaver est un projet de plateforme interne de développement et d'infrastructure, ou IDP. Son objectif est de permettre à un utilisateur de décrire un environnement dans une interface graphique, puis d'en demander le déploiement de manière contrôlée et traçable.
+## Contents
 
-L'utilisateur compose un diagramme avec des briques issues d'un catalogue : serveur web, application, base de données, machine virtuelle ou configuration réseau. Chaque brique porte ses paramètres et sa logique de déploiement. La plateforme valide la demande, présente une estimation de coût, impose les droits et approbations nécessaires, puis orchestre l'exécution et ses vérifications.
+1. Overview
+2. Need and objectives
+3. Scope, users and responsibilities
+4. Historically documented implementation
+5. Expected workflows
+6. Architecture and technical choices
+7. Plugins and frontend integration
+8. Functional requirements and acceptance criteria
+9. Nonfunctional requirements
+10. Data, safety and operations
+11. Testing and acceptance presentation
+12. Organization, milestones and deliverables
+13. Risks and open decisions
+14. Framing method, traceability and sources
 
-Le principe structurant est une architecture modulaire : un noyau commun porte les garanties transverses ; les fonctionnalités et intégrations sont ajoutées par des plugins et des fournisseurs remplaçables. Le but n'est pas de réimplémenter un hyperviseur, un cloud ou Ansible, mais de les rendre utilisables depuis un parcours gouverné.
+## 1. Overview
 
-Un premier prototype fonctionnel existe. Il déploie réellement NGINX et Apache dans un laboratoire virtualisé, avec approbation, sauvegarde, canary, rolling, vérification et retour arrière. Il ne constitue pas encore une plateforme généraliste prête pour la production.
+KuberWeaver is an internal developer/infrastructure platform (IDP). Users describe an environment graphically, then request controlled, traceable deployment. Catalogue components may represent a web server, application, database, VM or network configuration. Each supplies parameters and a deployment contract. The platform validates requests, estimates cost, enforces roles/approval and orchestrates execution/checks.
 
-Le nom KuberWeaver n'implique pas l'utilisation de Kubernetes : aucun cluster Kubernetes n'est installé ou orchestré par le prototype actuel.
+A modular kernel carries shared guarantees; plugins and replaceable providers add capabilities. The goal is not to rebuild a hypervisor, cloud or Ansible but to expose existing automation through governed workflows.
 
-### Exemple concret
+At the historical reference date, real NGINX/Apache deployment on virtualized lab targets had been exercised with approval, backup, canary, rolling, verification and restoration. That scope did not establish a general-purpose production-ready platform. The name does not imply Kubernetes: the documented implementation did not install or orchestrate a Kubernetes cluster.
 
-Un opérateur ajoute un serveur web au canvas, choisit les cibles et les ressources, puis soumet son plan. Un administrateur examine les coûts et approuve. La plateforme sauvegarde l'état initial, déploie sur une première cible, vérifie le résultat, puis poursuit sur les autres. Si une vérification échoue, elle tente de restaurer les ressources déjà modifiées et expose les preuves du résultat.
+### Example
 
-### Valeur à démontrer
+An operator adds a web server to Canvas, selects targets/resources and submits. An administrator reviews cost and approves. The platform backs up actual state, deploys to a first target, verifies, then continues. On failed checks it attempts to restore already modified resources and reports evidence, including failed recovery rather than fabricated success.
 
-- Réduire les opérations manuelles répétitives et les écarts entre procédures.
-- Rendre les déploiements accessibles à travers des formulaires plutôt que des commandes libres.
-- Centraliser les droits, politiques, approbations, coûts estimés et traces.
-- Réduire le rayon d'impact d'une erreur grâce aux phases et à la restauration.
-- Ajouter de nouvelles capacités sans multiplier les cas particuliers dans le noyau.
+### Value to demonstrate
 
-Il ne s'agit pas d'affirmer que toutes ces capacités sont inédites sur le marché. Une étude comparative serait nécessaire pour établir le positionnement commercial.
+- Reduce repetitive manual work and inconsistent procedures.
+- Expose forms rather than unrestricted commands.
+- Centralize roles, policy, approval, estimates and traces.
+- Limit error impact through staged execution and recovery.
+- Add capabilities without vendor-specific kernel branches.
 
-## 2. Besoin et objectifs
+These are intended benefits, not claims of market uniqueness. Commercial positioning requires a documented comparison.
 
-### 2.1 Problème initial
+## 2. Need and objectives
 
-La demande initiale porte sur une interface visuelle, initialement vide, permettant de proposer de l'infrastructure en self-service : environnements front/back sur VM ou conteneurs, configuration en masse, équipements Cisco et pfSense, gouvernance, GitOps, secrets, messageries, monitoring, FinOps et diagnostic IA en lecture seule.
+### 2.1 Initial need
 
-Sans plateforme commune, ces activités reposent sur des outils et procédures séparés. Le risque est de perdre la cohérence entre ce qui a été demandé, approuvé, exécuté et effectivement obtenu.
+The original request was an initially empty visual self-service infrastructure interface: frontend/backend environments on VMs/containers, bulk configuration, Cisco/pfSense, governance, GitOps, secrets, messaging, monitoring, FinOps and read-only AI diagnostics. Separate tools/procedures risk losing consistency between requested, approved, executed and observed state.
 
-### 2.2 Précision du besoin : une plateforme agent-capable
+### 2.2 External-agent capability
 
-Le porteur du projet précise que l'intégration IA signifie d'abord rendre **l'ensemble des fonctions de la plateforme pilotable depuis un agent externe**, Hermes ou tout autre client compatible. KuberWeaver n'a pas besoin d'embarquer un modèle de langage : son API expose les fonctions métier, et un serveur MCP en propose une interface typée aux agents.
+AI integration primarily means making business functions accessible to an external agent through the API and typed MCP adapter. The portal need not embed a language model. Agents retain the same role ceilings, explicitly allowed actions, quotas, validation, approval and audit boundaries.
 
-Le même contrôle s'applique au portail et aux agents : rôle maximal, actions explicitement autorisées, quotas, validation, approbation et audit. Les accès agents sont des jetons individuels, expirables et révocables, stockés sous forme d'empreinte côté serveur. Un agent opérateur peut soumettre sans approuver. Un pouvoir d'administration ou d'approbation n'est possible que si un administrateur humain le délègue explicitement, dans les limites du rôle et des scopes attribués. Un agent ne peut pas créer ses propres accès privilégiés.
+Agent tokens are individual, expiring and revocable, with only digests stored server-side. Operators submit but do not approve. Administrative/approval authority requires explicit human-administrator delegation within role/scopes. An agent cannot create its own privileged access. Read-only LLM diagnostics is an optional separate integration, not the product's mandatory AI dependency or a required subscription.
 
-Le diagnostic LLM en lecture seule devient une intégration optionnelle indépendante, non une dépendance ni la définition de l'IA du produit. Aucun fournisseur de modèles ou abonnement IA n'est obligatoire pour utiliser le portail ou son API/MCP.
+### 2.3 Objectives
 
-### 2.3 Objectifs du projet
-
-| Objectif | Résultat recherché |
+| Objective | Intended result |
 | --- | --- |
-| O1, self-service encadré | Composer une demande sans écrire soi-même tout le code d'automatisation. |
-| O2, gouvernance | Bloquer une demande non conforme et soumettre les changements sensibles à approbation. |
-| O3, exécution vérifiable | Déployer réellement et distinguer succès, échec, restauration et revue manuelle. |
-| O4, modularité | Ajouter une brique ou un fournisseur compatible sans modifier le noyau. |
-| O5, traçabilité | Relier identité, version du plan, approbation, journal et preuves de résultat. |
-| O6, exploitation | Comprendre les incidents, les coûts estimés et l'état des ressources. |
+| O1, governed self-service | Compose requests without writing the entire automation implementation. |
+| O2, governance | Reject noncompliance and require approval for sensitive changes. |
+| O3, verifiable execution | Perform real deployment and distinguish success, failure, restoration and manual review. |
+| O4, modularity | Add compatible components/providers without kernel changes. |
+| O5, traceability | Link identity, plan version, approval, journal and result evidence. |
+| O6, operations | Explain incidents, estimates and observed resources. |
 
-### 2.4 Ce que le prototype doit prouver
+### 2.4 Required evidence
 
-Le démonstrateur doit prouver un cycle complet sur des ressources réelles, pas seulement afficher une topologie ou produire des journaux plausibles. L'ajout d'une nouvelle catégorie de service doit ensuite éprouver la modularité au-delà des deux serveurs web déjà intégrés.
+Demonstrate an end-to-end lifecycle on actual resources, not merely a topology or plausible logs. Add another service category to test modularity beyond the two web servers.
 
-## 3. Périmètre, utilisateurs et responsabilités
+## 3. Scope, users and responsibilities
 
-### 3.1 Niveaux de périmètre
+### 3.1 Scope levels
 
-- **P0, socle de recette :** catalogue déclaratif, canvas, formulaires, gouvernance, rôles, approbation, jobs persistants, déploiement réel, restauration, Git local, audit et preuve de modularité. Il s'agit largement de capacités déjà présentes, à préserver et à revalider.
-- **P1, extension prioritaire proposée :** une brique réellement différente des serveurs web, secrets d'exécution issus du coffre, un connecteur de notification réel, exploitabilité et documentation reproductible.
-- **P2, extensions conditionnelles :** OpenTofu sur un fournisseur choisi, réseau Cisco/pfSense, ChatOps interactif, diagnostic LLM, consommation FinOps et observabilité externe.
-- **Vision long terme :** plateforme hybride étendue, marketplace communautaire sécurisée, multi-tenant et éventuelles offres commerciales.
+- **P0, acceptance baseline:** declarative catalogue, Canvas, forms, governance, roles, approval, durable jobs, real deployment/restoration, local Git, audit and modularity evidence. Preserve/revalidate existing capabilities.
+- **P1, proposed priority extension:** a genuinely different service category, vault-sourced execution secrets, an actual notification connector, operations and reproducible documentation.
+- **P2, conditional extensions:** OpenTofu with a selected provider, Cisco/pfSense, interactive ChatOps, LLM diagnostics, measured FinOps and external observability.
+- **Long-term vision:** broader hybrid platform, secure community marketplace, multi-tenancy and possible commercial services.
 
-Le mentor doit arbitrer le contenu de P1 et P2 en fonction du temps, des compétences et des accès disponibles. La vision entière n'est pas assimilée au minimum académique.
+The team/mentor must choose P1/P2 according to time, expertise and authorized access. The full vision is not the minimum academic deliverable.
 
-### 3.2 Acteurs
+### 3.2 Actors
 
-| Acteur | Responsabilités |
+| Actor | Responsibility |
 | --- | --- |
-| Lecteur | Consulter les ressources et les exécutions autorisées, sans mutation. |
-| Opérateur | Composer, configurer, enregistrer et soumettre une demande. |
-| Administrateur | Approuver ou refuser, gérer les politiques et fournisseurs, autoriser les extensions et traiter les incidents. |
-| Auteur de plugin | Livrer un paquet documenté avec schéma, exécution, vérification et restauration adaptées. |
-| Exploitant du laboratoire | Fournir les cibles, accès, sauvegardes et conditions de sécurité du terrain de test. |
-| Mentor ou expert | Challenger le périmètre, les choix, les risques et les preuves, sans être remplacé par l'IA. |
-| Équipe projet | Développer, tester, documenter et faire valider les livrables. |
+| Viewer | Inspect permitted resources/executions without mutation. |
+| Operator | Compose, configure, save and submit requests. |
+| Administrator | Approve/reject, manage policy/providers, authorize extensions and handle incidents. |
+| Plugin author | Deliver documented schemas, execution, verification and service-appropriate recovery. |
+| Lab operator | Supply targets, access, backups and safe test conditions. |
+| Mentor/expert | Challenge scope, choices, risks and evidence; not replaced by AI. |
+| Project team | Implement, test, document and obtain approval. |
 
-La séparation opérateur/approbateur existe par rôles. Une séparation stricte interdisant à une même personne d'approuver sa propre demande reste une décision de gouvernance à préciser et à tester.
+Roles separate operator/approver powers. A strict ban on approving one's own request remains a governance decision to define and test.
 
-### 3.3 Non-objectifs du socle
+### 3.3 Non-goals
 
-- Construire un hyperviseur, un cloud ou un moteur d'automatisation maison.
-- Garantir une absence totale de panne ou un rollback universel.
-- Exécuter du code tiers non fiable directement dans le processus serveur.
-- Accorder implicitement des droits à un agent ou lui permettre de contourner l'API, les politiques et les approbations ; une délégation explicite reste possible selon les scopes autorisés.
-- Réaliser tous les fournisseurs cloud et équipements réseau en une itération.
-- Livrer un système de paiement, une facturation commerciale ou un SaaS multi-tenant dans P0.
-- Exposer le prototype actuel sur Internet sans durcissement préalable.
+Do not build a replacement hypervisor/cloud/automation engine, promise universal rollback or zero failure, run untrusted code inside the server, grant agents implicit privileges, bypass policy/approval, implement every vendor in one iteration, deliver payments/commercial billing/multi-tenant SaaS in P0, or expose the local installation publicly without hardening.
 
-## 4. État réel du prototype
+## 4. Historically documented implementation
 
-Les états ci-dessous proviennent du README, des contrats et des rapports locaux de vérification. Les acceptations historiques ne sont pas présentées comme une nouvelle recette complète exécutée lors de la rédaction de ce document.
+The following reflects reports available at the reference date, not a fresh acceptance run. It must not override later operator documentation.
 
-| Capacité | État constaté ou documenté | Limite |
+| Capability | Historical evidence | Boundary at that date |
 | --- | --- | --- |
-| Portail React/TypeScript et canvas React Flow | Réalisé | Interface standard, pas de SDK de pages frontend tierces documenté. |
-| Catalogue et formulaires issus des manifestes | Réalisé | Sous-ensemble de champs pris en charge, pas toute la richesse possible de JSON Schema. |
-| Enregistrement et rechargement des blueprints | Réalisé | État local au prototype. |
-| Sessions, rôles, CSRF, admission et quotas | Réalisé | Comptes locaux ; pas de SSO ni de permissions par objet. |
-| Approbation et refus | Réalisé | Depuis le portail, pas depuis une messagerie. |
-| NGINX et Apache | Déploiements réels documentés | Conteneurs web statiques sur deux invités du laboratoire. |
-| Canary, rolling et rollback | Exercés sur les services web | Ne démontre pas une restauration de base de données ou d'équipement réseau. |
-| GitOps | Commits locaux des plans approuvés | Pas de push distant ni de réconciliation continue depuis Git. |
-| Inventaire GNS3 | Lecture réelle | Ne provisionne pas de nouvelles VM. |
-| FinOps | Estimations internes | Ni factures cloud ni consommation réellement mesurée. |
-| OpenBao | Source de secrets KV v2 et persistance testées | Clés Ansible non injectées depuis le coffre ; bootstrap et unseal manuels. |
-| Extensions Python | Installation, activation et sélection testées | Code de confiance avec les privilèges du serveur, pas de sandbox. |
-| Notifications | Outbox locale | Aucun envoi externe configuré dans le prototype documenté. |
-| Diagnostic | Règles déterministes | Pas d'inférence LLM configurée. |
-| Santé et métriques | Endpoints locaux | Pas de stack Prometheus/Grafana/Loki intégrée et acceptée. |
-| Cloud, OpenTofu, Cisco, pfSense, stack front/back | Prévus, non implémentés | Les entrées désactivées ne sont pas des services livrés. |
-| Marketplace, signatures, paiements | Non implémentés | Les contrôles locaux ne valent pas certification de sécurité. |
+| React/TypeScript portal and React Flow Canvas | Implemented. | Standard interface; no documented third-party-page SDK. |
+| Manifest catalogue/forms | Implemented. | Supported JSON Schema subset, not arbitrary schema/UI interpretation. |
+| Blueprint save/reload | Implemented. | Local application state. |
+| Sessions, roles, CSRF, admission, quotas | Implemented. | Local accounts, no SSO/per-object permissions. |
+| Approval/rejection | Portal workflow. | Messaging approval not then delivered. |
+| NGINX/Apache | Actual deployment records. | Static web containers on two lab guests. |
+| Canary/rolling/rollback | Exercised for web services. | Not database consistency or network recovery. |
+| GitOps | Local approved-plan commits. | No historical remote push or continuous Git reconciliation in that baseline. |
+| GNS3 inventory | Actual reads. | No new VM provisioning. |
+| FinOps | Internal estimates. | Not bills or measured consumption. |
+| OpenBao | KV v2 source/persistence tested. | No Ansible-key injection; manual bootstrap/unseal. |
+| Python extensions | Install/activate/select exercised. | Trusted server-privileged code, not a sandbox. |
+| Notifications | Local outbox. | No configured external delivery in that baseline. |
+| Diagnostics | Deterministic rules. | No configured LLM inference. |
+| Health/metrics | Local endpoints. | No accepted integrated Prometheus/Grafana/Loki stack. |
+| Cloud, OpenTofu, Cisco, pfSense, frontend/backend stack | Planned entries. | Disabled placeholders are not delivered services. |
+| Marketplace, signatures, payments | Not implemented. | Local checks are not security certification. |
 
-### 4.1 Preuves disponibles
+### 4.1 Historical evidence
 
-Le rapport `VERIFICATION.md` consigne 159 tests backend et 35 tests frontend passants, un build TypeScript/Vite réussi et des acceptations navigateur/API. Il décrit également un rollback réel de deux cibles et le chargement/déchargement d'une extension sans modification des fichiers Python du noyau.
+`VERIFICATION.md` records an earlier 159-test backend suite, 35 frontend passes, successful TypeScript/Vite build, browser/API acceptance, actual two-target rollback and extension load/unload without kernel Python changes. These are historical numbers, not a rolling measure of the current specification or source tree. Raw evidence remains private and must be reviewed for secrets before sharing. Passing tests does not establish production maturity.
 
-Ces nombres sont un résultat de vérification antérieure, pas une mesure actualisée à chaque lecture de ce cahier des charges. Les rapports bruts restent dans le répertoire privé d'exécution ; leur partage nécessite une revue des secrets.
+## 5. Expected workflows
 
-## 5. Parcours fonctionnels attendus
+### 5.1 Compose and submit
 
-### 5.1 Composer et soumettre
+Authenticate; open an empty Canvas or existing blueprint; add catalogue components; configure forms; express dependencies; server-validate schema, roles, targets, quotas and policy; display errors or plan/estimate; save and submit.
 
-1. L'opérateur s'authentifie et ouvre un canvas vide ou un blueprint existant.
-2. Il ajoute des briques du catalogue et complète les formulaires.
-3. Les liens expriment des dépendances explicites.
-4. Le serveur valide le schéma, les droits, les cibles, les quotas et les règles.
-5. Le portail affiche les erreurs ou le plan avec son estimation de coût.
-6. L'opérateur enregistre et soumet sa demande.
+### 5.2 Approve and execute
 
-### 5.2 Approuver et exécuter
+The administrator reviews exact plan, targets, plugin provenance and estimate, then approves/rejects with a recorded decision. Pin the plan and approved executable sources. The job preflights, snapshots actual state, applies/verifies canary, continues in batches only on success, and persists events/result evidence. Plan/source drift must invalidate authority or block execution, never silently change the approved operation.
 
-1. L'administrateur consulte le plan exact, les cibles, la provenance des plugins et le coût estimé.
-2. Il approuve ou refuse, avec une trace de sa décision.
-3. Le système fige la version du plan et des sources exécutables approuvées.
-4. Le job effectue les contrôles préalables puis sauvegarde l'état réel.
-5. Il applique le changement au canary et vérifie le service.
-6. Il poursuit par lots si les vérifications réussissent.
-7. Il persiste les événements et le résultat vérifiable.
+### 5.3 Failure
 
-Une modification du plan ou des sources exécutables après approbation doit invalider l'autorisation correspondante ou bloquer l'exécution, jamais changer silencieusement ce qui sera exécuté.
+Stop progression and restore modified resources only when the plugin contract supports it. Distinguish original failure from restoration outcome. Failed restoration stays explicitly `rollback_failed` and requires human intervention. An unreachable service may not be recoverable through the same broken management path; future network integrations need out-of-band access or another tested mechanism before claiming rollback.
 
-### 5.3 Gérer un échec
+### 5.4 Extension
 
-La plateforme arrête la progression et restaure les ressources déjà modifiées lorsque le contrat du plugin le permet. Le résultat distingue l'échec initial et l'issue de la restauration. Si celle-ci échoue, le job reste explicitement en échec de rollback et requiert une intervention humaine.
+Authors deliver documented/tested packages. Administrators review/install them. Compatible blueprints are catalogue data; executable extensions remain disabled until explicitly trusted/enabled. Disabling an optional capability must not break unrelated portal functions.
 
-Un service inaccessible n'est pas automatiquement restaurable par le même chemin d'administration. Les futurs plugins réseau doivent prévoir un accès hors bande ou un mécanisme adapté avant toute promesse de rollback.
+## 6. Architecture and technical choices
 
-### 5.4 Étendre la plateforme
-
-Un auteur livre un plugin avec sa documentation et ses tests. L'administrateur le fait contrôler et l'installe. Un blueprint compatible est découvert par le catalogue ; une extension exécutable reste désactivée tant que sa confiance et son activation n'ont pas été autorisées. La désactivation d'une capacité optionnelle ne doit pas rendre tout le portail inutilisable.
-
-## 6. Architecture et choix techniques
-
-### 6.1 Vue logique
+### 6.1 Logical view
 
 ```text
-Navigateur
-  Catalogue, canvas, formulaires, approbations, suivi
-                           |
-                           v
-Noyau de contrôle
-  Identité, validation, politiques, approbation, état, audit, jobs
-                           |
-             Registres et contrats de fournisseurs
-       /          |          |          |          \
- Inventaire   Exécution   Secrets   Notifications  Diagnostic
-                  |
-       Automatisation et systèmes cibles
-       Ansible, conteneurs et invités du laboratoire
-       Puis fournisseurs optionnels : OpenTofu, cloud, réseau
+Browser: catalogue, Canvas, forms, approval, tracking
+                         |
+                         v
+Kernel: identity, validation, policy, approval, state, audit, jobs
+                         |
+              Provider registries/contracts
+        /          |         |          |          \
+   Inventory   Execution   Secrets  Notifications Diagnostics
+                   |
+          Automation and target systems
+          Ansible, containers and lab guests
+          Optional later OpenTofu/cloud/network providers
 ```
 
-Le noyau porte les invariants de sécurité et le cycle de vie. Les plugins ne doivent pas pouvoir supprimer les contrôles d'identité, d'approbation, de validation ou de sérialisation.
+Plugins cannot remove identity, approval, schema validation or serialization invariants.
 
-### 6.2 Stack actuelle et options futures
+### 6.2 Historical stack and options
 
-| Couche | Implémentation actuelle | Évolution possible, non imposée |
+| Layer | Historical implementation | Possible extension, not mandatory |
 | --- | --- | --- |
-| Frontend | React, TypeScript, Vite, React Flow | Composants spécialisés si un besoin réel le justifie. |
-| API | FastAPI, modèles et règles Python | Contrats publics versionnés. |
-| État | SQLite et fichiers privés | PostgreSQL si concurrence et exploitation le nécessitent. |
-| Jobs | File persistante et worker applicatif sérialisé | File distribuée seulement si le besoin est établi. |
-| Exécution | Ansible et lifecycle de conteneurs | Fournisseur OpenTofu ou exécuteur spécialisé. |
-| Secrets | Fournisseurs configurables, dont OpenBao | Injection des identifiants d'exécution et rotation. |
-| Versionnement | Git local | Dépôt distant et parcours PR si retenus. |
-| Supervision | systemd utilisateur, santé et métriques locales | Collecte externe de métriques et logs. |
+| Frontend | React, TypeScript, Vite, React Flow. | Specialized UI only for a demonstrated need. |
+| API | FastAPI, Python models/policy. | Versioned public contracts. |
+| State | SQLite and private files at that date. | PostgreSQL when concurrency/operations require it; later migration is documented separately. |
+| Jobs | Durable serialized application worker. | Distributed queue only for a proven need. |
+| Execution | Ansible container lifecycle. | OpenTofu or specialized provider. |
+| Secrets | Configurable sources including OpenBao. | Execution injection/rotation. |
+| Versioning | Local Git. | Remote repository/PR workflow if selected. |
+| Operations | User systemd, health and local metrics. | External metric/log collection. |
 
-Les documents de vision évoquaient Next.js, PostgreSQL, Celery/Redis ou Temporal, OPA et différents outils d'observabilité. Ce sont des pistes initiales, pas la description de la stack livrée ni des dépendances obligatoires.
+Early vision mentions of Next.js, PostgreSQL, Celery/Redis or Temporal, OPA and monitoring tools were proposals, not mandatory dependencies or proof of delivery.
 
-### 6.3 Séparation de l'intention et de l'observation
+### 6.3 Desired versus observed
 
-Le blueprint décrit ce que l'utilisateur souhaite. L'inventaire et les probes décrivent ce qui existe ou répond effectivement. Un nœud posé sur le canvas ne prouve ni sa création ni sa disponibilité.
+A blueprint is intent; inventory/probes describe actual resources/responses. A Canvas node proves neither creation nor health. Edges impose ordering, not cabling, firewall rules, discovery or frontend/backend URLs. Any such future effect needs an explicit contract.
 
-Les liens actuels ordonnent les déploiements. Ils ne créent ni câblage, ni règle firewall, ni découverte de service, ni configuration automatique des URL front/back. Ces effets doivent être spécifiés explicitement dans de futurs contrats.
+## 7. Plugins and frontend integration
 
-## 7. Modèle de plugins et intégration frontend
+### 7.1 Complementary mechanisms
 
-### 7.1 Deux mécanismes complémentaires
-
-**Blueprint déclaratif :** service utilisant un exécuteur déjà disponible. Il contient un manifeste, un schéma de configuration, des valeurs par défaut et des assets de cycle de vie.
+A **declarative blueprint** uses an existing executor and supplies manifest, schema, defaults and lifecycle assets:
 
 ```text
 plugins/mon-service/
@@ -239,439 +207,293 @@ plugins/mon-service/
   iac/rollback.yml
 ```
 
-**Extension Python :** capacité nouvelle ou fournisseur alternatif d'inventaire, d'exécution, de secrets, de notifications ou de diagnostic. Le paquet contient `plugin.yaml` et `module.py`, et utilise le protocole d'extension versionné.
+A **Python extension** adds an inventory/execution/secrets/notification/diagnostic provider through the versioned SDK, using `plugin.yaml` and `module.py`. Adding a blueprint is not the same operation as installing an executable extension.
 
-Ajouter un blueprint et installer une extension ne sont pas la même opération.
+### 7.2 Automatic frontend behavior
 
-### 7.2 Ce que le frontend fait automatiquement aujourd'hui
+The backend discovers valid manifests from disk; catalogue reload exposes metadata and a standard schema form without rebuilding React for a compatible blueprint. This does not imply arbitrary schemas/icons or specialized consoles work without implementation. Supported field/rendering contracts need documentation. Activating a provider does not create a UI page. Interactive consoles, network editors or advanced service-specific views require a separate interface; plugin-delivered frontend component loading is not a documented capability.
 
-Pour un blueprint valide, le backend découvre les manifestes sur disque. Après rechargement du catalogue dans le navigateur, le portail affiche les métadonnées de la brique et utilise son schéma pour construire le formulaire standard. Une brique compatible ne nécessite donc pas de modifier React ou de reconstruire le frontend.
+### 7.3 New-component contract
 
-Cela ne signifie pas que n'importe quel schéma complexe ou n'importe quel pictogramme sera interprété sans développement. Le contrat de champs et de représentation supportés doit être documenté.
+Declare ID/version/description/compatibility/provenance; defaults/schema constraints; allowed targets and privileges; understandable plan/estimate; snapshot of actual state including absence; repeatable application and service checks; documented recovery/limits/manual procedure; success/failure/restore tests; no embedded secrets. Persistent services must not blindly reuse static-web rollback: container restoration does not prove transactional data consistency.
 
-L'activation d'un fournisseur Python ne crée pas automatiquement une page frontend. Une console interactive, un éditeur de règles réseau, une table métier avancée ou une vue propre à une base de données demandent une interface spécifique. Le chargement de composants frontend livrés par un plugin n'est pas une capacité actuellement documentée.
+### 7.4 Modularity criterion
 
-### 7.3 Contrat attendu pour une nouvelle brique
+Demonstrate a different category's lifecycle without business-condition branches in the kernel. Record integration effort, changed files and contract limits; no universal integration-time promise is made.
 
-- Identifiant, version, description, compatibilité et provenance.
-- Schéma de configuration avec valeurs par défaut et contraintes.
-- Cibles autorisées et droits nécessaires.
-- Plan et estimation compréhensibles avant mutation.
-- Sauvegarde de l'état réel, y compris l'absence initiale.
-- Application reproductible et vérification spécifique au service.
-- Restauration documentée, limites et procédure de reprise manuelle.
-- Tests de succès, d'échec et de restauration.
-- Aucun secret intégré dans le paquet ou les journaux.
+## 8. Functional requirements and acceptance criteria
 
-Un service persistant ne doit pas réutiliser aveuglément le rollback d'un serveur web statique. Une restauration de conteneur ne prouve pas la cohérence transactionnelle de ses données.
+Priorities are proposals. Every requirement has an observable criterion; listing a row does not mean it passed.
 
-### 7.4 Condition de réussite de la modularité
-
-Ajouter une brique d'une autre catégorie et démontrer son cycle de vie sans branche conditionnelle métier dans le noyau. Le temps d'intégration, les fichiers modifiés et les limites du contrat seront relevés. Aucun délai universel d'ajout de plugin n'est garanti à ce stade.
-
-## 8. Exigences fonctionnelles et critères de recette
-
-Les priorités ci-dessous sont proposées. Chaque ligne associe une exigence à un critère observable. Les états actuels sont détaillés en section 4 ; la présence d'une ligne ne signifie pas que sa recette est déjà passée.
-
-| ID | Priorité | Exigence | Critère de recette |
+| ID | Priority | Requirement | Acceptance criterion |
 | --- | --- | --- | --- |
-| EXG-001 | P0 | Authentifier et appliquer les rôles côté serveur. | CRT-001 : un lecteur ne peut soumettre ni approuver ; un opérateur ne peut administrer ; les refus sont vérifiés par appels API directs. |
-| EXG-002 | P0 | Découvrir les blueprints déclaratifs sans éditer le noyau. | CRT-002 : un nouveau manifeste valide apparaît après rechargement ; un manifeste invalide est signalé sans masquer les autres. |
-| EXG-003 | P0 | Composer et sauvegarder un graphe sur le canvas. | CRT-003 : enregistrer puis recharger conserve nœuds, positions, paramètres et dépendances ; cycles interdits. |
-| EXG-004 | P0 | Générer les formulaires à partir du schéma supporté. | CRT-004 : valeurs par défaut, listes de choix et bornes numériques sont rendues ; les données invalides sont aussi refusées par le serveur. |
-| EXG-005 | P0 | Appliquer les politiques et quotas avant déploiement. | CRT-005 : une cible inconnue, une commande arbitraire, un dépassement et une configuration interdite sont refusés avant mutation. |
-| EXG-006 | P0 | Soumettre un plan exact à approbation ou refus. | CRT-006 : décision, acteur et date sont persistés ; un changement du plan ou des sources approuvées bloque une exécution devenue non conforme. |
-| EXG-007 | P0 | Versionner et auditer les demandes exécutées. | CRT-007 : chaque exécution approuvée retrouve son plan expurgé, son vrai commit Git et ses événements, sans secret. |
-| EXG-008 | P0 | Exécuter des jobs persistants et sérialisés. | CRT-008 : un redémarrage conserve l'historique ; une opération interrompue reste en revue, sans rejeu silencieux. |
-| EXG-009 | P0 | Déployer progressivement sur des ressources réelles. | CRT-009 : les traces et lectures HTTP indépendantes prouvent sauvegarde, canary, vérification et rolling sur deux cibles. |
-| EXG-010 | P0 | Restaurer après échec et proposer un rollback manuel éligible. | CRT-010 : un échec rolling restaure aussi le canary ; l'absence initiale est restaurée ; un échec de restauration n'est jamais déclaré réussi. |
-| EXG-011 | P0 | Distinguer inventaire observé et intention graphique. | CRT-011 : l'inventaire vient d'une lecture réelle ; une indisponibilité est affichée et non remplacée par des données fabriquées. |
-| EXG-012 | P0 | Présenter une estimation FinOps avant approbation. | CRT-012 : total, détail par ressource, devise et nature estimative sont visibles et cohérents avec le calcul serveur. |
-| EXG-013 | P0 | Installer et activer explicitement les extensions. | CRT-013 : une extension désactivée n'est pas importée ; une extension défaillante ne laisse pas d'enregistrement partiel et ne casse pas le noyau. |
-| EXG-014 | P1 | Ajouter une catégorie de service différente des serveurs web. | CRT-014 : le service choisi passe déploiement, vérification et restauration sans modifier le noyau ; les limites de persistance sont documentées. |
-| EXG-015 | P1 | Obtenir les secrets d'exécution depuis un coffre. | CRT-015 : un déploiement réel utilise un secret à portée limitée issu du coffre ; révocation/expiration bloquent proprement ; aucune fuite dans Git ou les logs. |
-| EXG-016 | P1 | Envoyer une notification par un connecteur réel. | CRT-016 : un événement de job produit un message effectivement reçu, avec gestion d'échec et protection contre les doublons. |
-| EXG-017 | P1 | Rendre l'exploitation du portail observable. | CRT-017 : santé, état des jobs et erreurs sont consultables ; une panne contrôlée est visible ; la rétention est documentée. |
-| EXG-018 | P2 | Provisionner une ressource avec OpenTofu sur un fournisseur choisi. | CRT-018 : plan, création, lecture indépendante et destruction contrôlée sont prouvés ; état et verrouillage sont protégés. |
-| EXG-019 | P2 | Configurer un équipement réseau pilote. | CRT-019 : une modification autorisée puis sa restauration sont vérifiées depuis un accès de secours préservé sur une cible de lab autorisée. |
-| EXG-020 | P2 | Autoriser une approbation ChatOps sécurisée. | CRT-020 : un acteur authentifié approuve le plan exact ; un clic rejoué, expiré ou non autorisé est refusé et audité. |
-| EXG-021 | P1 | Permettre le pilotage de la plateforme par un agent externe via API et MCP, avec droits limités. | CRT-021 : des appels MCP réels lisent et soumettent via l'API ; les actions hors scopes et l'approbation par un opérateur sont refusées ; expiration et révocation bloquent immédiatement les accès ; les mutations autorisées restent approuvées et auditées. |
-| EXG-022 | P2 | Étendre GitOps à un dépôt distant contrôlé. | CRT-022 : un dépôt de test reçoit le plan expurgé et permet de relier demande, commit et résultat ; échec Git et divergence sont gérés explicitement. |
-| EXG-023 | P2 | Exploiter des mesures de consommation et des recommandations FinOps. | CRT-023 : chaque valeur mesurée indique source, période et fraîcheur ; les estimations restent distinctes des factures. |
-| EXG-024 | Vision | Distribuer des plugins tiers avec une chaîne de confiance. | CRT-024 : intégrité, provenance, versions, scans, revue, révocation et isolation sont définis et testés avant l'exécution de code non fiable. |
+| EXG-001 | P0 | Authenticate/enforce roles server-side. | CRT-001: viewer cannot submit/approve, operator cannot administer; direct API denial tests. |
+| EXG-002 | P0 | Discover blueprints without kernel edits. | CRT-002: valid manifest appears on reload; invalid one is reported without hiding peers. |
+| EXG-003 | P0 | Compose/save Canvas graphs. | CRT-003: reload preserves nodes, positions, parameters and dependencies; cycles denied. |
+| EXG-004 | P0 | Render supported schema forms. | CRT-004: defaults, choices, numeric bounds render; server also rejects invalid values. |
+| EXG-005 | P0 | Enforce policy/quotas before deployment. | CRT-005: unknown target, arbitrary command, excess quota and forbidden configuration denied before mutation. |
+| EXG-006 | P0 | Approve/reject the exact plan. | CRT-006: decision/actor/time persist; changed plan or sources block nonconforming execution. |
+| EXG-007 | P0 | Version/audit executed requests. | CRT-007: approved run links sanitized plan, actual Git commit and events without secrets. |
+| EXG-008 | P0 | Persist/serialize jobs. | CRT-008: restart retains history; interruption remains under review without silent replay. |
+| EXG-009 | P0 | Deploy progressively on actual resources. | CRT-009: traces and independent HTTP reads prove backup, canary, checks and rolling on two targets. |
+| EXG-010 | P0 | Recover after failure and offer eligible manual rollback. | CRT-010: rolling failure also restores canary; absence is restored; failed recovery never reports success. |
+| EXG-011 | P0 | Separate observed inventory from intent. | CRT-011: actual API read; outages remain explicit, never fabricated data. |
+| EXG-012 | P0 | Show FinOps estimate before approval. | CRT-012: total, breakdown, currency and estimated nature visible and consistent with server calculation. |
+| EXG-013 | P0 | Explicit installation/activation. | CRT-013: disabled code not imported; failed plugin leaves no partial registrations or kernel failure. |
+| EXG-014 | P1 | Add a non-web service category. | CRT-014: deploy/check/restore without kernel changes; persistence limits documented. |
+| EXG-015 | P1 | Vault-sourced execution secrets. | CRT-015: real deployment uses least-privilege vault secret; expiry/revocation fail cleanly; no Git/log leak. |
+| EXG-016 | P1 | Actual notification connector. | CRT-016: a job event produces a received message with failure/duplicate handling. |
+| EXG-017 | P1 | Observable portal operations. | CRT-017: health/jobs/errors readable, controlled failure visible, retention documented. |
+| EXG-018 | P2 | Selected OpenTofu provider. | CRT-018: plan/create/independent read/authorized destruction demonstrated; state/locking protected. |
+| EXG-019 | P2 | Pilot network device. | CRT-019: authorized change/restore independently verified through retained recovery access on an allowed lab target. |
+| EXG-020 | P2 | Secure ChatOps approval. | CRT-020: authenticated actor approves exact plan; replay/expired/unauthorized clicks denied/audited. |
+| EXG-021 | P1 | Limited external-agent API/MCP access. | CRT-021: real MCP reads/submissions through API; out-of-scope actions/operator approval denied; expiry/revocation block access; authorized changes remain approved/audited. |
+| EXG-022 | P2 | Controlled remote GitOps. | CRT-022: test destination receives sanitized plan and links request/commit/result; Git failure/divergence explicit. |
+| EXG-023 | P2 | Measured consumption/FinOps recommendations. | CRT-023: measurements state source/period/freshness; estimates remain separate from invoices. |
+| EXG-024 | Vision | Third-party plugin trust chain. | CRT-024: define/test integrity, provenance, versions, scans, review, revocation and isolation before untrusted execution. |
 
-## 9. Exigences non fonctionnelles
+## 9. Nonfunctional requirements
 
-### 9.1 Sécurité et fiabilité
+### 9.1 Safety and reliability
 
-- Refus par défaut des cibles, actions et capacités non explicitement autorisées.
-- Validation serveur systématique, indépendante du formulaire.
-- Pas d'exécution de commandes arbitraires fournies par l'utilisateur.
-- Contrôle de propriété des ressources pour ne pas adopter ou supprimer un service tiers.
-- Verrouillage des opérations concurrentes sur le même état.
-- Désactivation d'un fournisseur sans bascule silencieuse vers un autre.
-- États d'erreur explicites : restauration partielle, secrets indisponibles, source modifiée, cible inaccessible.
-- Test de sauvegarde/restauration de l'état du portail avant toute exploitation durable.
+Deny targets/actions/capabilities by default; validate server-side independently of forms; reject arbitrary user commands; enforce ownership against adoption/deletion of foreign resources; lock incompatible operations; do not silently replace disabled providers. Explicitly report partial recovery, vault outage, source drift and unreachable targets. Exercise portal backup/restore before durable operation.
 
-### 9.2 Ergonomie et accessibilité
+### 9.2 Usability and accessibility
 
-Le parcours principal doit rester compréhensible pour un opérateur non auteur des playbooks. Les erreurs doivent nommer le problème et l'action possible. Les formulaires doivent avoir des libellés, les actions sensibles être identifiables et les états ne pas dépendre uniquement d'une couleur.
+Non-authors of playbooks should understand the main path. Errors name the issue and possible action. Label fields, identify sensitive operations and avoid color-only status. Historical mobile-width checks are not a full accessibility audit. Keyboard navigation and Canvas alternatives still require acceptance.
 
-Le prototype a fait l'objet de vérifications à largeur mobile ; cela ne constitue pas un audit d'accessibilité complet. La navigation clavier et les alternatives aux manipulations du canvas restent à recetter.
+### 9.3 Performance and capacity
 
-### 9.3 Performance et capacité
+No production SLA is established. Measure catalogue load, submission, event-display latency and lab job duration before approving thresholds, users/resources or load tests. Recovery time depends on provider, data and target access; the original seconds-level network-rollback aspiration is not a commitment.
 
-Aucun SLA de production n'est établi. La recette devra relever les temps de chargement du catalogue, de soumission et d'affichage des événements, ainsi que la durée des jobs sur le lab de référence. Les seuils acceptables, le nombre d'utilisateurs et le nombre de ressources visés doivent être approuvés avant un test de charge.
+### 9.4 Maintainability and reversibility
 
-Une durée de rollback ne peut pas être garantie indépendamment du plugin, de l'état des données et de l'accès à la cible. La promesse initiale d'un retour réseau en quelques secondes n'est donc pas reprise comme engagement.
+Require versioned contracts, documented schemas, explicit dependencies, automated tests and reproducible procedures. Export plans in a documented format. State migration/incompatible upgrade needs backup and a return procedure.
 
-### 9.4 Maintenabilité et réversibilité
+### 9.5 Costs, licenses and confidentiality
 
-Contrats versionnés, schémas documentés, dépendances explicites, tests automatiques et procédures reproductibles sont requis. Les plans doivent être exportables dans un format documenté. Une migration d'état ou une mise à jour incompatible doit prévoir sauvegarde et procédure de retour.
+Prefer components without mandatory subscriptions; free software is not zero hosting/API/model/messaging cost. Check tool/image/network-system licenses before distribution. Project licensing remains to be confirmed. Do not send infrastructure data/logs to external AI without authorization/content review.
 
-### 9.5 Coûts, licences et confidentialité
+## 10. Data, safety and operations
 
-Privilégier les composants utilisables sans abonnement obligatoire. Ne pas confondre logiciel libre et absence de coûts d'hébergement, d'API, de modèle ou de messagerie. Les licences des outils, images et systèmes réseau doivent être vérifiées avant distribution. La licence propre du projet reste à confirmer.
+### 10.1 Business objects
 
-Les données d'infrastructure et les journaux ne doivent pas être envoyés à un service IA externe sans autorisation et revue préalable de leur contenu.
+Users/roles, blueprints, nodes/dependencies, requests, approvals, versions/digests, jobs/events, snapshots, observed targets, estimates, configured providers, secret references and notifications must remain traceable. Secret values are not catalogue metadata or publishable plan fields.
 
-## 10. Données, sécurité et exploitation
+### 10.2 Trust zones
 
-### 10.1 Objets métier
+1. Browser/user input, untrusted.
+2. Kernel, responsible for authorization.
+3. Executable extensions, currently administrator-trusted code.
+4. Automation tools and target access.
+5. Vault/bootstrap operator.
+6. Optional external messaging/AI services.
 
-Le système manipule des utilisateurs et rôles, blueprints, nœuds et dépendances, demandes, approbations, versions et empreintes, jobs, événements, snapshots, cibles observées, estimations, fournisseurs configurés, références de secrets et notifications.
+Limit technical-account privileges to functions. Do not give plugins recovery/admin secrets or ship them with code.
 
-Chaque opération doit permettre de retrouver le lien entre ces objets. Un secret lui-même n'est pas une métadonnée de catalogue ou une valeur à publier dans un plan.
+### 10.3 Lab boundaries
 
-### 10.2 Zones de confiance
+Workstation control plane, GNS3 guest deployment, loopback portal, isolated management network—not automatic LAN/Internet publication. For the web executor, disk declarations are budgeting inputs, not enforced quotas; CIDR is an admission guard, not a firewall rule. The portal does not secure GNS3 for other clients. Host/guest administrators remain trusted.
 
-1. Navigateur et utilisateur, entrées non fiables.
-2. Noyau du portail, responsable de l'autorisation.
-3. Extensions exécutables, aujourd'hui du code administrateur de confiance.
-4. Outils d'automatisation et accès aux cibles.
-5. Coffre et opérateur chargé du bootstrap.
-6. Éventuels services externes de notification ou d'IA.
+### 10.4 Before production exposure
 
-Les scopes de chaque compte technique doivent être limités à ses fonctions. Les secrets d'administration et de récupération du coffre ne doivent pas être confiés aux plugins ni livrés avec le code.
+Require appropriate HTTPS, identity, resource permissions, secret protection/rotation, privilege separation, execution isolation, restorable backups, retention, dependency hardening and threat-model review. SSO, multi-tenancy and HA are not established. Local encryption does not defeat OS-account/root compromise.
 
-### 10.3 Contraintes actuelles du laboratoire
+## 11. Testing and acceptance presentation
 
-Le contrôle tourne sur le poste local et les déploiements sur des invités GNS3. Le portail écoute sur le loopback. L'accès aux services déployés utilise un réseau de management isolé, pas une publication automatique sur le LAN ou Internet.
+### 11.1 Test layers
 
-Le champ de disque actuel est une déclaration budgétaire, pas un quota disque appliqué. Le CIDR actuel est un garde-fou de demande, pas une règle firewall installée. La topologie ne doit pas faire croire le contraire.
+- Unit: schema, policy, calculations, state transitions, contracts.
+- Integration: API, storage, registry, actual provider selection, secrets.
+- Frontend: forms, rights, errors, navigation.
+- End-to-end: real browser and backend.
+- Infrastructure: independent service/state readback after mutation.
+- Resilience: canary/rolling failure, partial restoration, controller restart.
+- Security: roles, replay, invalid input, post-approval drift, foreign resources.
 
-L'API GNS3 existante n'est pas sécurisée par la simple présence du portail. Les accès administrateur au poste et aux invités restent dans le périmètre de confiance du lab.
+Injected Ansible boundaries are useful but do not prove an actual induced lab outage.
 
-### 10.4 Éléments nécessaires avant une exposition de production
+### 11.2 Minimum presentation
 
-HTTPS, gestion d'identité adaptée, permissions par ressource, protection et rotation des secrets, séparation des privilèges, isolation d'exécution, sauvegardes restaurables, politique de journaux, durcissement des dépendances et revue du modèle de menace. SSO, multi-tenant et haute disponibilité ne sont pas acquis.
+Show real Canvas/catalogue; create a rejected web request; correct it and show estimate; approve/deploy to two targets; independently verify responses; update with controlled failure and prove restoration; retrieve plan/decision/commit/events; add/activate a capability without kernel edits. Future features are presented as functional only after their own acceptance. An explicit unavailable state is preferable to simulated success.
 
-## 11. Stratégie de tests et démonstration
+### 11.3 Protect the test environment
 
-### 11.1 Niveaux de tests
+Mutate only owned resources on authorized targets. Record baseline, use free ports, preserve existing applications, restore temporary resources and do not touch physical appliances/production for acceptance.
 
-- Unitaires : schémas, règles, calculs, transitions d'état et contrats.
-- Intégration : API, stockage, registre, sélection réelle des fournisseurs et gestion des secrets.
-- Frontend : rendu des formulaires, droits, erreurs et navigation.
-- Bout en bout : navigateur réel avec backend réel.
-- Infrastructure : lectures indépendantes des services et de leur état après mutation.
-- Résilience : échec du canary, échec rolling, restauration partielle et redémarrage du contrôle.
-- Sécurité : accès hors rôle, rejeu, données invalides, dérive après approbation et ressources étrangères.
+## 12. Organization, milestones and deliverables
 
-Un test avec frontière Ansible simulée reste utile, mais ne vaut pas preuve d'une panne réellement provoquée sur le lab.
+### 12.1 Reference team and proposed allocation
 
-### 11.2 Scénario de démonstration minimal
+Six EFREI Paris team members and reference roles were supplied by the project owner. Work packages/reviews below are proposed coordination, adjustable without changing those roles. Security is shared throughout, not a final task assigned to one person.
 
-1. Montrer un canvas et le catalogue réellement disponible.
-2. Ajouter un serveur web et provoquer une validation refusée.
-3. Corriger la demande et montrer le coût estimé avant approbation.
-4. Approuver et suivre un vrai déploiement sur deux cibles.
-5. Vérifier séparément les réponses des deux services.
-6. Mettre à jour avec une panne contrôlée, puis prouver le retour à l'état précédent.
-7. Retrouver plan, décision, commit et événements.
-8. Montrer l'ajout ou l'activation d'une capacité sans modification du noyau.
-
-Les futures fonctions ne sont montrées comme fonctionnelles que si elles passent leur propre recette. Une indisponibilité explicitée vaut mieux qu'une réussite simulée.
-
-### 11.3 Protection du terrain de test
-
-Toutes les mutations doivent rester dans les ressources du projet et les cibles autorisées. Relever l'état initial, utiliser des ports libres, préserver l'application préexistante, restaurer les ressources temporaires et ne pas toucher aux équipements physiques ou à la production pour la démonstration.
-
-## 12. Organisation, jalons et livrables
-
-### 12.1 Présentation de l'équipe et répartition des responsabilités
-
-L'équipe du projet KuberWeaver, sur le campus EFREI Paris, est composée des six personnes ci-dessous. Les rôles principaux ont été communiqués par le porteur du projet. Leur déclinaison en sous-lots, livrables et revues constitue l'organisation opérationnelle proposée dans ce cahier des charges ; elle reste ajustable collectivement sans changer les rôles de référence.
-
-**Sécurité à chaque étape du processus !** La sécurité est une responsabilité partagée, intégrée à chaque lot, et non une tâche confiée à une seule personne en fin de développement.
-
-| Personne | Rôle de référence | Périmètre principal dans le projet |
+| Person | Reference role | Main proposed scope |
 | --- | --- | --- |
-| Etienne MURZEAU | Référent / Déposant, Intégration AI / Infrastructure | Coordination technique, cohérence d'ensemble, intégration IA en lecture seule, intégrations transverses et préparation de la démonstration. |
-| Rayan CHOUCHANE | Infrastructure Terraform / Ansible + GitOPS, Pipeline : Lint + Conteneur | Chaîne GitOps et CI/CD, contrôles automatisés, conteneurisation des outils d'exécution et intégration des automatisations. |
-| Alex YAO | Infrastructure Terraform / Ansible | Provisionnement, inventaire et préparation des cibles ; développement du futur fournisseur IaC si retenu. |
-| Vidjay VELAYOUDAM | FinOps / Business | Modèle de coût, indicateurs, besoins métier, proposition de valeur et cadrage économique. |
-| Abdel-Waheb SAKKAL | Infrastructure Terraform / Ansible | Configuration des services et équipements, plugins d'automatisation, déploiement progressif, vérification et restauration. |
-| Priyank SOLANKI | Développeur web, Full Stack | Frontend et backend du portail, contrats API, parcours utilisateur, droits applicatifs et intégration des capacités dans l'interface. |
+| Etienne MURZEAU | Project lead / submitter, AI / infrastructure integration | Architecture, coordination, read-only AI integration, cross-cutting integrations and presentation. |
+| Rayan CHOUCHANE | Terraform / Ansible infrastructure + GitOPS, lint/container pipeline | GitOps/CI/CD, checks, execution-tool containers and automation integration. |
+| Alex YAO | Terraform / Ansible infrastructure | Provisioning, inventory, targets and conditional IaC provider. |
+| Vidjay VELAYOUDAM | FinOps / Business | Cost model, indicators, user need, value proposition and economics. |
+| Abdel-Waheb SAKKAL | Terraform / Ansible infrastructure | Service/device configuration, plugins, rollout, verification and restoration. |
+| Priyank SOLANKI | Full Stack web developer | Portal/API, contracts, workflow, application rights and UI integration. |
 
-L'enveloppe d'environ 510 heures évoquée dans la vision initiale reste une hypothèse de cadrage. Elle ne constitue ni un relevé des heures effectuées, ni une allocation confirmée par personne, ni une estimation du travail restant. Les charges et disponibilités seront précisées après validation du périmètre.
+The original approximately 510-hour envelope is a framing hypothesis, not actual time, confirmed individual allocation or remaining-work estimate. Capacity requires scope approval.
 
-#### 12.1.1 Etienne MURZEAU, Référent / Déposant, Intégration AI / Infrastructure
+#### 12.1.1 Etienne MURZEAU
 
-**Grandes lignes :**
+Coordinate mentor discussions/scope decisions; maintain architecture, contracts and lab consistency; integrate contributions/dependencies; define diagnostics and optional read-only AI over authorized data; require sources/limits and a new human request before corrective mutations; coordinate secrets/observability/connectors; prepare reviews and final evidence.
 
-- Porter le besoin, centraliser les échanges avec le mentor et préparer les arbitrages de périmètre avec l'équipe.
-- Maintenir la cohérence entre architecture, contrats de plugins, contraintes du laboratoire et scénarios de démonstration.
-- Coordonner l'intégration des contributions et les dépendances entre portail, automatisation, coûts et exploitation.
-- Définir le fournisseur de diagnostic et, si cet axe est retenu, intégrer un modèle IA sur des données d'infrastructure autorisées en lecture seule.
-- Encadrer les propositions de correction : sources identifiables, limites explicites et nouvelle demande humaine avant toute mutation.
-- Coordonner l'intégration des secrets, de l'observabilité et des connecteurs externes avec les responsables de chaque couche.
-- Préparer avec l'équipe les revues, la démonstration finale et la présentation des résultats et limites.
+Deliverables: architecture, decision register, diagnostic contract/selected demonstration and technical synthesis. Security: threat model, least privilege, authorized external-AI flows, sanitization and no mutation tools in diagnostics. Collaborate with Priyank on API/UI, infrastructure owners on evidence and Vidjay on FinOps; coordination does not replace others' delivery/review duties.
 
-**Livrables :** architecture d'ensemble, registre des décisions, contrat de diagnostic, démonstration du diagnostic retenu et dossier de synthèse technique.
+#### 12.1.2 Rayan CHOUCHANE
 
-**Sécurité du lot :** modèle de menace transverse, revue des privilèges, autorisation des flux vers une IA externe, expurgation des données et absence d'outils de mutation accessibles au diagnostic IA.
+Maintain the GitOps chain linking sources, approved plans, versions and outcomes; pipeline manifest/code/IaC lint, tests and selected image builds; reproducible execution images with explicit dependencies (a proposed deliverable, not an assumed existing capability); integrate others' playbooks without duplicating logic; retain artifacts and failures; add remote publication only if EXG-022 is chosen; document contribution/review/release.
 
-**Collaborations :** Priyank pour l'API et le rendu du diagnostic, les trois responsables infrastructure pour les sources et preuves, Vidjay pour les recommandations FinOps. Le rôle de référent ne remplace pas les responsabilités de réalisation et de revue des autres membres.
+Deliverables: pipeline, lint rules, images/build recipes, GitOps conventions, check reports and delivery procedure. Security: least-privilege runners, secret-free artifacts/images, dependency/image checks, branch protection and approval. Lint/scans are not plugin certification or sandboxing. Collaborate with Alex/Abdel-Waheb on automation, Priyank on jobs and Etienne on version/approval coherence.
 
-#### 12.1.2 Rayan CHOUCHANE, Infrastructure Terraform / Ansible + GitOPS
+#### 12.1.3 Alex YAO
 
-**Grandes lignes :**
+Define allowed inventory/prerequisites; prepare owned resources without altering foreign workloads; design IaC modules/variables only if the provisioning milestone is approved; plan/create/read/authorize deletion; protect/lock state and define configuration outputs; supply inventory distinguishing intent from observation; document provider limits/reproducibility/cleanup.
 
-- Concevoir et maintenir la chaîne GitOps reliant les sources, les plans approuvés, leurs versions et les résultats d'exécution.
-- Mettre en place le pipeline de contrôles : validation des manifestes, lint du code et de l'IaC, tests et construction des images de conteneur retenues.
-- Définir des images d'exécution reproductibles avec des dépendances identifiées ; l'exécution conteneurisée est un livrable à réaliser, pas une capacité supposée déjà présente.
-- Intégrer les playbooks et modules des autres responsables infrastructure dans cette chaîne, sans dupliquer leur logique métier dans le pipeline.
-- Prévoir le traitement des échecs de pipeline, la conservation des artefacts utiles et la traçabilité de la version réellement exécutée.
-- Préparer l'intégration à un dépôt distant si EXG-022 est retenue, tout en conservant la distinction entre Git local et véritable livraison distante.
-- Fournir les procédures de contribution, de revue et de livraison des automatisations.
+Deliverables: inventory, lab prerequisites, selected-provider modules/output contracts, creation/cleanup procedures and independent readback. Security: least privilege, sensitive-state protection, isolated management, ownership and no unauthorized destruction. Coordinate targets with Abdel-Waheb, pipeline with Rayan, API with Priyank and lab dependencies with Etienne.
 
-**Livrables :** définition du pipeline, règles de lint, images et recettes de construction, conventions GitOps, rapports de contrôles et procédure de livraison.
+#### 12.1.4 Vidjay VELAYOUDAM
 
-**Sécurité du lot :** permissions minimales des runners, absence de secrets dans les images et artefacts, analyse des dépendances et images selon les outils retenus, protection des branches et approbation avant déploiement sensible. Un lint ou un scan réussi ne vaut pas certification d'un plugin ni sandbox d'exécution.
+Define users/priorities/use cases; document value/comparison without unsupported uniqueness claims; tariff units/currency/assumptions/calculation; per-resource/blueprint/environment indicators and measured trends only where data exists; specify server-enforced budgets with Priyank; distinguish estimates/measurements/invoices with freshness; analyze hosting/maintenance/API/service costs and marketplace hypotheses without mandatory MVP payments.
 
-**Collaborations :** Alex et Abdel-Waheb fournissent les automatismes et tests d'infrastructure ; Priyank fournit les interfaces nécessaires avec les jobs du portail ; Etienne arbitre avec l'équipe la cohérence des versions et du parcours d'approbation.
+Deliverables: business framing, cost model/reference calculations, dashboard specification and economic assumptions/limits. Security: financial confidentiality, role-based visibility and external-data minimization. Collaborate with Priyank on calculations/UI, infrastructure owners on actual allocations and Etienne on recommendations.
 
-#### 12.1.3 Alex YAO, Infrastructure Terraform / Ansible
+#### 12.1.5 Abdel-Waheb SAKKAL
 
-**Grandes lignes :**
+Maintain service roles/playbooks; deliver manifests/schema/defaults/assets; add a different category to test contract limits; implement preflight, backup, canary, batches and service checks; test automatic/manual restoration including absence, partial failure and persistent-data limits; conditionally configure authorized Cisco/pfSense with recovery access; document effects/recovery without equating ordering and network wiring.
 
-- Formaliser les prérequis d'infrastructure et l'inventaire des cibles autorisées.
-- Préparer les environnements d'exécution et les ressources nécessaires aux scénarios retenus, sans altérer les ressources étrangères au projet.
-- Concevoir les modules de provisionnement déclaratif et leurs variables ; implémenter un fournisseur Terraform/OpenTofu uniquement si le jalon correspondant est validé.
-- Gérer le cycle de vie des ressources : planification, création, lecture de l'état obtenu et suppression contrôlée des ressources possédées par le projet.
-- Définir le stockage et le verrouillage de l'état IaC, ainsi que les sorties consommables par les playbooks de configuration.
-- Fournir un inventaire exploitable par Ansible et par la couche d'inventaire du portail, en distinguant désiré et observé.
-- Documenter les limites du fournisseur, la reproductibilité et les procédures de nettoyage du laboratoire.
+Deliverables: documented plugins/playbooks, verification/recovery contracts, lifecycle tests and independent outcome evidence. Security: service hardening, allowed ports/targets, change controls, protected backups and recovery that preserves data/foreign resources. Coordinate inventory with Alex, pipeline with Rayan, UI/events with Priyank and secrets/limits with Etienne.
 
-**Livrables :** inventaire, prérequis du lab, modules IaC du fournisseur choisi, contrat des sorties, procédures de création/nettoyage et preuves de lecture indépendante des ressources.
+#### 12.1.6 Priyank SOLANKI
 
-**Sécurité du lot :** accès techniques limités, protection des fichiers d'état potentiellement sensibles, réseaux de management isolés, contrôle de propriété et absence de destruction non autorisée.
+Maintain frontend/backend without moving playbook business logic into the kernel; Canvas/catalogue/forms/blueprints/request/deployment views; API/state/transitions with execution owners; sessions/RBAC/CSRF/server validation; cost/inventory/automation-result views with domain owners; provider selection/configuration and diagnostics rendering; frontend/API tests, accessibility, actionable errors and interface docs.
 
-**Collaborations :** Abdel-Waheb consomme les cibles et sorties pour configurer les services ; Rayan intègre les contrôles et le versionnement ; Priyank expose l'inventaire et le plan via les contrats applicatifs ; Etienne coordonne les dépendances de lab.
+Deliverables: portal/API, contracts, form components, approval/tracking, integrated dashboards and tests. Security: authorization for every mutation, input validation, injection/response-leak prevention, session controls, secret masking and sensitive-action protection. UI restrictions never substitute for API enforcement. Priyank integrates domain data but does not solely own playbooks, economics, AI or infrastructure acceptance.
 
-#### 12.1.4 Vidjay VELAYOUDAM, FinOps / Business
+#### 12.1.7 Infrastructure boundaries
 
-**Grandes lignes :**
-
-- Formaliser les utilisateurs visés, leurs besoins prioritaires et les cas d'usage qui justifient la plateforme.
-- Structurer la proposition de valeur et une comparaison documentée avec les solutions pertinentes, sans prétendre à une unicité non démontrée.
-- Définir la grille tarifaire interne : unités, devise, hypothèses, composantes et règles de calcul des estimations.
-- Spécifier les indicateurs et tableaux de bord : coût par ressource, par blueprint ou environnement et, si les données existent, évolution et consommation.
-- Définir les règles de budget ou seuils d'alerte à faire appliquer par le serveur, avec Priyank.
-- Distinguer estimation, mesure et facturation ; préciser la source et la fraîcheur de chaque indicateur.
-- Étudier la viabilité et les coûts d'exploitation : hébergement, maintenance, API et services externes ; cadrer les hypothèses gratuites/payantes de la vision marketplace sans imposer un système de paiement au MVP.
-
-**Livrables :** cadrage métier, modèle de coûts documenté, jeux de calcul de référence, spécification des dashboards et synthèse économique avec hypothèses et limites.
-
-**Sécurité du lot :** confidentialité des données économiques, visibilité des coûts selon les droits et minimisation des données transmises aux services externes.
-
-**Collaborations :** Priyank implémente le calcul serveur et les vues selon la spécification ; Alex et Abdel-Waheb définissent les ressources réellement allouées ; Etienne relie les recommandations au diagnostic et au périmètre général.
-
-#### 12.1.5 Abdel-Waheb SAKKAL, Infrastructure Terraform / Ansible
-
-**Grandes lignes :**
-
-- Concevoir et maintenir les rôles et playbooks de configuration des services retenus.
-- Livrer les blueprints de catalogue avec manifeste, paramètres, valeurs par défaut et assets d'exécution.
-- Étendre le catalogue à une nouvelle catégorie réellement différente, choisie avec l'équipe, pour tester les limites du contrat actuel.
-- Implémenter les contrôles préalables, sauvegardes, canary, déploiements par lots et vérifications propres à chaque service.
-- Définir et tester la restauration automatique et manuelle, y compris l'absence initiale, les échecs partiels et les limites des services persistants.
-- Préparer les configurations Cisco/pfSense uniquement si cet axe est retenu, sur des équipements de laboratoire autorisés avec accès de secours.
-- Documenter les prérequis, effets de bord et procédures de reprise des plugins ; ne pas confondre ordre de déploiement et configuration du réseau applicatif.
-
-**Livrables :** plugins et playbooks documentés, contrats de vérification/restauration, tests de lifecycle et preuves de fonctionnement et de retour arrière.
-
-**Sécurité du lot :** configurations durcies selon le service, ports et cibles autorisés, contrôle des changements, sauvegardes protégées et vérification qu'un rollback ne détériore pas les données ou les ressources tierces.
-
-**Collaborations :** Alex fournit les ressources et l'inventaire ; Rayan industrialise les contrôles et l'exécution ; Priyank relie les paramètres et événements au portail ; Etienne coordonne les secrets et les limites d'intégration.
-
-#### 12.1.6 Priyank SOLANKI, Développeur web Full Stack
-
-**Grandes lignes :**
-
-- Développer et maintenir le portail frontend et le backend applicatif, sans transférer dans le noyau la logique métier des playbooks.
-- Prendre en charge le canvas, le catalogue, les formulaires générés, les blueprints et les vues de demandes et déploiements.
-- Implémenter les contrats API, la persistance et les transitions des demandes, approbations, jobs et événements, en coordination avec la chaîne d'exécution.
-- Porter l'authentification, les sessions, les contrôles de rôles, les protections CSRF et les validations côté serveur.
-- Intégrer les vues de coûts spécifiées par Vidjay, l'inventaire fourni par Alex et les résultats d'automatisation fournis par Rayan et Abdel-Waheb.
-- Fournir les interfaces de sélection et configuration des fournisseurs et le rendu des diagnostics coordonnés par Etienne.
-- Assurer les tests frontend/API, l'accessibilité du parcours, les erreurs compréhensibles et la documentation des interfaces.
-
-**Livrables :** portail et API, contrats documentés, composants de formulaires, parcours d'approbation/suivi, tableaux de bord intégrés et tests applicatifs.
-
-**Sécurité du lot :** autorisation côté serveur sur toutes les mutations, validation des entrées, prévention des injections et fuites dans les réponses, gestion des sessions, masquage des secrets et protection des actions sensibles. Une protection visuelle dans l'interface ne remplace jamais un contrôle API.
-
-**Collaborations :** chaque responsable de domaine définit ses données et critères ; Priyank les intègre au produit. Il n'est pas seul responsable des playbooks, du modèle économique, du fournisseur IA ou de toutes les recettes d'infrastructure.
-
-#### 12.1.7 Frontières entre les trois contributions infrastructure
-
-Les trois rôles infrastructure partagent Terraform/Ansible, mais ont des dominantes complémentaires pour éviter le chevauchement :
-
-| Sujet | Pilote opérationnel proposé | Interface avec les autres lots |
+| Topic | Proposed lead | Interface |
 | --- | --- | --- |
-| Ressources, provisionnement et inventaire | Alex YAO | Fournit les cibles et sorties documentées à la configuration et au portail. |
-| Configuration des services et rollback | Abdel-Waheb SAKKAL | Consomme l'inventaire ; produit des plugins et preuves de lifecycle. |
-| GitOps, lint, pipeline et conteneurs d'exécution | Rayan CHOUCHANE | Contrôle, versionne et assemble les livrables, sans recoder le provisionnement ou la configuration. |
+| Resources/provisioning/inventory | Alex YAO | Supplies documented targets/outputs. |
+| Service configuration/rollback | Abdel-Waheb SAKKAL | Consumes inventory, delivers plugins/lifecycle evidence. |
+| GitOps/lint/pipeline/execution containers | Rayan CHOUCHANE | Checks, versions and assembles without reimplementing provisioning/configuration. |
 
-Le terme Terraform dans les rôles décrit le domaine de compétence IaC. Le prototype actuel utilise Ansible ; le choix Terraform/OpenTofu pour une extension doit être arbitré selon les licences, les coûts, le fournisseur et les contraintes du projet. Aucun changement de moteur ni provisionnement supplémentaire n'est déclenché par cette répartition documentaire.
+Terraform in reference roles identifies IaC expertise, not a mandated engine change. The historical baseline uses Ansible; Terraform/OpenTofu selection depends on licenses, costs, provider and scope. Documentary allocation triggers no provisioning.
 
-#### 12.1.8 Couverture des exigences et revue croisée
+#### 12.1.8 Requirement coverage and independent review
 
-Le pilote porte la coordination et la preuve de recette de son lot ; les contributeurs réalisent leur partie et le relecteur apporte une vérification distincte. Cette organisation ne délègue pas l'approbation pédagogique ou la mise en production à une seule personne.
+Leads coordinate evidence; contributors implement their parts; reviewers provide a distinct check. Neither academic approval nor production authorization is delegated to one person by this table.
 
-| Exigences | Pilote proposé | Contributions et revue croisée |
+| Requirements | Proposed lead | Contribution/review |
 | --- | --- | --- |
-| EXG-001 à EXG-006, EXG-008, EXG-013 : portail, droits, demandes, jobs et registre | Priyank SOLANKI | Etienne revoit les invariants ; Abdel-Waheb vérifie la compatibilité des schémas et paramètres ; Rayan vérifie le lien aux sources exécutées. |
-| EXG-007, EXG-022 : GitOps et traçabilité distante | Rayan CHOUCHANE | Priyank relie jobs, décisions et commits ; Etienne revoit la fidélité au plan approuvé. |
-| EXG-009, EXG-010, EXG-014, EXG-019 : lifecycle, nouvelle brique et réseau conditionnel | Abdel-Waheb SAKKAL | Alex fournit les cibles et vérifie indépendamment l'état obtenu ; Rayan contrôle les assets ; Etienne revoit les limites de restauration. |
-| EXG-011, EXG-018 : inventaire et provisionnement conditionnel | Alex YAO | Priyank intègre les API ; Abdel-Waheb éprouve l'inventaire ; Rayan contrôle le pipeline et la protection de l'état. |
-| EXG-012, EXG-023 : estimation, indicateurs et FinOps | Vidjay VELAYOUDAM | Priyank implémente et teste le calcul serveur ; Alex et Abdel-Waheb confirment les ressources ; Etienne revoit les recommandations. |
-| EXG-015 : secrets d'exécution | Etienne MURZEAU | Rayan et Abdel-Waheb intègrent l'injection dans l'exécution ; Alex précise les comptes cibles ; Priyank protège API et interfaces. |
-| EXG-016, EXG-017, EXG-020, EXG-021 : intégrations, observabilité, ChatOps et diagnostic | Etienne MURZEAU | Priyank intègre les parcours ; Rayan fournit événements et métriques d'exécution ; Vidjay revoit les aspects économiques ; les responsables infrastructure revoient les privilèges et sources. |
-| EXG-024 : chaîne de confiance des plugins tiers, vision long terme | Rayan CHOUCHANE | Etienne coordonne le modèle de confiance ; Priyank traite le parcours d'administration ; Alex et Abdel-Waheb évaluent les effets sur les cibles. |
+| EXG-001–EXG-006, EXG-008, EXG-013 | Priyank | Etienne checks invariants; Abdel-Waheb schema/parameters; Rayan executed-source links. |
+| EXG-007, EXG-022 | Rayan | Priyank links jobs/decisions/commits; Etienne reviews approved-plan fidelity. |
+| EXG-009, EXG-010, EXG-014, EXG-019 | Abdel-Waheb | Alex supplies targets/independent checks; Rayan assets; Etienne restoration limits. |
+| EXG-011, EXG-018 | Alex | Priyank API; Abdel-Waheb inventory use; Rayan pipeline/state protection. |
+| EXG-012, EXG-023 | Vidjay | Priyank calculations; infrastructure owners resources; Etienne recommendations. |
+| EXG-015 | Etienne | Rayan/Abdel-Waheb injection; Alex target accounts; Priyank API/UI protections. |
+| EXG-016, EXG-017, EXG-020, EXG-021 | Etienne | Priyank workflows; Rayan events/metrics; Vidjay economics; infrastructure owners privileges/sources. |
+| EXG-024 | Rayan | Etienne trust model; Priyank admin workflow; Alex/Abdel-Waheb target effects. |
 
-Les exigences P2 et Vision ne deviennent pas des engagements de livraison parce qu'un pilote est identifié. Leur réalisation reste soumise à l'arbitrage de périmètre.
+P2/Vision entries remain conditional, even with a named lead.
 
-#### 12.1.9 Sécurité transverse à chaque étape
+#### 12.1.9 Security across stages
 
-| Étape | Contrôles attendus | Coordination principale |
+| Stage | Expected controls | Main coordination |
 | --- | --- | --- |
-| Cadrage et conception | Définir données sensibles, zones de confiance, rôles, risques et limites de mutation. | Etienne avec toute l'équipe. |
-| Développement et catalogue | Valider les entrées, schémas, chemins, contrats et dépendances ; ne pas intégrer de secrets au code. | Priyank pour l'application ; Alex et Abdel-Waheb pour l'IaC et les plugins. |
-| Intégration et construction | Lint, tests, contrôles de dépendances/images et revue des artefacts avant promotion. | Rayan, avec revue des auteurs concernés. |
-| Demande et approbation | Droits, quotas, coût, conformité et vérification de la version exacte à exécuter. | Priyank ; Vidjay pour les règles économiques ; Etienne pour la cohérence transverse. |
-| Accès et exécution | Comptes limités, secrets issus du fournisseur autorisé, contrôle de propriété et périmètre des cibles. | Etienne, Rayan, Alex et Abdel-Waheb selon la couche. |
-| Déploiement et restauration | Sauvegarde, canary, probes indépendantes, interruption et rollback adapté au service. | Abdel-Waheb, avec vérification indépendante par Alex et contrôles de pipeline par Rayan. |
-| Exploitation et diagnostic | Logs expurgés, métriques, rétention, gestion des accès et IA en lecture seule. | Etienne et Priyank, avec les responsables infrastructure et Vidjay selon les données. |
-| Démonstration et partage | Revoir captures, exports, plans et preuves ; conserver les secrets hors du dossier partagé. | Chaque auteur, avec revue croisée coordonnée par Etienne. |
+| Framing/design | Sensitive data, trust zones, roles, risks, mutation limits. | Etienne and whole team. |
+| Implementation/catalogue | Validate inputs, schemas, paths, contracts, dependencies; no secrets in code. | Priyank for app, Alex/Abdel-Waheb for IaC/plugins. |
+| Integration/build | Lint/tests, dependency/image checks, artifact review before promotion. | Rayan and relevant authors. |
+| Request/approval | Roles, quotas, estimates, policy, exact-version verification. | Priyank, Vidjay for economics, Etienne for cross-cutting coherence. |
+| Access/execution | Least-privilege accounts, authorized secret source, ownership and allowed targets. | Etienne/Rayan/Alex/Abdel-Waheb by layer. |
+| Deployment/recovery | Backup, canary, independent probes, interruption and service-appropriate rollback. | Abdel-Waheb, independent Alex checks, Rayan pipeline. |
+| Operations/diagnostics | Sanitized logs, metrics, retention, access management, read-only AI. | Etienne/Priyank and domain owners. |
+| Presentation/sharing | Review captures/exports/plans/evidence; exclude private material. | Every author, cross-review coordinated by Etienne. |
 
-Chaque membre documente les risques et tests de son lot. Un changement sensible fait l'objet d'une revue par un autre membre. Une lacune de sécurité bloque la livraison concernée tant qu'elle n'est pas corrigée ou formellement traitée dans le cadre de risque convenu ; la fin d'un sprint ne vaut pas acceptation implicite.
+Each member documents risks/tests. Sensitive changes need another reviewer. A security gap blocks affected delivery until fixed or formally treated within the agreed risk framework; sprint completion is not acceptance.
 
-#### 12.1.10 Modalités de coordination et de remise
+#### 12.1.10 Coordination and handover
 
-- Chaque lot dispose d'un pilote identifié, d'interfaces documentées, de critères de recette et d'un relecteur.
-- Les contrats entre portail, inventaire, exécution, estimation et diagnostic sont définis avant les développements dépendants.
-- Chaque membre fournit le code ou la configuration de son lot, les tests, la procédure de reproduction et les limites connues.
-- Les revues d'intégration suivent un parcours utilisateur complet ; elles ne se limitent pas à constater que chaque composant démarre isolément.
-- Etienne centralise les points bloquants et les demandes d'arbitrage ; le mentor et l'équipe valident le périmètre et les décisions qui les concernent.
-- Les charges, échéances et disponibilités individuelles restent à renseigner collectivement. Cette répartition ne présume pas que les tâches sont déjà réalisées.
+Each work package has an owner, documented interfaces, criteria and reviewer. Define cross-layer contracts before dependent work. Every member supplies code/configuration, tests, reproduction and known limits. Integration review follows a complete user path, not isolated component startup. Etienne centralizes blockers; team/mentor approve relevant decisions. Dates/capacity remain collective inputs; assignment does not mean completion.
 
-### 12.2 Jalons proposés
+### 12.2 Proposed milestones
 
-| Jalon | Livrable | Condition de sortie |
+| Milestone | Deliverable | Exit criterion |
 | --- | --- | --- |
-| J0, validation du cadrage | Périmètre P0/P1, scénarios et critères approuvés | Le mentor confirme ce qui sera évalué et ce qui reste hors périmètre. |
-| J1, baseline reproductible | Procédure de lancement, tests et preuve du parcours web | Une autre personne reproduit le déploiement et le rollback dans le lab. |
-| J2, extensibilité élargie | Une nouvelle catégorie de plugin | Son cycle de vie passe sans modification métier du noyau. |
-| J3, exploitation minimale | Secrets d'exécution et notification réelle si retenus | Fonctionnement et indisponibilités sont testés de bout en bout. |
-| J4, extension choisie | Un seul axe P2 prioritaire | Fournisseur ou fonctionnalité accepté sur une cible réelle autorisée. |
-| J5, recette et transmission | Dossier, preuves expurgées, démonstration et limites | Les exigences retenues ont un résultat, les écarts restants sont explicitement acceptés ou reportés. |
+| J0, scope approval | Approved P0/P1 scenarios/criteria. | Mentor confirms evaluated/out-of-scope work. |
+| J1, reproducible baseline | Startup/tests/web evidence. | Another operator reproduces deployment/rollback. |
+| J2, broader extensibility | Different service category. | Lifecycle passes without kernel business edits. |
+| J3, minimum operations | Selected execution secrets/notification. | End-to-end success and unavailability tested. |
+| J4, selected extension | One prioritized P2 axis. | Accepted on an actual authorized target. |
+| J5, acceptance/handover | Documentation, sanitized evidence, presentation, limitations. | Selected requirements have outcomes; gaps accepted/deferred explicitly. |
 
-Les dates, efforts et dépendances humaines doivent être renseignés après arbitrage. Ne pas lancer simultanément cloud, réseau, marketplace et IA avant la stabilisation du socle.
+Confirm dates/effort/dependencies after selection. Do not start cloud, network, marketplace and AI concurrently before stabilizing the baseline.
 
-### 12.3 Livrables attendus
+### 12.3 Deliverables
 
-- Ce cahier des charges et ses arbitrages versionnés.
-- Code du portail et contrats des fournisseurs.
-- Plugins avec manifests, schémas, assets et documentation.
-- Procédures d'installation, démarrage, arrêt, sauvegarde et reprise.
-- Environnement de démonstration et inventaire des prérequis.
-- Tests automatisés et matrice de recette renseignée.
-- Preuves partageables expurgées et registre des limites.
-- Guide auteur de plugin et guide opérateur/administrateur.
-- Support de démonstration et déclaration des usages de l'IA.
+Versioned specification/decisions; portal/provider contracts; plugins with manifests/schema/assets/docs; installation/start/stop/backup/recovery procedures; acceptance environment/inventory; tests/completed acceptance matrix; sanitized evidence/limitations; plugin-author and operator/admin guides; presentation and AI-use disclosure.
 
-## 13. Risques et décisions à prendre
+## 13. Risks and decisions
 
-### 13.1 Registre initial des risques
+### 13.1 Initial risk register
 
-| Risque | Conséquence | Réduction proposée |
+| Risk | Consequence | Proposed mitigation |
 | --- | --- | --- |
-| R1, dispersion fonctionnelle | Beaucoup d'écrans, peu de parcours réellement terminés | Geler P0 et sélectionner peu d'extensions. |
-| R2, modularité trop spécialisée | Chaque nouvelle brique impose des changements du noyau | Tester tôt une catégorie différente et relever les modifications. |
-| R3, rollback inadapté aux données | Perte ou incohérence malgré un statut de succès | Contrat de sauvegarde par service et preuves indépendantes de restauration. |
-| R4, perte d'accès réseau | Impossible de restaurer par le chemin cassé | Accès hors bande et cible de lab avant toute intégration réseau. |
-| R5, code tiers privilégié | Compromission du poste et des secrets | Confiance explicite ; pas de marketplace publique avant isolation réelle. |
-| R6, dérive après approbation | Exécution différente du plan relu | Empreintes, sources figées et revalidation avant mutation. |
-| R7, fuite de secrets | Publication dans Git, captures ou diagnostic IA | Expurgation, comptes limités et revue avant partage. |
-| R8, dépendance au laboratoire | Démo indisponible malgré un portail accessible | Vérification préalable des invités, accès, coffre et ports. |
-| R9, confusion estimation/facture | Mauvaise interprétation du coût affiché | Source, devise, hypothèses et période clairement visibles. |
-| R10, diagnostic IA trop affirmatif | Correction dangereuse ou cause inventée | Sources citées, incertitude, lecture seule et décision humaine. |
+| R1, scope dispersion | Many screens, few complete paths. | Freeze P0, select few extensions. |
+| R2, over-specialized modularity | Each component needs kernel edits. | Test a different category early and record changes. |
+| R3, data-inappropriate rollback | Loss/inconsistency despite success status. | Service-specific backup contracts, independent restore evidence. |
+| R4, lost network access | Broken path cannot restore itself. | Out-of-band access/authorized lab target. |
+| R5, privileged third-party code | Host/secret compromise. | Explicit trust; no public marketplace before real isolation. |
+| R6, post-approval drift | Execution differs from review. | Digests, pinned sources, pre-mutation revalidation. |
+| R7, secret leakage | Git/capture/AI disclosure. | Sanitization, least privilege, review before sharing. |
+| R8, lab dependency | Portal reachable but acceptance unavailable. | Precheck guests/access/vault/ports. |
+| R9, estimate/invoice confusion | Misread costs. | Visible source/currency/assumptions/period. |
+| R10, overconfident AI | Dangerous fix/invented cause. | Sources, uncertainty, read-only diagnosis, human decision. |
 
-### 13.2 Arbitrages attendus du mentor
+### 13.2 Mentor/team decisions
 
-1. Confirmer le problème utilisateur prioritaire et le public réellement visé.
-2. Valider le périmètre de recette académique et sa différence avec la vision commerciale.
-3. Choisir la prochaine catégorie de brique : application, base de données ou autre service.
-4. Décider si OpenTofu, Cisco/pfSense ou diagnostic IA est l'extension P2 prioritaire.
-5. Définir l'environnement cible, les images autorisées et les accès disponibles.
-6. Valider les sous-lots proposés pour l’équipe présentée en section 12.1, puis confirmer les charges, le calendrier, le budget et les critères d’évaluation.
-7. Décider des contraintes de séparation demandeur/approbateur.
-8. Fixer la politique de conservation des traces et de partage des preuves.
-9. Choisir le niveau de démonstration des plugins : paquets de confiance locaux ou véritable distribution tierce.
-10. Préciser si les interfaces métier spécifiques sont attendues, ou si les formulaires génériques suffisent.
+Confirm priority user problem/audience, academic scope versus commercial vision, next service category, one P2 priority, target environment/authorized images/access, work-package allocation/capacity/dates/budget/evaluation, requester/approver separation, evidence retention/sharing, local-trusted versus distributed third-party plugins, and specialized versus generic UI needs.
 
-### 13.3 Définition de « terminé »
+### 13.3 Definition of done
 
-Une capacité est livrée lorsqu'elle a un contrat documenté, une implémentation réelle, des tests adaptés, un résultat de recette observable et des limites explicites. Une entrée dans le catalogue, une interface de fournisseur ou une capture d'écran ne suffisent pas.
+A delivered capability has a documented contract, real implementation, suitable tests, observable acceptance result and explicit limitations. A catalogue row, interface or screenshot alone is insufficient. The agreed scope is accepted only when selected criteria pass or responsible people explicitly accept deviations. This document does not approve itself.
 
-Le projet est recevable sur le périmètre convenu lorsque les critères retenus sont satisfaits ou que les écarts sont acceptés explicitement par les personnes responsables. Ce document ne s'auto-valide pas.
+## 14. Framing method, traceability and sources
 
-## 14. Méthode de cadrage, traçabilité et sources
+### 14.1 Method
 
-### 14.1 Utilisation de l'outil proposé
+The historical review consulted `charroux/assistant-IA-projets` revision `b9c0eae5a64c80c7714f27021cee18a5bfd69483`. Its method separates need, requirements, criteria, design, decisions, evidence and gaps. Deterministic checks are distinct from AI audit and do not replace the mentor.[1]
 
-Le dépôt `charroux/assistant-IA-projets` a été consulté dans la révision `b9c0eae5a64c80c7714f27021cee18a5bfd69483`. Sa méthode distingue besoin, exigences, critères, conception, décisions, preuves et écarts. Ses contrôles déterministes sont distincts d'un audit IA et ne remplacent pas le mentor.[1]
+EXG/CRT pairs form the traceability matrix; evidence applies only to its tested scope. A documentary export supports structural checking, not academic approval or technical software audit. The project owner confirmed EFREI Paris, encoded as `paris`. Historical strict coherence reported 24 requirements/24 criteria, zero errors/warnings; `cadrage-mentor/rapport-coherence.md` retains that result. Dates/institutional grading remain unconfirmed; calendar milestones were intentionally empty, not inherited from the upstream example.
 
-Le présent document reprend cette séparation. Les couples EXG/CRT forment la matrice de traçabilité ; les preuves existantes ne valent que pour leur périmètre testé. Une exportation documentaire accompagne le document pour permettre un contrôle structurel avec cet outil. Elle ne constitue ni une validation pédagogique ni un audit technique du logiciel.
+That historical check validated export structure, not all Markdown facts, execution or this translation. The `coherence` tool made no AI call. New decisions remain proposed until approved.
 
-Le campus a été confirmé par le porteur du projet : **EFREI Paris**, représenté par `paris` dans l'outil. Le contrôle déterministe strict a été relancé sur l'export `cadrage-mentor/` : 24 exigences et 24 critères, zéro erreur et zéro avertissement. Le rapport exact est conservé dans `cadrage-mentor/rapport-coherence.md`. Les dates du calendrier et la grille institutionnelle restent à confirmer. Le fichier de calendrier est présent, avec des jalons volontairement vides ; les dates du modèle amont ne sont pas adoptées automatiquement. Le succès de ce contrôle structurel ne valide pas ces informations encore manquantes.
+### 14.2 Local reference sources
 
-Ce contrôle vérifie la structure de l'export, pas la justesse technique de tout le Markdown ni l'exécution des recettes. Aucun appel IA n'a été fait par l'outil `coherence`. Les nouveaux arbitrages restent au statut proposé jusqu'à validation humaine.
+Paths below identify original documents, not instructions to publish private source material. Vision suggestions are not verified capability claims.
 
-### 14.2 Sources locales faisant référence
-
-Les chemins ci-dessous sont relatifs au dossier `Prototype/` ou au projet `kuberweaver/`. Les documents de vision ont été conservés ; leurs suggestions et formulations promotionnelles ne sont pas reprises comme des faits techniques vérifiés.
-
-| Référence | Document | Utilisation |
+| Reference | Document | Use |
 | --- | --- | --- |
-| S1 | `Prototype/prompt humain` | Besoin initial exprimé par le porteur du projet. |
-| S2 | `Prototype/Cette vision décrit l'architecture complète d'un Internal Developer & Infrastructure Platform (IDP) orienté SaaS_Marketplace.md` | Vision large, pistes techniques et hypothèse d'organisation. |
-| S3 | `Prototype/Le flux d'orchestration étape par étape (De la demande au Rollback).md` | Parcours cible et articulation des sous-systèmes. |
-| S4 | `kuberweaver/README.md` | Périmètre implémenté, lancement et limites. |
-| S5 | `kuberweaver/docs/ACCEPTANCE.md` | Gates du prototype et frontières de sécurité. |
-| S6 | `kuberweaver/docs/VERIFICATION.md` | Résultats historiques et index des preuves. |
-| S7 | `kuberweaver/docs/EXECUTION.md` | Contrat réel d'exécution, propriété et restauration. |
-| S8 | `kuberweaver/docs/EXTENSIONS.md` | SDK Python, activation, registres et limites de confiance. |
-| S9 | `kuberweaver/backend/kuberweaver/catalog.py` et `frontend/src/App.tsx` | Découverte des manifestes et chargement du catalogue dans l'interface. |
+| S1 | `Prototype/prompt humain` | Original project-owner need; private source not reproduced. |
+| S2 | `Prototype/Cette vision décrit l'architecture complète d'un Internal Developer & Infrastructure Platform (IDP) orienté SaaS_Marketplace.md` | Broader vision, technical proposals and organizational hypothesis. |
+| S3 | `Prototype/Le flux d'orchestration étape par étape (De la demande au Rollback).md` | Intended workflow/subsystem relationships. |
+| S4 | `kuberweaver/README.md` | Implemented scope, startup and limitations. |
+| S5 | `kuberweaver/docs/ACCEPTANCE.md` | Acceptance gates/safety boundaries. |
+| S6 | `kuberweaver/docs/VERIFICATION.md` | Historical results/evidence index. |
+| S7 | `kuberweaver/docs/EXECUTION.md` | Execution, ownership and recovery contract. |
+| S8 | `kuberweaver/docs/EXTENSIONS.md` | SDK, activation, registry and trust boundaries. |
+| S9 | `kuberweaver/backend/kuberweaver/catalog.py` and `frontend/src/App.tsx` | Manifest discovery/catalogue loading. |
 
-Les preuves privées ne sont pas embarquées dans ce document. Les adresses internes détaillées, identifiants de connexion et secrets ne sont pas nécessaires à la compréhension du mentor et ne sont pas reproduits.
+Raw private evidence is not included. Detailed credentials/secrets are unnecessary for understanding this specification and must not be reproduced.
 
-### 14.3 Usage de l'IA et validation
+### 14.3 Assistance and human approval
 
-Document rédigé avec l'assistance d'Hermes à partir des sources ci-dessus. La structuration, les priorités proposées, les critères futurs et l'analyse des risques sont des propositions de synthèse. Leur justesse et leur faisabilité doivent être revues par l'équipe et le mentor. Aucun engagement budgétaire, délai institutionnel ou décision de mise en production n'est créé par cette rédaction.
+This historical specification was drafted with AI assistance from the listed sources. Structure, priorities, future criteria and risk analysis are synthesis proposals requiring team/mentor review for correctness and feasibility. No budget commitment, institutional deadline or production authorization is created by drafting or translating it.
 
 ## Sources
 
-[1] https://github.com/charroux/assistant-IA-projets , Assistant IA aux projets
+[1] https://github.com/charroux/assistant-IA-projets — project-assistance method referenced by the historical specification.

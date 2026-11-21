@@ -1,96 +1,51 @@
-# OpenBao local, optionnel, pour les nouvelles connexions V2
+# Optional local OpenBao for new connections
 
-Ce fournisseur distinct est enregistré sous `secrets/openbao-local`. Une nouvelle
-connexion doit choisir explicitement `secrets_provider: "openbao-local"` ; ne pas
-modifier la liaison globale `data/config/providers.json`. Aucun secret existant
-n'est migré, aucun mot de passe ESXi n'est créé ou recherché. Le coffre distant,
-GNS3 et son tunnel SSH ne sont jamais appelés par ce setup.
+This distinct source registers as `secrets/openbao-local`. A new connection must explicitly select `secrets_provider: "openbao-local"`; do not change the global `data/config/providers.json` binding. No existing secret is migrated and no ESXi password is created or searched for. Setup never contacts the remote vault, GNS3 or its SSH tunnel.
 
-## Périmètre et limites
+## Scope and limitations
 
-- Image officielle **2.7.2**, épinglée dans le script au digest
-  `openbao/openbao@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f`.
-- Seul conteneur autorisé : `kw-openbao-v2`, avec étiquette de propriété stable
-  liée au chemin du projet. Docker est ciblé explicitement sur le socket local
-  `/var/run/docker.sock`, pas sur un contexte distant hérité de l'environnement.
-- Port hôte `127.0.0.1:19200` par défaut (`--port`, entier de 1024 à 65535).
-  HTTP de laboratoire, **pas de TLS de bout en bout**. Le serveur écoute sur le
-  réseau Docker ; la publication hôte en loopback n'isole pas tous les autres
-  conteneurs du bridge. L'administration ignore les proxies et les redirections.
-- Raft persistant chiffré par OpenBao, sans mode `-dev`, sans `IPC_LOCK`, sous
-  l'UID/GID de l'opérateur. `--cap-drop ALL`, `no-new-privileges`, configuration
-  montée en lecture seule. L'entrypoint direct est `/usr/bin/bao` : c'est le chemin
-  du binaire indiqué par le [Dockerfile officiel v2.7.2](https://github.com/openbao/openbao/blob/v2.7.2/Dockerfile).
-- Aucun conteneur étranger n'est démarré, redémarré ou supprimé. Un conteneur
-  existant doit avoir exactement l'image, les montages et le durcissement attendus.
-  Les valeurs Docker `NetworkMode=default` et `NetworkMode=bridge` désignent ici
-  le bridge par défaut et sont acceptées ; les autres réseaux restent refusés.
-  Un conteneur déjà actif n'est pas redémarré. La politique de redémarrage est `no`.
-- Le fournisseur applicatif n'a que `read/create/update` sur
-  `secret/data/kuberweaver/connections/*`. Pas de `list`, `delete` ou privilège
-  d'administration. Jeton orphelin sans politique `default`, non renouvelable,
-  TTL demandé et maximum explicite de 168 h. Un jeton valide est conservé.
-- La référence exacte `setup-check` est réservée au diagnostic interne : le
-  fournisseur `secrets/openbao-local` la refuse en lecture comme en écriture,
-  avant tout appel réseau. Choisir une autre référence pour les identifiants des
-  connexions. Le script conserve son propre accès au marqueur ; cette réservation
-  ne s'applique pas aux autres fournisseurs de secrets.
+- Official **2.7.2** image, pinned in the script to `openbao/openbao@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f`.
+- Only allowed container: `kw-openbao-v2`, with stable project-path ownership label. Docker is explicitly targeted at `/var/run/docker.sock`, not an inherited remote context.
+- Default host port `127.0.0.1:19200` (`--port`, integer 1024–65535). Lab HTTP, **not end-to-end TLS**. The server listens on the Docker network; host loopback publication does not isolate all bridge containers. Administration ignores proxies and redirects.
+- Persistent OpenBao-encrypted Raft, no `-dev` mode or `IPC_LOCK`, running as operator UID/GID, `--cap-drop ALL`, `no-new-privileges`, read-only configuration mount. Direct entrypoint `/usr/bin/bao` follows the [official v2.7.2 Dockerfile](https://github.com/openbao/openbao/blob/v2.7.2/Dockerfile).
+- No unrelated container is started, restarted or deleted. Existing owned containers must exactly match image, mounts and hardening. Docker `NetworkMode=default` and `NetworkMode=bridge` both name the default bridge here; other networks are rejected. An active container is not restarted. Restart policy is `no`.
+- Application token only has `read/create/update` on `secret/data/kuberweaver/connections/*`: no `list`, `delete` or administration. It is orphaned, has no `default` policy, is nonrenewable and has requested/maximum TTL 168 h. A valid token is retained.
+- Exact reference `setup-check` is reserved for internal diagnostics. `secrets/openbao-local` rejects it for reads/writes before network access. Choose another reference for connection credentials. The script retains its marker access; other secret providers do not inherit this reservation.
 
-Ce montage mono-nœud est destiné au laboratoire : pas de HA, d'auto-unseal ni de
-certification cryptographique. Les administrateurs Docker et l'utilisateur hôte
-restent de confiance. Les tests automatisés utilisent des fixtures de protocole ;
-ils ne sont pas une preuve d'exécution de l'image réelle.
+This is a single-node lab setup: no HA, auto-unseal or cryptographic certification. Docker administrators and the host user remain trusted. Automated protocol fixtures are not evidence of executing the real image.
 
-## Fichiers privés
+## Private files
 
-Avec `--state-dir "$STATE"` (défaut : `data/` à la racine du projet) :
+With `--state-dir "$STATE"` (default: repository-root `data/`):
 
-| Emplacement relatif | Protection / contenu |
-|---|---|
-| `local-bao/`, `local-bao/raft/` | Répertoires `0700`, données persistantes |
-| `local-bao/config.hcl` | Fichier `0600`, configuration contrôlée |
-| `local-bao/bootstrap.json` | `0600`, jeton root et trois parts de déscellement |
-| `local-bao/app-token` | `0600`, seul jeton consommé par le fournisseur |
-| `local-bao/pending-revocation.json` | `0600`, ancien jeton et candidat pendant une rotation ; `{}` après révocation vérifiée |
-| `plugin-data/openbao-local/provider.json` | `0600`, configuration locale du fournisseur |
+| Relative location | Protection/content |
+| --- | --- |
+| `local-bao/`, `local-bao/raft/` | 0700 directories, persistent state. |
+| `local-bao/config.hcl` | 0600 controlled configuration. |
+| `local-bao/bootstrap.json` | 0600, root token and three unseal shares. |
+| `local-bao/app-token` | 0600, only token consumed by the provider. |
+| `local-bao/pending-revocation.json` | 0600, old/candidate tokens during rotation; `{}` after verified revocation. |
+| `plugin-data/openbao-local/provider.json` | 0600 local provider configuration. |
 
-**Le bootstrap contient les clés de récupération en clair**, protégées par le
-système de fichiers. Les trois parts sont détenues sur le même hôte : le seuil
-2/3 n'est donc pas une séparation entre gardiens indépendants. Conserver une
-sauvegarde privée et cohérente du bootstrap et de Raft ; ne jamais les afficher,
-les copier dans Git, les joindre à une preuve ou les publier dans un journal.
-Les écritures de fichiers sont atomiques, synchronisées et relues ; les liens
-symboliques, les fichiers partagés par liens physiques et les permissions trop
-larges sont refusés, pas réparés silencieusement.
+**Bootstrap contains plaintext recovery material**, protected by the filesystem. All three shares on one host do not provide independent 2-of-3 custodians. Keep private consistent backups of bootstrap and Raft; never display, commit, attach to evidence or log them. File writes are atomic, synchronized and read back. Symlinks, shared hardlinks and excessive permissions are rejected, not silently repaired.
 
-Si Raft préexiste sans bootstrap, ou si le serveur est initialisé sans bootstrap
-local, le script s'arrête pour récupération manuelle. **Ne pas supprimer Raft ni
-réinitialiser le coffre pour contourner ce refus.** Une erreur après initialisation
-peut nécessiter une intervention manuelle ; aucun nettoyage destructif n'est tenté.
+If Raft exists without bootstrap, or the server is initialized without local bootstrap, setup stops for manual recovery. **Do not delete Raft or reinitialize the vault to bypass that refusal.** An error after initialization may require manual intervention; no destructive cleanup is attempted.
 
-## Recette opérateur, commandes à exécuter après revue
+## Operator procedure: review before execution
 
-Depuis la racine du dépôt, avec Docker local disponible. Ces commandes ne lancent
-aucun lab GNS3 ; `setup` démarre uniquement le nouveau conteneur local ou son propre
-conteneur compatible arrêté.
+From the repository root, with local Docker available. Commands do not start a GNS3 lab; `setup` starts only the new local container or its own compatible stopped container.
 
 ```bash
-STATE="$PWD/data"  # ou un répertoire durable dédié à cette instance du portail
+STATE="$PWD/data"  # Or a durable directory dedicated to this portal instance.
 .venv/bin/python scripts/setup_local_bao.py setup --state-dir "$STATE" --port 19200
 .venv/bin/python scripts/setup_local_bao.py verify --state-dir "$STATE" --port 19200
-# Répéter setup : même conteneur et même jeton valide, nouveau marqueur aléatoire.
+# Repeated setup retains the container and valid token, with a new random marker.
 .venv/bin/python scripts/setup_local_bao.py setup --state-dir "$STATE" --port 19200
 ```
 
-Le JSON de succès doit indiquer `initialized: true`, `sealed: false`, le digest
-épinglé, `setup_roundtrip: true` pour `setup`, et les refus HTTP 403 vérifiés hors
-namespace, pour l'administration, la suppression et l'énumération. `verify` ne
-réécrit pas de marqueur ni de configuration : `setup_marker_read: true` et
-`setup_roundtrip: false` y distinguent lecture et aller-retour d'écriture.
-`credentials_written: false` signifie qu'aucun identifiant de connexion réel n'a
-été écrit ; le bootstrap et le jeton applicatif sont bien des fichiers privés.
+Success JSON should report `initialized: true`, `sealed: false`, pinned digest, `setup_roundtrip: true` for `setup`, and verified HTTP 403 denials outside the namespace and for administration/delete/list. `verify` does not rewrite markers or configuration: `setup_marker_read: true` and `setup_roundtrip: false` distinguish read from write/readback. `credentials_written: false` means no actual connection credential was written; bootstrap/application tokens are still private files.
 
-Le script **n'installe ni n'active l'extension**. Après revue de son code :
+The script **does not install or activate the extension**. After reviewing its code:
 
 ```bash
 .venv/bin/python scripts/plugins.py --data-dir "$STATE" doctor examples/extensions/openbao-local
@@ -98,56 +53,29 @@ Le script **n'installe ni n'active l'extension**. Après revue de son code :
 .venv/bin/python scripts/plugins.py --data-dir "$STATE" enable openbao-local --trust
 ```
 
-Installer une seule fois ; l'installateur refuse un remplacement implicite.
-Redémarrer ensuite le portail avec son mécanisme habituel et le **même répertoire
-d'état**. Choisir le fournisseur local uniquement dans les nouvelles connexions
-V2. Une configuration absente donne `unconfigured`, une configuration invalide
-`unavailable`, sans faire échouer l'enregistrement du portail. `configured` décrit
-une configuration valide, pas une sonde réseau effectuée au chargement.
+Install once; implicit replacement is refused. Restart the portal through its normal mechanism with the **same state directory**. Select the local provider only for new connections. Missing configuration reports `unconfigured`; invalid configuration reports `unavailable` without breaking registration. `configured` means valid configuration, not a startup network probe.
 
-Après un redémarrage du conteneur existant, déjà actif mais scellé :
+For an existing running but sealed container after restart:
 
 ```bash
 .venv/bin/python scripts/setup_local_bao.py unseal --state-dir "$STATE" --port 19200
 ```
 
-Pour un conteneur arrêté, utiliser `setup` : seul ce mode peut le démarrer. Si le
-jeton a expiré ou doit être remplacé, la rotation est explicite ; elle vérifie le
-nouveau jeton, le sauvegarde, puis révoque l'ancien et contrôle sa révocation :
+Use `setup` for a stopped container; only that mode starts it. Expired/replaced tokens require explicit rotation, which checks the new token, saves it, revokes the old token and verifies denial:
 
 ```bash
 .venv/bin/python scripts/setup_local_bao.py setup --state-dir "$STATE" --port 19200 --rotate-token
 ```
 
-Avant de remplacer `app-token`, la rotation enregistre durablement l'ancien jeton
-et le candidat dans `pending-revocation.json`, sous le répertoire privé `0700`.
-Après une erreur ou une interruption, relancer **`setup` sans `--rotate-token`**
-avec le même état et le même port : il reprend cette rotation, conserve le candidat
-et vérifie le refus de l'ancien jeton avant tout succès. Une révocation déjà
-effectuée est récupérable. `verify` reste en lecture seule et refuse une rotation
-en attente ; il ne la termine pas. Ne pas supprimer ni publier le journal privé.
-Cette reprise protège la référence de l'ancien jeton ; elle ne garantit pas une
-transaction distribuée sur la création du candidat, notamment avant que celui-ci
-ait pu être enregistré dans le journal.
+Before replacing `app-token`, rotation durably records old/candidate tokens in `pending-revocation.json` under the 0700 private directory. After error/interruption, rerun **`setup` without `--rotate-token`** with the same state and port: it resumes rotation, retains the candidate and checks old-token denial before success. An already completed revocation is recoverable. Read-only `verify` refuses pending rotation rather than completing it. Do not delete or publish the private journal. This protects the old-token reference, not a distributed transaction for candidate creation before it reaches the journal.
 
-## État de la recette Docker réelle
+## Historical real-Docker acceptance: blocked
 
-La correction du bridge a été vérifiée en RED puis GREEN sur l'inspection du
-conteneur détenu, ainsi que par les tests automatisés. La recette réelle reste
-**bloquée**, et non validée : après archivage privé du Raft partiel dont l'API
-confirmait `initialized: false`, le setup normal a initialisé le coffre sans
-produire de `bootstrap.json` ni de jeton applicatif. Le serveur indiquait ensuite
-`initialized: true`. Le délai client de cinq secondes pendant l'initialisation est
-une cause possible, pas une garantie de diagnostic.
+Bridge handling was verified against owned-container inspection and automated tests. Real acceptance remained **blocked**, not passed: after privately archiving partial Raft whose API reported `initialized: false`, ordinary setup initialized the vault without producing `bootstrap.json` or an application token. The server then reported `initialized: true`. The five-second initialization client timeout is a possible cause, not a confirmed diagnosis.
 
-Le seul conteneur détenu a été arrêté, son Raft initialisé préservé et aucune
-réinitialisation tentée. `verify`, la politique applicative et l'idempotence réelle
-ne sont donc pas certifiés. La preuve expurgée, l'identifiant exact et le chemin
-de l'archive sont dans `data/evidence/v2-local-bao-recipe.json`. Une intervention
-explicitement autorisée est nécessaire ; ne pas supprimer cet état pour relancer
-la recette. Aucune extension ni liaison globale n'a été activée ou modifiée.
+The sole owned container was stopped; initialized Raft was retained without reinitialization. `verify`, application policy and real idempotency are therefore not certified. Sanitized evidence, exact container ID and archive path are in `data/evidence/v2-local-bao-recipe.json`. Recovery requires explicit authorization; do not delete state to rerun acceptance. That attempt enabled no extension and changed no global binding.
 
-## Tests sans Docker ni données réelles
+## Tests without Docker or real data
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_local_bao.py -q
@@ -156,7 +84,4 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest \
   tests/test_extensions.py tests/test_provider_bindings.py -q
 ```
 
-Les appels Docker sont injectés à la frontière `subprocess.run`. Le serveur HTTP
-loopback de test exerce le véritable `OpenBaoProvider.store/resolve`, les refus de
-redirection et de privilèges, les erreurs et la conservation des fichiers privés.
-Aucune commande Docker réelle n'est exécutée par ces tests locaux.
+Docker calls are injected at `subprocess.run`. A loopback HTTP test server exercises real `OpenBaoProvider.store/resolve`, redirect/privilege denials, errors and private-file preservation. These local tests execute no actual Docker command and do not establish production readiness.

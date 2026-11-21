@@ -37,6 +37,9 @@ def api(tmp_path):
     plugins = tmp_path / 'plugins'
     manifest(plugins)
     app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
+    # The product ships with no inventory provider; these suites exercise the
+    # provider itself, so they bind it explicitly.
+    app.state.provider_bindings['inventory'] = 'gns3'
     with TestClient(app) as client:
         credentials = bootstrap(tmp_path / 'data')
         response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})
@@ -118,3 +121,15 @@ def test_typed_policy_update_and_cost_enforcement(api):
     assert 'quota_cost' in {v['code'] for v in result['violations']}
     assert client.patch('/api/settings', json={'policies': {'allowed_targets': ['attacker']}}).status_code == 422
     assert client.patch('/api/settings', json={'pricing': {'cpu': -1}}).status_code == 422
+
+
+def test_validation_reports_provider_registration_separately_from_policy(api):
+    client, app = api
+    initial = client.post('/api/plans/validate', json=graph()).json()
+    assert initial['allowed'] and initial['execution']['status'] == 'configured'
+    assert initial['execution']['target_connectivity'] == 'not_checked'
+    app.state.provider_bindings['execution'] = 'unregistered-fixture'
+    unavailable = client.post('/api/plans/validate', json=graph()).json()
+    assert unavailable['allowed'] and unavailable['execution']['status'] == 'unavailable'
+    assert unavailable['execution']['provider'] == 'unregistered-fixture'
+    assert unavailable['execution']['target_connectivity'] == 'not_checked'
