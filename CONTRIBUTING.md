@@ -26,8 +26,9 @@ privately instead of opening an issue.
 
 ## Prerequisites
 
-- Python 3.12 or newer (`requires-python = ">=3.12"`); the pinned dependencies
-  and CI are tested on 3.14.
+- Python 3.14 (`requires-python = ">=3.14"`); the pinned dependencies and CI are
+  tested on 3.14. An older interpreter is not supported, even though the kernel
+  itself does not need the newest language features.
 - `uv`
 - Optional: PostgreSQL when you want to exercise the durable-state fixtures.
   Outside those fixtures, the kernel falls back to SQLite.
@@ -46,6 +47,27 @@ A shell glob (`-r requirements*.txt`) also works, but it pulls in the optional
 `requirements-acceptance.txt`, which exists only for real-browser acceptance on
 this branch and is not needed to run the test suite. Install the six files above
 explicitly; CI installs exactly that set.
+
+## PostgreSQL fixtures
+
+Some tests need a dedicated PostgreSQL server, not SQLite. Without a DSN they
+skip silently: the last line of a local run must be read, because
+`44 passed, 2 skipped` means the durable-state half did not run.
+
+The suite reads `KUBERWEAVER_TEST_DATABASE_URL_FILE`, a file containing one
+connection URL (mode 0600). It defaults to `data/postgresql/test-url`. Create it
+once on your machine and never commit it:
+
+```sh
+docker run --rm --name kw-pg -e POSTGRES_PASSWORD=kwtest \
+  -p 55432:5432 -d postgres:17-alpine
+printf 'host=127.0.0.1 port=55432 user=postgres password=kwtest dbname=postgres' \
+  > data/postgresql/test-url
+chmod 600 data/postgresql/test-url
+```
+
+Then re-run: `python3 ops/ci/check.py`. Each fixture creates its own schema and
+drops it, so the database stays reusable. `data/` is git-ignored.
 
 ## Running the tests
 
@@ -123,8 +145,10 @@ feature branch does not trigger CI.
 - **Tests**: the pytest suite against a disposable PostgreSQL service, with a
   private per-job state directory.
 
-There is no separate lint or type-check job in CI. Run whatever editor checks you
-use locally, but the three jobs above are the gates.
+There is no separate lint or type-check job in CI, and `pyrightconfig.json` was
+removed: it referenced a tool that is neither installed nor run. Do not add a
+configuration file for a check the repository does not perform. Run whatever
+editor checks you use locally, but the three jobs above are the gates.
 
 ## Adding a workload brick
 

@@ -29,8 +29,8 @@ nothing.
 
 9. Every change ships with tests. A task is not done when the code compiles, it
    is done when a test proves the behaviour, including the refusal cases.
-10. The full backend suite must pass, and the frontend must typecheck and build,
-    before a commit is merged into `develop`.
+10. The full test suite must pass, including the PostgreSQL fixtures when they
+    can run, before a change is merged into `develop`.
 11. No comments that narrate the process. Comments explain why a decision was
     made, in the present tense, and nothing else.
 12. Public documentation is in English. Commit messages are short and factual.
@@ -54,8 +54,8 @@ disk is not code in memory: a green commit that is never loaded is invisible.
 
 22. Do not restart the unit yourself: unattended runs are denied `systemctl`.
     The user timer `kuberweaver-deploy.timer` deploys the checked out commit
-    within two minutes, rebuilds the frontend when it changed, and records the
-    result in `~/.local/state/kuberweaver/deployed-sha`.
+    within two minutes and records the result in
+    `~/.local/state/kuberweaver/deployed-sha`.
 23. Do not leave uncommitted work that the timer would deploy: the timer deploys
     the commit, so a green iteration must commit.
 24. If a deployment is needed immediately for a verification, ask for it in the

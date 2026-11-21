@@ -32,38 +32,75 @@ The execution provider passes a plan as variables to the playbooks
 (`kw_config`, `kw_result_path`; see `backend/kuberweaver/workload_execution.py`).
 There is **no general content channel**: no field in the manifest schema carries
 an arbitrary file tree from the operator to the guest, and no vault binding
-exists for file payloads. `web-nginx` therefore writes a generated marker page
-and relies on the upstream role for the rest.
+exists for file payloads. Confirmed against every brick that is live today:
 
-Three options, in order of preference:
+| Brick | Serves | Content |
+| --- | --- | --- |
+| `nginx`, `apache` (`ansible-container-v1`) | a container vhost on the GNS3 lab guests | a generated JSON version page written by `_shared/guest.py` |
+| `web-nginx` (`ansible-workload-v1`) | a vhost on an existing Ubuntu guest | a generated marker page, `force: false` |
+| `local-oci` (`local-runtime-v1`) | busybox httpd on loopback only | a fixed marker |
+| `cloudflare-tunnel`, `cloudflare-dns` | the connector on an existing guest | nothing, ingress stays configured in Cloudflare |
 
-1. **Upstream role that fetches the site itself.** Use a role or collection that
-   pulls from a pinned source (a tarball URL plus checksum, or a git ref). The
-   brick then only declares the source and the pin. This matches the existing
-   `implementation` block and needs no kernel change.
-2. **A small new brick with its own pinned role** that installs the payload from
-   a checksummed archive published alongside the release. Same contract, one
-   more plugin directory, no kernel edit.
-3. **Extend the executor with a content field.** Rejected for now: it would add
-   a transfer path (size limits, resumability, secrets) to the core for one use
-   case, which is exactly what the plugin boundary exists to avoid.
+So `site/` cannot be published through KuberWeaver without either a new brick or
+files placed outside it.
 
-Do not invent a fourth option that puts base64 payloads into blueprint config.
-It breaks the "one topic per commit" audit model and leaks into plan digests.
+## Retained answer: a dedicated `static-site` brick
 
-## What a static-site brick would declare
+Do not modify `plugins/web-nginx/`. It has been reviewed, and its approval is bound
+to fingerprints: adding a content field invalidates existing approvals and reopens
+the review. Copy it instead:
 
-Copy `plugins/web-nginx/manifest.yaml` and change:
+```
+plugins/static-site/
+  manifest.yaml          kind workload, capability live, engine ansible,
+                         executor ansible-workload-v1, requires compute.vm,
+                         data_class config, pinned implementation.role/version,
+                         closed schema, lifecycle, verify.assertions
+  requirements.yml       the pinned nginx role
+  iac/snapshot.yml       existing vhost state and served files
+  iac/apply.yml          nginx role + copy of the payload into document_root
+  iac/verify.yml         unit active, nginx -t, HTTP 200, and the served bytes
+  iac/rollback.yml       restore the previous snapshot, remove what was created
+  iac/remove.yml         remove the vhost and the served files
+  payload/index.html     the site, administrator-trusted assets
+  payload/assets/...
+  roles.lock.json        exact role version plus SHA-256, required before apply
+```
 
-- `id`, `name`, `description`, `version`;
-- `document_root` default, typically `/var/www/<site-id>`;
-- `defaults.listen_port`, chosen inside the allowed range for the target;
-- `verify.assertions`, keeping at least an HTTP readback assertion. Assert the
-  served bytes, not just a 200 status, if the content matters;
-- `implementation`, naming the pinned role that performs the fetch.
+Install the role once and never commit the downloaded role:
 
-The site payload then comes from the role's own pinned requirement, never from a
-commit in this repository.
+```sh
+ansible-galaxy role install -r plugins/static-site/requirements.yml \
+  -p plugins/static-site/roles
+```
+
+This follows the existing boundary: one reviewed directory with a manifest and
+playbooks, no kernel change, and `scripts/validate_preset.py` can chain it after a
+provisioning step.
+
+The alternative, extending the executor with a content field (size limits,
+resumability, secrets), is rejected: it adds a transfer path to the core for one
+use case. Putting base64 payloads into blueprint config is also rejected, because
+it breaks the audit model and leaks into plan digests.
+
+## What the brick declares
+
+Beyond the layout above, the manifest needs the fields the workload provider
+checks, and nothing else:
+
+- `kind: workload`, `capability: live` (otherwise preparation refuses it);
+- `executor` and `execution_provider: ansible-workload-v1`;
+- `requires: compute.vm`. This is advisory outside one extension; the real check
+  is recorded provisioning evidence;
+- a closed schema (`additionalProperties: false`) with at least
+  `target_uuid`, `ssh_key_id`, `server_name`, `document_root`, `listen_port`;
+- `implementation.role`, `version`, `license`, `source`;
+- `lifecycle` naming five playbooks relative to the plugin directory;
+- `verify.assertions` that `verify.yml` proves on the guest.
+
+The payload ships inside the plugin directory. It is administrator-trusted
+content, like the plugin code itself, and it must be reviewed in the same pull
+request.
 
 ## Preconditions that are not optional
 

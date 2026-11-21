@@ -1,5 +1,10 @@
 # Prototype to production: what gets removed
 
+> Internal working note, not public documentation. It records decisions taken
+> during the prototype, not capabilities of the current tree. Some entries below
+> are still present in `plugins/`; a later change may delete them. Nothing here
+> is a claim about what the product does today.
+
 The prototype catalogue proved the mechanism. It is not the product. This file
 lists what must go, why, and what replaces it. Nothing here is removed silently:
 each entry is a task with tests updated in the same change.

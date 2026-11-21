@@ -1,8 +1,6 @@
 .venv/
 .venv-docs/
 data/
-node_modules/
-frontend/dist/
 __pycache__/
 .pytest_cache/
 *.pyc
@@ -11,7 +9,6 @@ __pycache__/
 .env.*
 !.env.example
 tools/
-*.tsbuildinfo
 
 # Brick roles are installed from their pinned requirements, never committed
 plugins/*/roles/

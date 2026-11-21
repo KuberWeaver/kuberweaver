@@ -39,6 +39,8 @@ Start here:
 - [Support](SUPPORT.md): where to ask, what is supported and what response to
   expect. [Security policy](SECURITY.md): report a vulnerability privately,
   never in a public issue.
+- [Documentation index](docs/README.md): every page, and which ones are instructions versus internal notes.
+- [Authoring a service or an extension](docs/AUTHORING.md): the shortest path to add a brick or an extension, with the fields the provider checks.
 - [Serving this site with KuberWeaver](docs/STATIC_SITE.md): how the `site/` page can be deployed by the tool itself, and which content channel is still missing.
 - [Static showcase](site/): the marketing-free page in `site/`, servable by any static host, buildable offline.
 

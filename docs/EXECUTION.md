@@ -2,10 +2,31 @@
 
 ## Implemented and exercised
 
-- **NGINX and Apache are live**: Ansible provisions real Docker containers on both allowlisted GNS3 guests.
-- Frontend/backend stack, Cisco IOS, pfSense, and Cloud VM are **planned/disabled**. OpenTofu is deliberately unsupported here; there is no simulated `terraform_data` provisioning.
-- The kernel has no per-plugin ID dispatch. Discovery is data-only; every reviewed live container blueprint uses the same lifecycle protocol. The image, document root, port, schema, defaults and playbook paths come from its manifest.
-- Core owns authentication, admission, explicit approval, queueing and audit. This provider additionally serializes execution and enforces remote/local resource ownership.
+Two execution providers exist, and the split matters when reading this page:
+
+- **`ansible-workload-v1`** is the current contract. Six bricks use it
+  (`db-postgresql`, `web-nginx`, `zabbix-agent`, `zabbix-server`, `zabbix-web` and
+  `cloudflare-tunnel`). It resolves a target from recorded deployment evidence,
+  requires a managed SSH key, and verifies declared assertions on a real guest.
+  The workload brick contract is described in `docs/WORKLOADS.md`.
+- **`ansible-container-v1`** is the older prototype provider. Two catalogue
+  entries still use it (`nginx`, `apache`), with fixed lab targets (`app`,
+  `branch-client`), restricted ports 18090 to 18109 and a container-level
+  snapshot/restore. Those two entries are demonstration deployments and are
+  listed as candidates for removal in `docs/CLEANUP.md`.
+
+Everything below describes `ansible-container-v1`, because that is where the full
+transaction semantics were first exercised and recorded as evidence
+(`data/evidence/execution-live.json`). The same guarantees apply to
+`ansible-workload-v1` at its own level, minus container snapshots: see
+`docs/WORKLOADS.md` for what a workload brick snapshots and restores.
+
+The kernel has no per-plugin ID dispatch. Discovery is data-only; every reviewed
+live entry uses the lifecycle protocol of its provider. The image, document root,
+port, schema, defaults and playbook paths come from its manifest.
+Core owns authentication, admission, explicit approval, queueing and audit. Each
+provider additionally serializes execution and enforces remote/local resource
+ownership.
 
 ## Contract and installation
 
