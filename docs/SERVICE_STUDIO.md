@@ -1,5 +1,10 @@
 # Service Studio
 
+> Retired. The Service Studio screens lived in the React portal, which was
+> removed from the repository. The underlying capabilities (saved blueprints,
+> published offerings, governed requests, service retirement) are still exposed
+> through the HTTP API and the `kw` CLI. A modular GUI can be built on that API.
+
 Service Studio is part of the existing portal. Sign in with your normal KuberWeaver account. No separate listener, API key, or database is required.
 
 1. In Canvas, select **Add resource** to place a blank square. Select any square to open its resource panel. Choose an available adapter, configure its schema-defined inputs, and use **Runs after** to declare prerequisites. Previously saved blueprints and dependencies use the same graph format.

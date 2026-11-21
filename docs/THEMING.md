@@ -1,6 +1,11 @@
 # Portal themes
 
-The portal ships two themes over one style sheet: a black theme, which is what
+> Retired. The React portal this file described was removed from the repository.
+> It is kept as a historical record of how the previous interface handled theme
+> tokens and contrast, which is still useful reference for anyone building a
+> modular GUI on the API.
+
+The portal shipped two themes over one style sheet: a black theme, which is what
 a browser without a stored preference opens, and a light theme. Both are
 produced by the same rules; only the token values differ.
 

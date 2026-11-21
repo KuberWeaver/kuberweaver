@@ -1,79 +1,204 @@
 # Contributing
 
-KuberWeaver is a single Python backend (`backend/kuberweaver`), a React/TypeScript
-portal (`frontend`), a pytest suite (`tests`) and operational scripts (`scripts`,
-`ops`). Changes reach production through two protected branches and a pull
-request, so no contributor needs write access to `main`.
+KuberWeaver is an early-stage, self-hosted infrastructure management prototype:
+one FastAPI kernel (`backend/kuberweaver/`), the `kw` CLI (`kw/`), a declarative
+catalogue of workload bricks (`plugins/*/`) and separately installed Python
+extensions (`examples/extensions/`). The repository is private today and has no
+external users. This document explains how to change the project safely. It does
+not describe a finished product.
 
-## Branches
+Before asking a question, read [SUPPORT.md](SUPPORT.md). If you found something
+that looks like a vulnerability, read [SECURITY.md](SECURITY.md) and report it
+privately instead of opening an issue.
 
-| Branch | Purpose | Written by |
-| --- | --- | --- |
-| `main` | released state | merge from `develop`, through a pull request |
-| `develop` | integration | pull requests from feature branches |
-| `feat/<topic>` | one topic per branch | contributors |
-| `feat/production-track` | long-lived branch of the unattended loop | the loop only |
+## Repository map
 
-`main` and `develop` are protected: a pull request is required, the CI check
-must be green, and nobody pushes to them directly. The unattended loop never
-merges and never opens pull requests, because the host holds no GitHub token.
-It pushes `feat/production-track`, and a human opens the pull request into
-`develop` when the branch is worth merging.
+| Path | Contents |
+| --- | --- |
+| `backend/kuberweaver/` | FastAPI kernel: HTTP, RBAC, approvals, durable state, audit, orchestration, catalogue and extension registry |
+| `kw/` | Thin CLI client, the reference client over the API |
+| `plugins/` | Declarative bricks: `manifest.yaml`, JSON Schema and Ansible assets |
+| `examples/extensions/` | Independently installable Python extensions (protocol v1) |
+| `tests/` | pytest suite, including PostgreSQL-backed contracts |
+| `docs/` | Public documentation in English |
+| `scripts/` | Lifecycle, acceptance and release commands |
+| `ops/` | User systemd units and CI helpers |
 
-`feat/production-track` is rebased on `origin/develop` at the start of every
-iteration. If the rebase conflicts, the loop aborts it and leaves the tree
-untouched instead of resolving the conflict by guesswork.
+## Prerequisites
 
-## Local checks
+- Python 3.12 or newer (`requires-python = ">=3.12"`); the pinned dependencies
+  and CI are tested on 3.14.
+- `uv`
+- Optional: PostgreSQL when you want to exercise the durable-state fixtures.
+  Outside those fixtures, the kernel falls back to SQLite.
 
-Run these before opening a pull request. They are the same commands CI runs.
+## Setup
+
+Follow the README installation section. The equivalent commands are:
 
 ```sh
-env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
-  KUBERWEAVER_STATE_DIR=/tmp/kw-check PYTHONPATH=backend \
-  .venv/bin/python -m pytest tests -q --tb=short
-
-cd frontend && npx tsc --noEmit && npm test -- --run && npm run build
-cd .. && python3 ops/ci/secret_scan.py && git diff --check
+uv venv .venv
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt -r requirements-infrastructure.txt -r requirements-postgresql.txt -r requirements-local-vault.txt
+uv pip install --python .venv/bin/python -e . --no-deps   # installs the `kw` CLI
 ```
 
-The frontend commands only apply when the change touches `frontend/`. A dirty
-`git diff --check` means trailing whitespace or a conflict marker was left
-behind.
+A shell glob (`-r requirements*.txt`) also works, but it pulls in the optional
+`requirements-acceptance.txt`, which exists only for real-browser acceptance on
+this branch and is not needed to run the test suite. Install the six files above
+explicitly; CI installs exactly that set.
+
+## Running the tests
+
+Run tests against disposable state, never against your live `data/` directory or
+your real database. From the repository root:
+
+```sh
+state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
+env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
+  KUBERWEAVER_STATE_DIR="$state" PYTHONPATH=backend \
+  .venv/bin/python -m pytest tests -q
+```
+
+Two more checks before opening a pull request:
+
+```sh
+python3 ops/ci/secret_scan.py
+git diff --check
+```
+
+The first refuses credential-like material in tracked files, the second catches
+trailing whitespace and leftover conflict markers.
+
+## Branch model
+
+| Branch | Purpose |
+| --- | --- |
+| `feat/<topic>` | One topic per branch, opened by contributors |
+| `develop` | Integration branch, pull requests target it |
+| `main` | Released state, reaches it only through a pull request from `develop` |
+
+Rebase your feature branch on `develop` before opening or updating a pull
+request. Never force-push `develop` or `main`. `feat/production-track` belongs to
+the local automation loop and is not a contribution branch.
 
 ## Commits
 
-Subjects follow `type(area): what`, lowercase, no trailing period:
+Commit subjects follow `type(area): what`, lowercase, with no trailing period:
 
 - `feat(area):` a new capability
 - `fix(area):` a corrected behaviour
 - `test(area):` tests only
 - `docs(area):` documentation only
-- `chore:` tooling, dependencies, housekeeping
+- `chore:` tooling, dependencies, housekeeping (no area needed)
 
-Rules that matter more than the prefix: one topic per commit, a body only when
-the reason is not obvious from the subject, no commented-out code, no generated
-build output. History is rewritten by rebase on feature branches only, never on
-`develop` or `main`.
+Write a body only when the reason is not obvious from the subject. One topic per
+commit. No commented-out code, no generated build output, no secret material.
+Rewrite history by rebasing on feature branches only, never on `develop` or
+`main`.
 
 ## Pull requests
 
-1. Rebase the branch on `develop`, run the local checks, push.
-2. Open the pull request against `develop` and describe the behaviour change,
-   not the file list.
-3. Wait for the CI check. A red check is a blocker, not a formality.
-4. Squash or rebase as the reviewer prefers. Merge commits into `main` come from
+1. Rebase the branch on `develop`.
+2. Fill in the pull request template: behaviour change, tests, documentation.
+3. Target `develop`, not `main`.
+4. Run the local checks and push.
+5. Wait for CI. A red check blocks the merge, it is not a formality.
+6. Squash or rebase as the reviewer prefers. Merges into `main` come from
    `develop` only.
+
+## What CI checks
+
+Three jobs run on every push to `develop`, `main` and `feat/**`, and on every
+pull request that targets `develop` or `main`. A pull request opened against a
+feature branch does not trigger CI.
+
+- **Secret scan** (`ops/ci/secret_scan.py --history`): private key blocks,
+  token prefixes, cloud key IDs and forbidden paths such as `data/`,
+  `docs/prompt/`, `*.pem` and `*.key`.
+- **Hygiene**: refuses conflict markers and refuses runtime state or private
+  notes under version control.
+- **Tests**: the pytest suite against a disposable PostgreSQL service, with a
+  private per-job state directory.
+
+There is no separate lint or type-check job in CI. Run whatever editor checks you
+use locally, but the three jobs above are the gates.
+
+## Adding a workload brick
+
+A brick deploys one reviewed piece of software on one existing guest. It carries
+a manifest, a closed JSON Schema and Ansible playbooks, not kernel branches.
+`plugins/web-nginx/` is the reference implementation.
+
+1. Create `plugins/<id>/` with:
+   - `manifest.yaml`: `id`, `name`, `version`, `description`, `category`,
+     `kind: workload`, `capability`, `engine`, `executor`, `requires`,
+     `data_class`, `implementation` (pinned upstream role, version, license,
+     source, reason), `schema`, `defaults`, `lifecycle` and `verify.assertions`.
+   - `iac/snapshot.yml`, `iac/apply.yml`, `iac/verify.yml`, `iac/rollback.yml`
+     and `iac/remove.yml`, referenced from `lifecycle`.
+   - A `README.md` describing the contract and the refusals.
+2. Pin the upstream Ansible role or collection in a requirements file. Never
+   commit `plugins/*/roles/` or `plugins/*/collections/`.
+3. Declare at least one assertion in `verify.assertions` and prove it on a real
+   target. A brick without evidence is refused at preparation time.
+4. Add tests for the refusal cases: unknown target, missing evidence, schema
+   violation, mismatched role version, absent executable.
+
+Read [WORKLOADS.md](docs/WORKLOADS.md) and [EXECUTION.md](docs/EXECUTION.md)
+before writing one. A multi-brick stack is a preset of dependency-ordered
+one-brick jobs, not one large job.
+
+## Adding an extension
+
+An extension registers a provider or a hook through the versioned protocol in
+[EXTENSIONS.md](docs/EXTENSIONS.md). Package layout:
+
+```text
+my-extension/
+  plugin.yaml
+  module.py
+```
+
+`plugin.yaml` declares `id`, semantic `version`, `entrypoint`, `api_version` and
+unique capabilities (`providers:<kind>`, `hooks:<event>`, `data:read-write`).
+Local lifecycle, from the application root:
+
+```sh
+.venv/bin/python scripts/plugins.py path
+.venv/bin/python scripts/plugins.py doctor examples/extensions/lab-notes
+.venv/bin/python scripts/plugins.py install examples/extensions/lab-notes
+.venv/bin/python scripts/plugins.py enable lab-notes --trust
+.venv/bin/python scripts/plugins.py disable lab-notes
+```
+
+Review all source and declarations before `--trust`. Enabled code runs inside the
+server process with its OS permissions. There is no sandbox, no signature check
+and no automatic dependency installation. Only install and enable code you
+reviewed and trust.
+
+## Secrets and repository hygiene
+
+- `data/` holds runtime state, configuration, snapshots and vault keys, and stays
+  out of Git. `docs/prompt/` holds private notes and stays out of Git too.
+- Never commit `*.pem`, `*.key`, tokens or `.env` files. The scanner blocks them
+  in tracked files and in history.
+- Treat any secret that reached Git as compromised: rotate it first, then remove
+  it. Deleting the commit does not unexpose it.
+- Tests must cover refusal cases, not only the happy path. A capability that
+  accepts bad input silently is not finished.
+
+## Documentation
+
+Public documentation is in English, under `docs/`. Keep capability claims inside
+the limits of the README capability table. Label design proposals as proposals,
+not as delivered behaviour. Record user-visible changes in `CHANGELOG.md` under
+`## [Unreleased]`.
 
 ## Releases
 
-`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and
-tags are `vMAJOR.MINOR.PATCH`.
-
-Work accumulates under `## [Unreleased]`, grouped by `Added`, `Changed`,
-`Deprecated`, `Removed`, `Fixed` and `Security`. A release promotes that section
-to a dated version heading:
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
+tagged `vMAJOR.MINOR.PATCH`.
 
 ```sh
 python3 scripts/release.py --dry-run     # prints the plan, writes nothing
@@ -81,34 +206,26 @@ python3 scripts/release.py               # minor bump by default
 python3 scripts/release.py --version 1.0.0
 ```
 
-The script refuses to run when the current branch is not `develop`, when tracked
-files are modified, when `develop` is not in sync with `origin/develop`, when the
-`Unreleased` section has no entries, when the target version is not greater than
-the last tag, when the tag already exists, and when the changelog already
-documents that version. Every refusal leaves the repository unchanged.
+The script only runs on `develop` with a clean tree in sync with `origin/develop`
+and an empty-refusal check on the changelog. It commits only `CHANGELOG.md` and
+creates an annotated tag. It never pushes and never merges: publishing stays a
+human decision.
 
-On success it rewrites `CHANGELOG.md`, commits only that file as
-`chore(release): vX.Y.Z` and creates an annotated tag on that commit. It does not
-push and does not merge: publishing stays a human decision, taken after the
-release commit is on `develop`.
+## What a contributor grants
 
-## Repository hygiene
+By opening a pull request, a contributor certifies that they wrote the change or
+have the right to submit it, and they license it under GPL-3.0-or-later so it can
+be merged and distributed with the project. They keep copyright on their own
+work.
 
-- `data/` holds runtime state, credentials and the local vault, and stays out of
-  Git. `docs/prompt/` holds private notes and stays out of Git as well.
-- Never commit key material, tokens or `.env` files. `python3 ops/ci/secret_scan.py`
-  scans tracked files, and CI runs it with `--history`.
-- Tests must cover the refusal cases, not only the happy path. A capability that
-  accepts bad input silently is not finished.
-- Public documentation is in English, under `docs/`. Commit messages are short
-  and factual.
+No contributor license agreement is required today. If the project starts selling
+commercial licenses, that changes: a third party cannot relicense code it does not
+own, so a CLA or a copyright assignment would be needed before any commercial
+license is sold. That step is deliberately not taken now, because it adds a legal
+barrier for contributors in exchange for a hypothetical revenue stream.
 
-## Unattended loop
+Do not add a `LICENSE` header to a file you did not write. Add it only when you
+create a new source file, and use your own copyright line.
 
-`ops/autopilot/` drives one bounded iteration at a time. The backlog lives in
-`ops/autopilot/STATE.json`, the contract in `ops/autopilot/RULES.md`, and the
-next task is printed by `python3 ops/autopilot/next.py`. The loop implements one
-task, runs the checks above, commits on `feat/production-track`, pushes, and
-records the outcome in `STATE.json` in the same commit. It never merges, never
-force-pushes, never installs system packages and never runs a destructive
-operation against infrastructure.
+See [SUPPORT.md](SUPPORT.md) for the question channels and the realistic level of
+attention a prototype with one maintainer can offer.

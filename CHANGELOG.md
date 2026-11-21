@@ -11,8 +11,20 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 
 ### Added
 
+- Community governance: `CONTRIBUTING.md` rewritten for external contributors,
+  `SECURITY.md`, `SUPPORT.md`, `CODEOWNERS`, GitHub issue templates for bugs,
+  feature requests and plugin submissions, and a pull request template.
+- Repository licence: GPL-3.0-or-later, with `COMMERCIAL-LICENSE.md` describing
+  when a commercial agreement is required.
+- Static showcase site under `site/`, served by any static host and buildable
+  offline. It reproduces the README capability boundaries verbatim.
+- `docs/DISCORD.md`: the intended community server structure, to be created by
+  an account holder (see SUPPORT.md for the current invite status).
+- Labels for contribution triage: `plugin`, `brick`, `extension`, `kernel`,
+  `cli`, `ci`, `security`, `needs-review`, `triage`.
+
 - Kernel with identity, admission, approvals, durable state, audit and serialized orchestration, exposed over HTTP and MCP.
-- React/TypeScript portal with a visual service catalogue, blueprint composition, approvals and deployment evidence.
+
 - Provider contracts for inventory, execution, secrets, notifications and diagnostics, with ESXi discovery and a VMware OVF deployment path.
 - Managed SSH keys: create, select, disable and explicit private-key export, with guest delivery through `guestinfo` and cloud-init.
 - PostgreSQL store and a local encrypted vault, with SQLite retained for development and tests.
@@ -40,6 +52,14 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Workload bricks in the portal: a one-node workload job is prepared from the brick contract and the deployment evidence a succeeded provisioning job recorded, approved as an exact saved plan, and executed with the `snapshot`, `apply` and `verify` lifecycle, with the declared assertions in the job result and private evidence in `0600` files; an unpinned role, a drifted role lock, a missing or ambiguous target or a disabled key refuses preparation; see `docs/WORKLOADS.md`.
 - The Zabbix 7 preset and its four bricks: `db-postgresql`, `zabbix-server`, `zabbix-web` and `zabbix-agent` wrap pinned upstream roles, declare their assertions and data class, and compose on one guest as a dependency-ordered preset; `scripts/validate_preset.py` validates the preset against the catalogue and admission policy and prints one complete one-node job per step, so a multi-brick stack needs no second execution path; see `docs/PRESETS.md`.
 - Service retirement, separate from rollback: an administrator's explicit `POST /api/studio/services/{job_id}/decommission` only queues a succeeded service request on the existing serialized worker, the job's pinned execution provider must itself declare `decommission(job, emit)` and verify `{'status': 'decommissioned'}`, and a refusal, unverified result or process interruption is persisted as `decommission_failed` with `requires_manual_review` and is never retried as a rollback; see `docs/SERVICE_STUDIO.md`.
+
+### Removed
+
+- The React/TypeScript portal and its acceptance scripts (`frontend/`,
+  `scripts/browser_acceptance.py`, `scripts/browser_final.py`,
+  `scripts/modularity_acceptance.py`). The HTTP API, the `kw` CLI and the MCP
+  interface remain; a modular GUI can be built on the same API. `docs/THEMING.md`
+  and `docs/NAVIGATION.md` are kept as historical records of that interface.
 
 ### Security
 

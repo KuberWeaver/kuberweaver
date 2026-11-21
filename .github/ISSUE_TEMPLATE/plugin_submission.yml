@@ -1,0 +1,108 @@
+name: Plugin submission
+description: Propose a new workload brick or Python extension for the catalogue.
+labels:
+  - plugin
+  - triage
+assignees:
+  - EMRD95
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read CONTRIBUTING.md, docs/WORKLOADS.md and docs/EXTENSIONS.md first. A submission needs a manifest and its execution assets before it can be reviewed. The maintainer offers no merge guarantee and no deadline.
+  - type: input
+    id: plugin-id
+    attributes:
+      label: Proposed ID
+      description: Lowercase identifier, starts with a letter, then letters, digits, underscore or hyphen, at most 64 characters. Example, my-brick.
+      placeholder: "my-brick"
+    validations:
+      required: true
+  - type: dropdown
+    id: submission-type
+    attributes:
+      label: Submission type
+      options:
+        - workload brick (manifest.yaml + Ansible playbooks)
+        - Python extension (plugin.yaml + module.py)
+        - preset of existing bricks
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - compute
+        - web
+        - database
+        - data
+        - monitoring
+        - network
+        - security
+        - development
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine
+      description: The execution path declared by the manifest.
+      options:
+        - ansible
+        - opentofu
+        - local-oci
+        - local-qemu
+        - other
+    validations:
+      required: true
+  - type: input
+    id: executor
+    attributes:
+      label: Executor or execution provider
+      description: For an Ansible brick, the executor name and role version you pin. For an extension, the provider kind and name.
+      placeholder: "ansible-workload-v1, geerlingguy.nginx 3.3.1"
+  - type: textarea
+    id: deploys
+    attributes:
+      label: What it deploys
+      description: The software, the configuration surface and the expected result on the guest.
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Tested target
+      description: Guest OS and version, hypervisor or cloud, connection path, and exactly what you verified there. Unverified targets cannot be accepted.
+      placeholder: "Ubuntu 24.04 on GNS3/libvirt, HTTP 200 assertion passed, role version matched"
+    validations:
+      required: true
+  - type: checkboxes
+    id: assets
+    attributes:
+      label: Manifest and assets
+      options:
+        - label: The manifest declares id, name, version, category, engine, schema and verify assertions.
+          required: true
+        - label: Any upstream Ansible role or collection is pinned to an exact version and its source is named.
+          required: false
+        - label: The lifecycle has snapshot, apply, verify, rollback and remove playbooks, referenced from the manifest.
+          required: true
+        - label: No secret, credential, host-specific address or private key is embedded in the submission.
+          required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and license
+      description: Operational limits, upstream license of the wrapped role, anything a reviewer should know.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read CONTRIBUTING.md and the relevant page under docs/.
+          required: true
+        - label: I searched existing issues and this brick is not already proposed.
+          required: true

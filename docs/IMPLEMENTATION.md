@@ -1,6 +1,6 @@
 # Implementation contracts
 
-KuberWeaver is a self-hosted infrastructure portal with a FastAPI kernel, durable PostgreSQL or explicitly selected SQLite state, serialized jobs, a React/Vite/React Flow portal and independently registered providers. Ansible handles reviewed web-container lifecycles; specialized provisioning uses its own explicit contract. The control plane is local-only by default. An AI model or paid service is not mandatory.
+KuberWeaver is a self-hosted infrastructure control plane with a FastAPI kernel, durable PostgreSQL or explicitly selected SQLite state, serialized jobs and independently registered providers. The legacy React/Vite portal was removed; the `kw` CLI and the HTTP API are the supported surfaces, and a modular GUI can be built on that same API. Ansible handles reviewed web-container lifecycles; specialized provisioning uses its own explicit contract. The control plane is local-only by default. An AI model or paid service is not mandatory.
 
 This document records interfaces, not an implementation task assignment. `README.md`, `EXECUTION.md`, `EXTENSIONS.md` and the current OpenAPI schema define operational scope. Historical acceptance is not a fresh test result.
 
