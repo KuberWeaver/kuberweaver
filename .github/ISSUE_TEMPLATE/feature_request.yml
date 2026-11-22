@@ -50,5 +50,5 @@ body:
           required: false
         - label: I am willing to contribute the change or help test it.
           required: false
-        - label: I checked docs/ and existing issues for a planned or disabled equivalent.
+        - label: I checked the README and existing issues for a planned or disabled equivalent.
           required: true

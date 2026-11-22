@@ -32,8 +32,8 @@ be purely observational, and it must say so in its report.
 2. Change `plugin.yaml`: `id`, `description`, and the capabilities you really use.
    Remove every capability you do not implement; an unused declaration widens the
    trust surface for nothing.
-3. Rewrite `module.py` against the protocol in `docs/EXTENSIONS.md`.
+3. Rewrite `module.py` against extension protocol v1.
 4. State your limits in the `explanation` field. "Not a health check" belongs in
    the output, not only in a comment.
 
-See `docs/AUTHORING.md` for where an extension sits relative to a brick.
+An extension registers a provider or a hook; it does not deploy software itself.

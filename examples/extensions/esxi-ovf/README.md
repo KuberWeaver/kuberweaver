@@ -32,8 +32,8 @@ Restart the application afterward. Enabling the extension does not create a VM.
 3. Supply name, CPU, RAM, disk and SSH public key, or select a managed key where
    supported. The initial image is Ubuntu Server 24.04, with guest user `ubuntu` and
    password login disabled. Disk size must be at least 10 GiB. See
-   [managed SSH keys](../../../docs/SSH_KEYS.md); private keys do not belong in
-   blueprint configuration.
+   managed SSH keys (`kw keys generate`, `kw keys export`); private keys do not
+   belong in blueprint configuration.
 4. `kw deploy validate --graph-file graph.json` runs the preparation without creating
    a job. Review the prepared plan and approve with `kw deploy approve <job-id>`;
    `kw deploy watch <job-id>` follows execution.

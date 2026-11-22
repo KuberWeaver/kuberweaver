@@ -15,8 +15,8 @@ plugins/*/roles/
 # Brick collections are installed from their pinned requirements, never committed
 plugins/*/collections/
 
-# Private notes and prompts, never published
-docs/prompt/
+# Archived reference material, kept on disk and out of Git
+archive/
 
 # Local credentials and infrastructure state, never publish
 *.pem
@@ -35,9 +35,6 @@ coverage/
 .coverage
 htmlcov/
 
-# Generated document review images, final PDFs remain publishable
-docs/note-cadrage/apercu-page-*.png
-docs/note-cadrage/cahier-apercu-*.png
 
 *.egg-info/
 build/

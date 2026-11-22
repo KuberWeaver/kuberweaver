@@ -51,7 +51,7 @@ Never commit:
 
 - `data/`: runtime state, configuration, snapshots, GitOps plans, vault keys and
   bootstrap credential files.
-- `docs/prompt/`: private notes.
+- `archive/`: reference copies and private notes, never committed.
 - `*.pem`, `*.key`, `*.p12`, `*.pfx`, tokens and `.env` files.
 
 `ops/ci/secret_scan.py` blocks these paths and several credential patterns in CI,
@@ -69,7 +69,8 @@ not against compromise of the OS account or root.
   stages private keys for execution and removes them afterwards, but it does not
   turn an untrusted host into a trusted one.
 - Passwords are stored as Argon2id hashes. Session cookies carry the flags
-  described in `docs/SESSIONS.md`, CSRF protection is bound to the session, role
+  (HttpOnly, `SameSite=Strict`, `Secure` over HTTPS, absolute and idle
+  deadlines), CSRF protection is bound to the session, role
   checks are enforced in the kernel and authenticated actions leave audit rows.
   These are deliberate measures, not a certification and not a guarantee.
 - Secrets providers keep custody local. Transport boundaries and OS-level

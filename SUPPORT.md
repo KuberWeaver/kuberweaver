@@ -42,6 +42,6 @@ and paste logs with every secret redacted. Search existing issues first.
 
 ## Before you open an issue
 
-Check the README capability table and the relevant page under `docs/`. Verify that
-the behaviour you saw is not a documented limit, a planned and disabled feature, or
-a consequence of running without the prerequisites listed in the README.
+Check the README capability table. Verify that the behaviour you saw is not a
+documented limit, a planned and disabled feature, or a consequence of running
+without the prerequisites listed in the README.

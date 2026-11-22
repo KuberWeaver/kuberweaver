@@ -13,7 +13,8 @@ libvirt lab VM. It is an opt-in boundary, not the default execution path.
 
 The plan must already be saved and pinned. The provider applies it as-is; it does
 not run `init`, does not generate a new plan and does not retry after an ambiguous
-failure. See `docs/DECLARATIONS.md` for how a declaration is verified against one
+failure. A Git-backed declaration pins the commit, the declaration file and the
+saved plan by SHA-256 before execution.
 commit before execution.
 
 ## Limits stated up front

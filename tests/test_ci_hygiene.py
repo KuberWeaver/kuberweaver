@@ -23,7 +23,7 @@ def load_scanner():
 
 def test_runtime_state_and_key_suffixes_are_refused():
     scan = load_scanner().scan
-    for name in ('data/config/secrets.json', 'docs/prompt/notes.md',
+    for name in ('data/config/secrets.json', 'archive/docs/notes.md',
                  'server.pem', 'client.key', 'keystore.p12', 'bundle.pfx',
                  '.env'):
         assert scan(name, b'anything'), name

@@ -19,7 +19,7 @@ nothing.
    CI has passed; the loop never merges.
 5. Never force-push, never rewrite published history, never delete a branch you
    did not create in this iteration.
-6. Never commit secrets. `data/`, `docs/prompt/`, private keys, credentials and
+6. Never commit secrets. `data/`, `archive/`, private keys, credentials and
    vault material stay out of Git. Run the secret scan before every push.
 7. Never run destructive commands against infrastructure: no VM deletion, no
    database drop, no vault wipe. Those are product features, implemented behind

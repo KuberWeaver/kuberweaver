@@ -11,7 +11,7 @@ You are a fresh agent with NO memory of prior sessions. Everything you need is h
 
 ## Mission
 Build the `kw` CLI (package `kw/`) as a THIN HTTP client over the existing FastAPI API.
-Spec: docs/cahier-des-charges-kw-cli.md. The API is the product; the CLI adds no business
+Spec: archive/docs/cahier-des-charges-kw-cli.md (archived reference). The API is the product; the CLI adds no business
 logic, no direct database writes, no approval bypass. Same routes/roles/pins as the GUI.
 
 ## Hard rules
