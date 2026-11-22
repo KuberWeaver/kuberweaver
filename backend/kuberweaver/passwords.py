@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
+import secrets
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
@@ -33,6 +35,33 @@ coucou
 PARAMETERS = {'time_cost': 2, 'memory_cost': 19456, 'parallelism': 1,
               'hash_len': 32, 'salt_len': 16, 'type': Type.ID}
 HASHER = PasswordHasher(**PARAMETERS)
+
+DEFAULT_ADMIN_PASSWORD = 'admin'
+SEED_ENVIRONMENT = {
+    'admin': 'KUBERWEAVER_ADMIN_PASSWORD',
+    'operator': 'KUBERWEAVER_OPERATOR_PASSWORD',
+    'viewer': 'KUBERWEAVER_VIEWER_PASSWORD',
+}
+
+
+def seeded_password(role: str) -> str:
+    """First-startup password for a seeded account.
+
+    The administrator gets a development default unless the operator overrides it
+    with `KUBERWEAVER_ADMIN_PASSWORD`, so a fresh local install is reachable
+    without opening the bootstrap file. Every other role keeps a random password.
+    Rotation still enforces `PasswordPolicy`, so this default cannot be restored
+    once changed.
+    """
+    override = os.environ.get(SEED_ENVIRONMENT.get(role, ''))
+    if override:
+        return override
+    return DEFAULT_ADMIN_PASSWORD if role == 'admin' else secrets.token_urlsafe(24)
+
+
+def is_default_admin_password(password: str) -> bool:
+    return password == os.environ.get(SEED_ENVIRONMENT['admin']) or \
+        (not os.environ.get(SEED_ENVIRONMENT['admin']) and password == DEFAULT_ADMIN_PASSWORD)
 
 MESSAGES = {
     'blank': 'Password must not be blank',

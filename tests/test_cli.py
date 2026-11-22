@@ -1614,3 +1614,24 @@ def test_providers_list_and_bind(env):
     assert json.loads(r.output)["bindings"]["diagnostics"] == "rules"
     # Readback through the API confirms the persisted binding.
     assert app.state.provider_bindings["diagnostics"] == "rules"
+
+
+def test_auth_passwd_changes_the_admin_password_and_clears_the_warning(env, monkeypatch):
+    app, runner = env
+    run(runner, "auth", "login", "--username", "admin")
+    # Fresh install: the development default is still active.
+    assert "development password" in run(runner, "auth", "whoami").output
+
+    new_password = "a long enough passphrase 1"
+    r = runner.invoke(cli, ["auth", "passwd"], input=f"{new_password}\n{new_password}\n")
+    assert r.exit_code == 0, r.output
+
+    # The plaintext line is gone and only the new password authenticates.
+    assert 'admin:admin' not in (app.state.state_dir / 'bootstrap-credentials.txt').read_text()
+    assert app.state.users.authenticate('admin', 'admin') is None
+    assert app.state.users.authenticate('admin', new_password) is not None
+
+    # Sign back in with the new password: the warning is gone.
+    monkeypatch.setenv("KW_PASSWORD", new_password)
+    run(runner, "auth", "login", "--username", "admin")
+    assert "development password" not in run(runner, "auth", "whoami").output

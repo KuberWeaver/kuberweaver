@@ -13,6 +13,12 @@ around installed extensions. Browser sign-in through an external OpenID Connect
 provider exists but is optional and disabled by default; it does not replace
 local accounts, and roles always belong to those accounts.
 
+A fresh local install seeds the administrator as `admin`/`admin` so it is
+reachable without reading a secret file. That default is for a workstation-bound
+development install only: set `KUBERWEAVER_ADMIN_PASSWORD` at first startup on
+anything else, and rotate the password before exposing the API beyond loopback.
+The server logs a warning while the default is active.
+
 Run KuberWeaver behind an authenticated HTTPS boundary that you operate and have
 reviewed. Do not expose the loopback service directly to a network you do not
 control, and do not treat a successful guest probe as proof of a hardened host.
