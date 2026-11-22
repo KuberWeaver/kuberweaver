@@ -108,6 +108,12 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - New `kw auth passwd`: self service asks for the current password, an
   administrator may set another account's password without it. Rotation still
   enforces the strength policy and retires the plaintext bootstrap line.
+- Budgets are declared, not derived. A graph node carries `price_monthly`
+  (default `0`, which means free) and an optional three-letter `currency`; a
+  service manifest can declare its own `price_monthly` and `currency`. CPU,
+  memory and disk stay quota dimensions. The retired per-unit `pricing` rate
+  table is gone from `/api/settings`, and a priced service without any currency
+  or a job mixing currencies is refused with a named error.
 - Documentation collapsed into `README.md` plus `AGENTS.md`. The previous
   `docs/` tree and the investor presentation material are kept on disk under
   `archive/`, which is git-ignored and absent from a clone. The README is now

@@ -112,14 +112,20 @@ def test_complete_domain_surface_exact_paths_types_and_annotations(tmp_path):
     connection = {'label': 'Lab', 'driver': 'esxi', 'endpoint': 'https://192.0.2.10',
                   'secret_ref': 'esxi-lab', 'secrets_provider': 'openbao-local',
                   'tls_sha256': None, 'enabled': True}
+    def normalized(body):
+        # The tool serializes the validated Graph, so defaults it declares are part
+        # of the request body; compare against the same canonical form.
+        from kuberweaver.models import Graph
+        return Graph.model_validate(body).model_dump()
+
     mutations = {
-        'validate_plan': ({'graph': graph()}, 'POST', '/api/plans/validate', graph()),
-        'save_blueprint': ({'name': 'Saved', 'graph': graph()}, 'POST', '/api/blueprints', {'name': 'Saved', 'graph': graph()}),
-        'submit_job': ({'graph': graph()}, 'POST', '/api/jobs', {'graph': graph()}),
+        'validate_plan': ({'graph': graph()}, 'POST', '/api/plans/validate', normalized(graph())),
+        'save_blueprint': ({'name': 'Saved', 'graph': graph()}, 'POST', '/api/blueprints', {'name': 'Saved', 'graph': normalized(graph())}),
+        'submit_job': ({'graph': graph()}, 'POST', '/api/jobs', {'graph': normalized(graph())}),
         'approve_job': ({'identity': identity}, 'POST', f'/api/jobs/{identity}/approve', None),
         'reject_job': ({'identity': identity}, 'POST', f'/api/jobs/{identity}/reject', None),
         'rollback_job': ({'identity': identity}, 'POST', f'/api/jobs/{identity}/rollback', None),
-        'update_settings': ({'settings': {'pricing': {'cpu': 7.0}}}, 'PATCH', '/api/settings', {'pricing': {'cpu': 7.0}}),
+        'update_settings': ({'settings': {'policies': {'max_nodes': 7}}}, 'PATCH', '/api/settings', {'policies': {'max_nodes': 7}}),
         'update_provider_bindings': ({'bindings': {'inventory': 'builtin'}}, 'PATCH', '/api/providers', {'bindings': {'inventory': 'builtin'}}),
         'enable_extension': ({'identity': 'trusted-extension', 'trusted': True}, 'POST', '/api/extensions/trusted-extension/enable', {'trusted': True}),
         'disable_extension': ({'identity': 'trusted-extension'}, 'POST', '/api/extensions/trusted-extension/disable', None),
@@ -204,7 +210,7 @@ def test_transport_total_deadline_not_only_socket_idle_timeout(tmp_path, monkeyp
     ('save_blueprint', {'name': 'Missing graph'}),
     ('enable_extension', {'identity': 'test', 'trusted': False}),
     ('enable_extension', {'identity': 'test', 'trusted': 1}),
-    ('update_settings', {'settings': {'pricing': {'secret': 'never-echo-input'}}}),
+    ('update_settings', {'settings': {'unknown': {'secret': 'never-echo-input'}}}),
     ('update_provider_bindings', {'bindings': {'unregistered-kind': 'test'}}),
     ('issue_chatops_action', {'job_id': 'a' * 32, 'decision': 'execute'}),
 ])

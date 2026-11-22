@@ -5,6 +5,7 @@ description: Planned controller-only Redis for an isolated lab, with persistent 
 category: database
 icon: database
 price_monthly: 5
+currency: EUR
 capability: planned
 engine: ansible
 executor: redis-container-v1

@@ -16,7 +16,9 @@ def test_observability_finops_blueprints_and_audit(api):
     overview = client.get('/api/overview').json()
     assert overview['counts']['pending_approval'] == 1
     assert overview['recent_jobs'][0]['id'] == job['id']
-    assert client.get('/api/finops').json()['currency'] == 'EUR'
+    finops = client.get('/api/finops').json()
+    # No active deployment carries a declared price, so no currency is invented.
+    assert finops['by_currency'] == {} and finops['currency'] is None
     assert client.get('/api/diagnostics').json()['mode'] == 'rules'
     assert client.get('/api/diagnostics').json()['read_only'] is True
     assert any(row['action'] == 'job.submitted' for row in client.get('/api/audit').json())

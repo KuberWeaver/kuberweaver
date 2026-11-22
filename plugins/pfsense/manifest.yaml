@@ -5,6 +5,7 @@ description: Planned pfSense configuration; deployment is disabled pending a val
 category: security
 icon: shield
 price_monthly: 15
+currency: EUR
 capability: planned
 engine: opentofu
 schema:

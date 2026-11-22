@@ -14,7 +14,8 @@ def manifest(directory, plugin_id='sample-service'):
     path = directory / plugin_id
     path.mkdir(parents=True)
     body = {'id': plugin_id, 'name': 'Sample service', 'version': '1.0.0', 'capability': 'live',
-            'engine': 'test', 'price_monthly': 3, 'executor': {'provider': 'test'},
+            'engine': 'test', 'price_monthly': 3, 'currency': 'EUR',
+            'executor': {'provider': 'test'},
             'defaults': {'targets': ['app'], 'port': 18090, 'cpu': 1, 'memory_mb': 256, 'disk_gb': 2},
             'schema': {'type': 'object', 'additionalProperties': False, 'properties': {
                 'targets': {'type': 'array', 'items': {'type': 'string'}},
@@ -53,7 +54,8 @@ def test_manifest_discovery_and_safe_validation(api):
     assert client.get('/api/plugins').json()[0]['id'] == 'sample-service'
     result = client.post('/api/plans/validate', json=graph()).json()
     assert result['allowed'], result
-    assert result['cost']['monthly'] > 3
+    assert result['cost']['monthly'] == 3
+    assert result['cost']['currency'] == 'EUR'
     manifest(app.state.plugins_dir, 'another-service')
     assert len(client.get('/api/plugins').json()) == 2
     candidate = graph()
@@ -120,7 +122,8 @@ def test_typed_policy_update_and_cost_enforcement(api):
     result = client.post('/api/plans/validate', json=graph()).json()
     assert 'quota_cost' in {v['code'] for v in result['violations']}
     assert client.patch('/api/settings', json={'policies': {'allowed_targets': ['attacker']}}).status_code == 422
-    assert client.patch('/api/settings', json={'pricing': {'cpu': -1}}).status_code == 422
+    assert client.patch('/api/settings', json={'pricing': {'cpu': -1}}).status_code == 422  # retired rate table
+    assert client.patch('/api/settings', json={'unknown_section': {'a': 1}}).status_code == 422
 
 
 def test_validation_reports_provider_registration_separately_from_policy(api):

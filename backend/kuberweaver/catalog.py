@@ -43,10 +43,15 @@ class Catalog:
                 price = float(body.get('price_monthly', 0))
                 if not math.isfinite(price) or price < 0:
                     raise ValueError('Price must be finite and nonnegative')
+                currency = body.get('currency')
+                if currency is not None and (not isinstance(currency, str)
+                                             or not re.fullmatch(r'[A-Z]{3}', currency)):
+                    raise ValueError('Currency must be an ISO-4217 code like EUR')
                 item = {**body, 'id': identity, 'name': body.get('name', identity),
                         'version': str(body.get('version', '0.0.0')), 'description': body.get('description', ''),
                         'category': body.get('category', 'infrastructure'), 'icon': body.get('icon', 'box'),
-                        'price_monthly': price, 'capability': body.get('capability', 'planned'),
+                        'price_monthly': price, 'currency': currency,
+                        'capability': body.get('capability', 'planned'),
                         'engine': body.get('engine', 'unconfigured'), 'schema': schema, 'defaults': defaults,
                         'resources': body.get('resources', {}), 'security': body.get('security', {}),
                         'executor': body.get('executor', {})}
