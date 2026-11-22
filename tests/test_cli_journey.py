@@ -1,4 +1,4 @@
-"""End-to-end kw journey, covering the order documented in docs/kw-cli-usage.md.
+"""End-to-end kw journey, covering the order documented in the README CLI section.
 
 One chain of real `kw` invocations against the in-process uvicorn server from
 test_cli.py's `env` fixture: isolated SQLite, sample-service plugin, real

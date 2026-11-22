@@ -98,9 +98,17 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   They drove the removed portal, and on a machine with Chromium they failed
   instead of skipping, because CI does not install `requirements-acceptance.txt`.
 
+### Changed
+
+- Documentation collapsed into `README.md` plus `AGENTS.md`. The previous
+  `docs/` tree and the investor presentation material are kept on disk under
+  `archive/`, which is git-ignored and absent from a clone. The README is now
+  self-contained: capability table, limits, install, CLI workflow and the cost
+  declaration live there.
+
 ### Fixed
 
-- `ops/ci/secret_scan.py` now refuses `.env`, which `CONTRIBUTING.md` and
+- `ops/ci/secret_scan.py` refuses `.env`, which `CONTRIBUTING.md` and
   `SECURITY.md` already promised; `.env.example` stays committable. The gate had no
   test of its own, so `tests/test_ci_hygiene.py` covers the refused paths, the
   tolerated fixture cases and a clean tree.

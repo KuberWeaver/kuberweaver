@@ -33,7 +33,7 @@ PATTERNS = [
     (re.compile(rb'\bsk-[A-Za-z0-9]{32,}\b'), 'generic secret key', False),
 ]
 
-FORBIDDEN_PATHS = ('data/', 'docs/prompt/')
+FORBIDDEN_PATHS = ('data/', 'archive/')
 # `.env` is listed as a suffix so `.env.example` and `.env.sample` stay committable
 # while a real environment file never enters the repository.
 FORBIDDEN_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.env')

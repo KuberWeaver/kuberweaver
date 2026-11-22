@@ -21,4 +21,4 @@ To show that an execution provider can be an extension rather than a plugin
 directory. The kernel calls the registered provider; it does not branch on an ID.
 A provider that cannot verify its result must refuse instead of reporting success.
 
-Read `docs/AUTHORING.md` first if you intend to write one.
+Read the README sections on extensions and on authoring a service first.

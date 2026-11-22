@@ -20,7 +20,7 @@ env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
 
 ## Documentation
 
-Which documentation was updated (README, `docs/`, CONTRIBUTING.md) and which claim
+Which documentation was updated (README, AGENTS.md, CONTRIBUTING.md) and which claim
 changed. If the change moves a capability limit, update the README capability
 table here as well. If no documentation change is needed, say why.
 
@@ -31,7 +31,7 @@ table here as well. If no documentation change is needed, say why.
 - [ ] Local checks pass: the pytest command above, `python3 ops/ci/secret_scan.py`
       and `git diff --check`.
 - [ ] CI is green. A red check blocks the merge.
-- [ ] No secret, credential, `data/`, `docs/prompt/`, `*.pem` or `*.key` content
+- [ ] No secret, credential, `data/`, `archive/`, `*.pem` or `*.key` content
       was added, in this commit or in the branch history.
 - [ ] No new claim of production readiness, multi-tenancy, SSO coverage or
       extension sandboxing.

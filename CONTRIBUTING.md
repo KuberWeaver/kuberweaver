@@ -20,7 +20,6 @@ privately instead of opening an issue.
 | `plugins/` | Declarative bricks: `manifest.yaml`, JSON Schema and Ansible assets |
 | `examples/extensions/` | Independently installable Python extensions (protocol v1) |
 | `tests/` | pytest suite, including PostgreSQL-backed contracts |
-| `docs/` | Public documentation in English |
 | `scripts/` | Lifecycle, acceptance and release commands |
 | `ops/` | User systemd units and CI helpers |
 
@@ -143,7 +142,7 @@ does not trigger CI.
 
 - **Secret scan** (`ops/ci/secret_scan.py --history`): private key blocks,
   token prefixes, cloud key IDs and forbidden paths such as `data/`,
-  `docs/prompt/`, `*.pem` and `*.key`.
+  `archive/`, `*.pem` and `*.key`.
 - **Hygiene**: refuses conflict markers and refuses runtime state or private
   notes under version control.
 - **Tests**: the pytest suite against a disposable PostgreSQL service, with a
@@ -175,14 +174,13 @@ a manifest, a closed JSON Schema and Ansible playbooks, not kernel branches.
 4. Add tests for the refusal cases: unknown target, missing evidence, schema
    violation, mismatched role version, absent executable.
 
-Read [WORKLOADS.md](docs/WORKLOADS.md) and [EXECUTION.md](docs/EXECUTION.md)
-before writing one. A multi-brick stack is a preset of dependency-ordered
-one-brick jobs, not one large job.
+A multi-brick stack is a preset of dependency-ordered one-brick jobs, not one
+large job.
 
 ## Adding an extension
 
-An extension registers a provider or a hook through the versioned protocol in
-[EXTENSIONS.md](docs/EXTENSIONS.md). Package layout:
+An extension registers a provider or a hook through the versioned protocol v1.
+Package layout:
 
 ```text
 my-extension/
@@ -210,7 +208,7 @@ reviewed and trust.
 ## Secrets and repository hygiene
 
 - `data/` holds runtime state, configuration, snapshots and vault keys, and stays
-  out of Git. `docs/prompt/` holds private notes and stays out of Git too.
+  out of Git. `archive/` holds reference copies and stays out of Git too.
 - Never commit `*.pem`, `*.key`, tokens or `.env` files. The scanner blocks them
   in tracked files and in history.
 - Treat any secret that reached Git as compromised: rotate it first, then remove
@@ -220,8 +218,8 @@ reviewed and trust.
 
 ## Documentation
 
-Public documentation is in English, under `docs/`. Keep capability claims inside
-the limits of the README capability table. Label design proposals as proposals,
+Public documentation lives in the README and is in English. Keep capability
+claims inside the limits of its capability table. Label design proposals as proposals,
 not as delivered behaviour. Record user-visible changes in `CHANGELOG.md` under
 `## [Unreleased]`.
 

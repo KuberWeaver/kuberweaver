@@ -13,7 +13,7 @@ From the repository root:
 
 Without `--install`, installation, activation and global bindings do not change. The host uses `data/plugin-data/local-vault` through `ctx.plugin_data_dir()`, not `data/plugins`. The `key`, authenticated `check` marker and `sha256(reference).fernet` files are separate from package sources in `data/extensions/local-vault`. The parent of `--data-dir` must already exist. Private directories are 0700 and files 0600. A different existing installation is rejected, never overwritten. Activation respects `data/config/extensions.json` when it is the sole authority. Restart the application after installation; CLI success does not attest to the active runtime.
 
-Explicitly select `local-vault` for new connections. Human/agent controls remain those of the host Connections API; the extension adds no parallel write route. No global secrets binding is changed. The Python provider is **read-only by default**; `allow_write=True` must be an explicit boolean. The enabled extension permits storage for new connections through host controls. Managed SSH-key private material uses encrypted vault storage; see the [SSH key guide](../../../docs/SSH_KEYS.md) for its separate administration/export workflow.
+Explicitly select `local-vault` for new connections. Human/agent controls remain those of the host Connections API; the extension adds no parallel write route. No global secrets binding is changed. The Python provider is **read-only by default**; `allow_write=True` must be an explicit boolean. The enabled extension permits storage for new connections through host controls. Managed SSH-key private material uses encrypted vault storage; see `kw keys` for its separate administration and export workflow.
 
 ## Storage and integrity
 
