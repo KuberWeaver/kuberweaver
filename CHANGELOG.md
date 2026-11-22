@@ -97,6 +97,13 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   `scripts/browser_{acceptance,final}.py`, `scripts/modularity_acceptance.py`.
   They drove the removed portal, and on a machine with Chromium they failed
   instead of skipping, because CI does not install `requirements-acceptance.txt`.
+- `backend/kuberweaver/llm_diagnostics.py` and its test: an optional model-backed
+  diagnostics provider that no production path ever registered. Diagnostics are
+  deterministic, read-only rules.
+- Development autopilot scaffolding under `ops/autopilot/` and
+  `ops/autopilot-kw/`: iteration state files and a 3,300-line runner log. Build
+  tooling, not product or deployment material; it now lives in `archive/`.
+- `spikes/`, which held only a bytecode cache.
 
 ### Changed
 

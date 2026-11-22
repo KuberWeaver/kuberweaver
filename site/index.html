@@ -153,7 +153,7 @@
             </tr>
             <tr>
               <td>Diagnostics</td>
-              <td>Deterministic rules; optional LLM provider requires explicit configuration.</td>
+              <td>Deterministic, read-only rules. No model provider is wired in.</td>
             </tr>
             <tr>
               <td>Notifications and ChatOps</td>
@@ -243,7 +243,7 @@ uv pip install --python .venv/bin/python -e . --no-deps   # installs the `kw` CL
 
       <details class="faq-item">
         <summary>Does it require Kubernetes or an AI model?</summary>
-        <p>No. KuberWeaver does not embed an AI model and does not require Kubernetes. An optional LLM provider can be used for diagnostics, but only when it is configured explicitly.</p>
+        <p>No. KuberWeaver does not embed an AI model and does not require Kubernetes. Diagnostics are deterministic, read-only rules; no model provider is wired in.</p>
       </details>
     </div>
   </section>

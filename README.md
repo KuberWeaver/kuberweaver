@@ -157,7 +157,7 @@ Canonical hooks are `before_plan`, `after_approval`, `job_started` and `job_fini
 | Frontend/backend stack, Cisco IOS, pfSense and cloud entries | Planned and disabled; no validated adapter/target path. |
 | GitOps | Local approved-plan commits; optional remote publication verifies the exact SHA. Test-repository evidence is not a hosted customer delivery pipeline. |
 | FinOps | Internal tariff estimates, not cloud billing or measured consumption. Prices are declared by the requester, not derived from a rate table. |
-| Diagnostics | Deterministic rules; optional LLM provider requires explicit configuration. |
+| Diagnostics | Deterministic, read-only rules. No model provider is wired in. |
 | Notifications and ChatOps | Durable outbox, webhook delivery and signed callback exercised locally; no certified Slack/Teams integration or configured external SaaS recipient. |
 | Secrets | Replaceable OpenBao and local Fernet providers; local custody and transport limits apply. |
 | Execution credentials | Operation-scoped injection, isolation and cleanup; does not imply existing lab keys were replaced. |
