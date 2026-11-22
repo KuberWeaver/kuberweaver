@@ -336,12 +336,28 @@ def real_api(tmp_path, *, plugins_dir=None):
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
-    source = ('from kuberweaver.app import create_app; import uvicorn; '
-              f'app=create_app(state_dir={str(state)!r}, plugins_dir={str(plugins)!r}); '
-              f'uvicorn.run(app, host="127.0.0.1", port={port}, log_level="error")')
+    # The product binds no execution provider on a fresh install, so the launched
+    # server registers the same review fixture the in-process suites use.
+    launcher = tmp_path / 'serve.py'
+    launcher.write_text(
+        'from kuberweaver.app import create_app\n'
+        'import uvicorn\n'
+        'from kuberweaver.providers import provider_provenance\n'
+        '\n'
+        'class FixtureExecution:\n'
+        "    def execute(self, job, emit):\n"
+        "        return {'status': 'succeeded'}\n"
+        "    def rollback(self, job, emit):\n"
+        "        return {'status': 'rolled_back'}\n"
+        '\n'
+        f'app = create_app(state_dir={str(state)!r}, plugins_dir={str(plugins)!r})\n'
+        "app.state.registry.register('execution', 'recording', FixtureExecution(), {'status': 'configured'})\n"
+        "app.state.provider_loaded_sources[('execution', 'recording')] = provider_provenance(app, 'execution', 'recording')\n"
+        "app.state.provider_bindings['execution'] = 'recording'\n"
+        f'uvicorn.run(app, host="127.0.0.1", port={port}, log_level="error")\n')
     env = {**os.environ, 'PYTHONPATH': str(ROOT / 'backend')}
     log = (tmp_path / 'uvicorn.log').open('w+')
-    process = subprocess.Popen([sys.executable, '-c', source], env=env, stdout=log, stderr=log)
+    process = subprocess.Popen([sys.executable, str(launcher)], env=env, stdout=log, stderr=log)
     base_url = f'http://127.0.0.1:{port}'
     try:
         with httpx.Client(base_url=base_url, trust_env=False, timeout=2) as human:

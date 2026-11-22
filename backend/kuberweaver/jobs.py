@@ -12,10 +12,9 @@ import threading
 from pathlib import Path
 from fastapi import HTTPException
 from .storage import now
-from .providers import (resolve_provider, execution_binding, execution_credential_binding,
+from .providers import (resolve_provider, execution_binding,
                         invoke_approved_execution, graph_execution_name,
-                        check_execution_pins, check_prepared_plan, ExecutionTrustError,
-                        RuntimeExecutor)
+                        check_execution_pins, check_prepared_plan, ExecutionTrustError)
 from .gitops import publish as publish_remote
 
 TERMINAL = {'succeeded', 'failed', 'rolled_back', 'rollback_failed', 'rejected',
@@ -142,20 +141,13 @@ class Jobs:
         """The pinned provider's explicit ``decommission(job, emit)`` capability.
 
         Retirement is never substituted with rollback: the execution provider
-        selected for the job must itself expose the method. A registry wrapper
-        that only delegates to an implementation is accepted when *that*
-        implementation declares it, so the wrapper's durable-approval command
-        guard still applies and the pinned provenance still covers the code.
+        selected for the job must itself expose the method, and it is invoked
+        through the durable-approval command guard.
         """
         pinned = job.get('approved_execution_provider')
         if not isinstance(pinned, dict) or not isinstance(pinned.get('name'), str):
             return None
         provider = resolve_provider(self.app, 'execution', pinned['name'])
-        if isinstance(provider, RuntimeExecutor):
-            implementation = getattr(self.app.state, 'executor', None)
-            if not callable(getattr(implementation, 'decommission', None)):
-                return None
-            return lambda current, emit: provider._invoke('decommission', current, emit)
         if not callable(getattr(provider, 'decommission', None)):
             return None
         return lambda current, emit: invoke_approved_execution(
@@ -219,7 +211,6 @@ class Jobs:
     def pin_execution(self, job, prefix):
         manifests = self.catalog.discover()
         job[prefix + '_execution_provider'] = execution_binding(self.app, graph_execution_name(self.app, job['graph']))
-        job[prefix + '_credentials'] = execution_credential_binding(self.app)
         job[prefix + '_graph_hash'] = digest(job['graph'])
         job[prefix + '_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
         job[prefix + '_source_hashes'] = {node['plugin_id']: self.catalog.fingerprint(node['plugin_id']) for node in job['graph']['nodes']}
@@ -323,11 +314,10 @@ class Jobs:
                 job['approved_prepared_plan'] = digest(job['prepared_plan'])
                 # Approval adopts the original plan's pins, never a fresh
                 # fingerprint that could bless drift after initial validation.
-                for suffix in ('execution_provider', 'credentials', 'graph_hash', 'manifest_hashes', 'source_hashes'):
+                for suffix in ('execution_provider', 'graph_hash', 'manifest_hashes', 'source_hashes'):
                     job['approved_' + suffix] = copy.deepcopy(job['preparation_' + suffix])
             else:
                 job['approved_execution_provider'] = execution_binding(self.app, graph_execution_name(self.app, job['graph']))
-                job['approved_credentials'] = execution_credential_binding(self.app)
                 job['approved_graph_hash'] = digest(job['graph'])
                 manifests = self.catalog.discover()
                 job['approved_manifest_hashes'] = {node['plugin_id']: digest(manifests[node['plugin_id']]) for node in job['graph']['nodes']}
@@ -390,7 +380,6 @@ class Jobs:
                     and publication_policy_hash() == remote_policy_hash
                     and self.check(job['graph'], job.get('created_by_role', 'operator')) == report
                     and execution_binding(self.app, graph_execution_name(self.app, job['graph'])) == job['approved_execution_provider']
-                    and execution_credential_binding(self.app) == job['approved_credentials']
                     and all(plugin_id in manifests and digest(manifests[plugin_id]) == value
                             for plugin_id, value in job['approved_manifest_hashes'].items())
                     and all(self.catalog.fingerprint(plugin_id) == value

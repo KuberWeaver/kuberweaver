@@ -72,6 +72,7 @@ def test_signed_approval_runs_actual_serial_worker(api):
     ('disabled', 503), ('missing_config', 503), ('invalid_config', 503), ('secret_unavailable', 503)])
 def test_callback_fails_closed(api, case, code):
     client, app = api
+    install_executor(app, RecordingExecutor())
     config, callback = setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job)
@@ -110,6 +111,7 @@ def test_strict_raw_body_cap_and_duplicate_keys(api):
 @pytest.mark.parametrize('case', ['drift', 'expired', 'inflight', 'unknown', 'consumed'])
 def test_bound_action_conflicts(api, case, decision):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job, decision)
@@ -129,6 +131,7 @@ def test_bound_action_conflicts(api, case, decision):
 
 def test_failed_policy_approval_preserves_action_but_burns_nonce(api):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job)
@@ -144,6 +147,7 @@ def test_failed_policy_approval_preserves_action_but_burns_nonce(api):
 
 def test_required_remote_failure_does_not_consume_action(api):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     config = app.state.state_dir / 'config' / 'gitops.json'
     config.write_text(json.dumps({'enabled': True, 'remote_url': str(app.state.state_dir / 'nonexistent.git'),
@@ -162,6 +166,7 @@ def test_required_remote_failure_does_not_consume_action(api):
 
 def test_reject_and_nonce_survive_restart(api):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job, 'reject')
@@ -180,14 +185,16 @@ def test_reject_and_nonce_survive_restart(api):
 ])
 def test_issue_strict_schema(api, data):
     client, app = api
+    install_executor(app, RecordingExecutor())
     setup_chatops(app)
     response = client.post('/api/chatops/actions', json=data)
     assert response.status_code == 400
 
 
 def test_issue_admin_only_and_pending_only(api):
-    from test_core_jobs import login
+    from test_core_jobs import login, RecordingExecutor, install_executor
     client, app = api
+    install_executor(app, RecordingExecutor())
     setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     client.post('/api/jobs/' + job['id'] + '/reject')
@@ -198,6 +205,7 @@ def test_issue_admin_only_and_pending_only(api):
 
 def test_signature_covers_exact_body_and_not_bearer_action(api):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job)
@@ -214,6 +222,7 @@ def test_signature_covers_exact_body_and_not_bearer_action(api):
 
 def test_nonce_is_global_across_actions(api):
     client, app = api
+    install_executor(app, RecordingExecutor())
     _, callback = setup_chatops(app)
     first = client.post('/api/jobs', json={'graph': graph()}).json()
     second = client.post('/api/jobs', json={'graph': graph()}).json()

@@ -31,11 +31,17 @@ class RecordingExecutor:
         return {'status': 'rolled_back', 'targets': [{'target': 'app', 'restored': True}]}
 
 
-def install_executor(app, executor):
+def install_executor(app, executor, name='recording'):
     """Explicitly register test-injected code before approval, never after it."""
     from kuberweaver.providers import provider_provenance
-    app.state.executor = executor
-    app.state.provider_loaded_sources[('execution', 'default')] = provider_provenance(app, 'execution', 'default')
+    try:
+        app.state.registry.register('execution', name, executor, {'status': 'configured'})
+    except ValueError:
+        # A fixture may already have installed this review implementation; the
+        # suite replaces it rather than failing on the duplicate.
+        app.state.registry._entries[('execution', name)] = (executor, {'status': 'configured'})
+    app.state.provider_loaded_sources[('execution', name)] = provider_provenance(app, 'execution', name)
+    app.state.provider_bindings['execution'] = name
     return executor
 
 

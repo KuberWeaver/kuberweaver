@@ -116,8 +116,8 @@
               <td>Local accounts plus an optional, disabled-by-default OpenID Connect sign-in that binds to an existing local account; no per-object authorization.</td>
             </tr>
             <tr>
-              <td>NGINX and Apache</td>
-              <td>Real Ansible deployment on two allowlisted GNS3 guests, with HTTP verification.</td>
+              <td>NGINX</td>
+              <td>Real Ansible deployment of the reviewed web-nginx brick on an allowlisted guest, with HTTP verification. No Apache brick ships.</td>
             </tr>
             <tr>
               <td>Canary, rolling and rollback</td>
@@ -137,7 +137,7 @@
             </tr>
             <tr>
               <td>Redis persistence</td>
-              <td>Service-specific lifecycle and restore tests; shipped manifest remains planned and runtime disabled pending real target acceptance.</td>
+              <td>Not provided. The prototype container engine that carried it was removed; no manifest ships.</td>
             </tr>
             <tr>
               <td>Frontend/backend stack, Cisco IOS, pfSense and cloud entries</td>
@@ -162,10 +162,6 @@
             <tr>
               <td>Secrets</td>
               <td>Replaceable OpenBao and local Fernet providers; local custody and transport limits apply.</td>
-            </tr>
-            <tr>
-              <td>Execution credentials</td>
-              <td>Operation-scoped injection, isolation and cleanup; does not imply existing lab keys were replaced.</td>
             </tr>
             <tr>
               <td>External API/MCP clients</td>

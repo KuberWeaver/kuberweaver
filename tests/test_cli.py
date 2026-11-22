@@ -51,6 +51,10 @@ def env(tmp_path, monkeypatch):
     app.state.registry.register("secrets", "test-vault",
                                 LocalVaultProvider(vault_dir, allow_write=True), {})
     app.state.provider_bindings["secrets"] = "test-vault"
+    # The product binds no execution provider on a fresh install; this suite
+    # submits and approves jobs, so it installs its review fixture explicitly.
+    from test_core_jobs import RecordingExecutor, install_executor
+    install_executor(app, RecordingExecutor())
     # A real local HTTP server (ephemeral port) exercises cookies + CSRF exactly
     # as production; the sync CLI cannot use the async-only ASGITransport.
     config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="error")

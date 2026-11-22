@@ -53,8 +53,9 @@ cat > "$GRAPH" <<'JSON'
   "name": "CLI smoke",
   "environment": "dev",
   "nodes": [
-    {"id": "nginx", "plugin_id": "nginx", "label": "Web", "position": {"x": 1, "y": 1},
-     "config": {}, "price_monthly": 12.5, "currency": "EUR"}
+    {"id": "web", "plugin_id": "web-nginx", "label": "Web", "position": {"x": 1, "y": 1},
+     "config": {"server_name": "smoke.example", "target_uuid": "6f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+                "ssh_key_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "price_monthly": 12.5, "currency": "EUR"}
   ],
   "edges": [],
   "strategy": {"canary": 1, "batch_size": 1}
