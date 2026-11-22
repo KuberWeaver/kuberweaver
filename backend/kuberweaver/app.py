@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import hmac
+import logging
 import os
 from pathlib import Path
 import math
@@ -22,6 +23,8 @@ from .oidc import OidcConfigurationError, OidcProvider, install_oidc
 from .reporting import ensure_reporting
 from .sessions import SESSION_COOKIE, Sessions
 from .users import UserStore, install_users
+
+logger = logging.getLogger('kuberweaver')
 
 
 class Login(BaseModel):
@@ -201,6 +204,10 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     install_users(app)
     install_oidc(app)
 
+    if app.state.users.default_admin_credentials_active():
+        logger.warning('The administrator still uses the development password. '
+                       'Change it with `kw auth passwd` before exposing this installation.')
+
     @app.post('/api/auth/login')
     def login(data: Login, request: Request, response: Response):
         client = request.client.host if request.client else 'local'
@@ -229,11 +236,13 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
     @app.get('/api/auth/me')
     def me(request: Request, current=Depends(user)):
         if current.get('principal_type') == 'agent':
-            return {'user': current, 'csrf_token': None}
+            return {'user': current, 'csrf_token': None,
+                    'default_admin_password': False}
         session = getattr(request.state, 'session', None) or app.state.sessions.resolve(request.cookies.get(SESSION_COOKIE))
         if not session:
             raise HTTPException(401, 'Authentication required')
-        return {'user': current, 'csrf_token': session['csrf']}
+        return {'user': current, 'csrf_token': session['csrf'],
+                'default_admin_password': app.state.users.default_admin_credentials_active()}
 
     @app.post('/api/auth/logout')
     def logout(request: Request, response: Response, current=Depends(user)):

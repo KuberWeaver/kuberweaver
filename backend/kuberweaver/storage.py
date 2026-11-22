@@ -9,7 +9,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
-from .passwords import check_password, hash_password
+from .passwords import check_password, hash_password, seeded_password
 from .postgres import Connection, StorageError, acquire_controller_lock, configured_dsn, initialize
 
 
@@ -70,7 +70,7 @@ class Store:
             if not self.conn.execute('SELECT 1 FROM users LIMIT 1').fetchone():
                 credentials = []
                 for role in ('admin', 'operator', 'viewer'):
-                    password = secrets.token_urlsafe(24)
+                    password = seeded_password(role)
                     self.conn.execute('INSERT INTO users VALUES (?,?,?,?)', (secrets.token_hex(12), role, role, hash_password(password)))
                     credentials.append(f'{role}:{password}')
                 fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

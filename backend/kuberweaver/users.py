@@ -16,7 +16,8 @@ import stat
 from fastapi import Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from .passwords import PasswordPolicy, WeakPassword, check_password, hash_password, needs_rehash
+from .passwords import (DEFAULT_ADMIN_PASSWORD, SEED_ENVIRONMENT, PasswordPolicy,
+                        WeakPassword, check_password, hash_password, needs_rehash)
 
 ROLES = ('admin', 'operator', 'viewer')
 USERNAME_PATTERN = re.compile(r'^[a-z][a-z0-9._-]{2,63}$')
@@ -157,6 +158,20 @@ class UserStore:
         self.store.audit(actor.get('username', 'anonymous'), 'user.password_rotated', identity,
                          {'username': row['username'], 'self': is_self})
         return self.metadata(self.by_id(identity))
+
+    def default_admin_credentials_active(self):
+        """True while the administrator still uses the development password.
+
+        An operator who sets `KUBERWEAVER_ADMIN_PASSWORD` has chosen the seed
+        deliberately, so that install is never reported as forgotten. One Argon2id
+        comparison, called from `/api/auth/me` rather than per request path.
+        """
+        if os.environ.get(SEED_ENVIRONMENT['admin']):
+            return False
+        row = self.store.one('SELECT * FROM users WHERE username=?', ('admin',))
+        if not row:
+            return False
+        return check_password(DEFAULT_ADMIN_PASSWORD, row['password_hash'])
 
     def authenticate(self, username, password):
         account = self.find(username)

@@ -249,10 +249,20 @@ def test_export_requires_reauthentication_and_returns_no_store_attachment(platfo
     app, client = platform
     key = create(client)
     path = '/api/ssh-keys/' + key['id'] + '/export'
+    # Rotate to a password that is not also an audit value (the actor name), so
+    # the assertion below tests the secret rather than the word "admin".
+    rotated = 'tidal harbour lantern 47'
+    account = app.state.store.one('SELECT * FROM users WHERE username=?', ('admin',))
+    turned = client.post(f"/api/users/{account['id']}/password",
+                         json={'current_password': credentials(app)['admin'],
+                               'new_password': rotated})
+    assert turned.status_code == 200, turned.text
+    client.headers['x-csrf-token'] = turned.json()['csrf_token']
+
     denied = client.post(path, json={'password': 'wrong-disposable-password'})
     assert denied.status_code == 401
     assert 'wrong-disposable-password' not in denied.text
-    response = client.post(path, json={'password': credentials(app)['admin']})
+    response = client.post(path, json={'password': rotated})
     assert response.status_code == 200, response.text
     assert response.headers['content-type'] == 'application/octet-stream'
     assert response.headers['cache-control'] == 'no-store'
@@ -260,12 +270,12 @@ def test_export_requires_reauthentication_and_returns_no_store_attachment(platfo
     assert response.headers['x-content-type-options'] == 'nosniff'
     serialization.load_ssh_private_key(response.content, password=None)
     audit = json.dumps(app.state.store.all('SELECT * FROM audit'))
-    assert response.content.decode() not in audit and credentials(app)['admin'] not in audit
+    assert response.content.decode() not in audit and rotated not in audit
     assert 'wrong-disposable-password' not in audit
     for _ in range(5):
         response = client.post(path, json={'password': 'wrong'})
     assert response.status_code == 429
-    assert client.post(path, json={'password': credentials(app)['admin']}).status_code == 429
+    assert client.post(path, json={'password': rotated}).status_code == 429
 
 
 def test_binding_is_public_only_stable_and_disable_reenable_invalidates(platform, monkeypatch):

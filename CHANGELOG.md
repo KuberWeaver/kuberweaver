@@ -100,6 +100,14 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 
 ### Changed
 
+- A fresh local install now seeds the administrator as `admin`/`admin`, so the
+  CLI is usable without opening the bootstrap file. `KUBERWEAVER_ADMIN_PASSWORD`
+  chooses another seed; `operator` and `viewer` keep random passwords. The server
+  logs a warning while the default is active, `/api/auth/me` reports it, and
+  `kw auth whoami` repeats it.
+- New `kw auth passwd`: self service asks for the current password, an
+  administrator may set another account's password without it. Rotation still
+  enforces the strength policy and retires the plaintext bootstrap line.
 - Documentation collapsed into `README.md` plus `AGENTS.md`. The previous
   `docs/` tree and the investor presentation material are kept on disk under
   `archive/`, which is git-ignored and absent from a clone. The README is now
