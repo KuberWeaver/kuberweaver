@@ -56,7 +56,10 @@ cat > "$GRAPH" <<'JSON'
 JSON
 
 echo "initialising a throwaway local vault (state: $STATE)"
-"$PYTHON" scripts/setup_local_vault.py --data-dir "$STATE/data" --install >/dev/null
+if ! vault_output="$("$PYTHON" scripts/setup_local_vault.py --data-dir "$STATE/data" --install 2>&1)"; then
+  echo "local vault setup refused: $vault_output" >&2
+  exit 1
+fi
 
 echo "starting a throwaway server on 127.0.0.1:$PORT"
 PYTHONPATH="$ROOT/backend" KUBERWEAVER_STATE_DIR="$STATE/data" \
