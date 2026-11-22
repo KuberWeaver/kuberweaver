@@ -35,9 +35,10 @@ still loading cleanly.
 
 ## Remove: prototype drivers
 
-`scripts/execution_live.py`, `scripts/execution_blueprints.py` and
-`scripts/browser_acceptance.py` drive the container engine against the fixed lab.
-They go with it. `scripts/run_brick.py` is the supported driver for bricks.
+`scripts/execution_live.py` and `scripts/execution_blueprints.py` drive the
+container engine against the fixed lab. They go with it. `scripts/run_brick.py` is
+the supported driver for bricks. The browser acceptance scripts were removed with
+the portal they drove, not deferred.
 
 ## Rewrite, do not delete
 

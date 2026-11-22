@@ -43,10 +43,11 @@ uv pip install --python .venv/bin/python -r requirements.txt -r requirements-exe
 uv pip install --python .venv/bin/python -e . --no-deps   # installs the `kw` CLI
 ```
 
-A shell glob (`-r requirements*.txt`) also works, but it pulls in the optional
-`requirements-acceptance.txt`, which exists only for real-browser acceptance on
-this branch and is not needed to run the test suite. Install the six files above
-explicitly; CI installs exactly that set.
+A shell glob (`-r requirements*.txt`) also works. Install the six files above
+explicitly; CI installs exactly that set. There is no optional browser
+acceptance dependency: the portal that those tests drove was removed, and a real
+browser acceptance for a new interface has to be written against that interface,
+not carried over.
 
 ## PostgreSQL fixtures
 

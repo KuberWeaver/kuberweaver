@@ -265,7 +265,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         index = frontend / 'index.html'
         if index.is_file() and '.' not in Path(asset_path).name:
             return FileResponse(index)
-        raise HTTPException(404, 'Frontend not built; run npm run build inside frontend/')
+        raise HTTPException(404, 'No static interface is configured for this installation')
     return app
 
 

@@ -1,6 +1,6 @@
 # KuberWeaver
 
-Self-hosted infrastructure management with a service catalogue, governed requests, explicit approvals and verifiable execution. KuberWeaver exposes one API (plus an MCP interface) to replaceable inventory, execution, secrets, notification and diagnostic providers; the `kw` CLI is the reference client. A modular GUI can be built by anyone on the same API (one will be made for presentations); this version focuses on the core, the CLI and real services, and the legacy GUI was removed. It does not require an embedded AI model or Kubernetes.
+Self-hosted infrastructure management with a service catalogue, governed requests, explicit approvals and verifiable execution. KuberWeaver exposes one API (plus an MCP interface) to replaceable inventory, execution, secrets, notification and diagnostic providers; the `kw` CLI is the reference client. A modular GUI can be built by anyone on the same API; none is shipped here, and this version focuses on the core, the CLI and real services. It does not require an embedded AI model or Kubernetes.
 
 ## Documentation
 

@@ -14,7 +14,7 @@ differs from the checkout layout selects its paths with the variables below.
 | --- | --- | --- | --- |
 | `KUBERWEAVER_STATE_DIR` | `<checkout>/data` | No | Durable state: database selection, jobs, audit, ownership, plugin data. Created with mode `0700` if absent. |
 | `KUBERWEAVER_PLUGINS_DIR` | `<checkout>/plugins` | No | Reviewed plugin manifests and playbooks served to the portal. |
-| `KUBERWEAVER_FRONTEND_DIR` | `<checkout>/frontend/dist` | No | Built portal assets. When absent, the API still runs and asset requests return 404. |
+| `KUBERWEAVER_FRONTEND_DIR` | `<checkout>/frontend/dist` | No | Static interface assets. The directory is not part of this repository and is absent by default: the API runs, and requests for a page return 404. Point it at any static build (for example `site/`) to serve one through the kernel. |
 | `KUBERWEAVER_SSH_CONFIG` | `~/.ssh/config` | For execution and OpenTofu runs | OpenSSH client configuration holding the aliases `infra-app`, `infra-branch-client` and `infra-hypervisor`. |
 | `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS` | empty | No | Comma-separated origins allowed to be embedded by the external dashboard registry. Empty refuses every embed. |
 | `KUBERWEAVER_DASHBOARD_PROBE_SECONDS` | `300` | No | Interval of the read-only dashboard health sweep. `0` disables the loop; otherwise 1 to 86400 seconds. |

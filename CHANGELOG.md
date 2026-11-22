@@ -87,6 +87,11 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   and `docs/NAVIGATION.md` are kept as historical records of that interface.
 - `pyrightconfig.json`, which referenced a type checker that is neither installed
   nor run.
+- The browser acceptance leftovers: `tests/test_resource_workspace_browser.py`,
+  `tests/test_v2_real_protocol.py`, `requirements-acceptance.txt` and
+  `scripts/browser_{acceptance,final}.py`, `scripts/modularity_acceptance.py`.
+  They drove the removed portal, and on a machine with Chromium they failed
+  instead of skipping, because CI does not install `requirements-acceptance.txt`.
 
 ### Fixed
 
