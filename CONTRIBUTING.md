@@ -51,13 +51,10 @@ not carried over.
 
 ## PostgreSQL fixtures
 
-Some tests need a dedicated PostgreSQL server, not SQLite. Without a DSN they
-skip silently: the last line of a local run must be read, because
-`44 passed, 2 skipped` means the durable-state half did not run.
-
-The suite reads `KUBERWEAVER_TEST_DATABASE_URL_FILE`, a file containing one
-connection URL (mode 0600). It defaults to `data/postgresql/test-url`. Create it
-once on your machine and never commit it:
+Some tests need a dedicated PostgreSQL server, not SQLite. The suite reads
+`KUBERWEAVER_TEST_DATABASE_URL_FILE`, a file containing one connection URL
+(mode 0600). It defaults to `data/postgresql/test-url`. Create it once on your
+machine and never commit it:
 
 ```sh
 docker run --rm --name kw-pg -e POSTGRES_PASSWORD=kwtest \
@@ -67,8 +64,14 @@ printf 'host=127.0.0.1 port=55432 user=postgres password=kwtest dbname=postgres'
 chmod 600 data/postgresql/test-url
 ```
 
-Then re-run: `python3 ops/ci/check.py`. Each fixture creates its own schema and
-drops it, so the database stays reusable. `data/` is git-ignored.
+Without that file the durable-state fixtures skip, and the run still exits green.
+So read the last line, not just the exit code: with the fixture present the whole
+suite is `1918 passed, 2 skipped`; a run reporting dozens of skips means the
+PostgreSQL half did not execute and its green tells you nothing about durability.
+CI always provides a fresh test database, so its count is authoritative.
+
+Each fixture creates its own schema and drops it, so the database stays reusable.
+`data/` is git-ignored.
 
 ## Running the tests
 
@@ -132,9 +135,9 @@ Rewrite history by rebasing on feature branches only, never on `main`.
 
 ## What CI checks
 
-Three jobs run on every push to `main` and `feat/**`, and on every pull request
-that targets `main`. A pull request opened against another branch does not
-trigger CI.
+Three jobs run on every push to `main`, `feat/**` and `chore/**`, and on every
+pull request that targets `main`. A pull request opened against another branch
+does not trigger CI.
 
 - **Secret scan** (`ops/ci/secret_scan.py --history`): private key blocks,
   token prefixes, cloud key IDs and forbidden paths such as `data/`,
