@@ -21,14 +21,25 @@ The script requires `/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg`. It stor
 
 Restart the application afterward. Enabling the extension does not create a VM.
 
-## Portal workflow
+## Provisioning workflow
 
-1. In Connections, configure ESXi, record the accepted certificate SHA-256 fingerprint and choose Discover. A changed certificate requires a new explicit trust decision, not an automatic trust update.
-2. Add **VMware VM** in Canvas.
-3. Select the server, datastore, networks and pool from actual inventory. VMware identifiers are preserved exactly, including spaces.
-4. Supply name, CPU, RAM, disk and SSH public key, or select a managed key where supported. The initial image is Ubuntu Server 24.04, with guest user `ubuntu` and password login disabled. Disk size must be at least 10 GiB. See [managed SSH keys](../../../docs/SSH_KEYS.md); private keys do not belong in blueprint configuration.
-5. Validate and submit for approval. The worker prepares the actual local plan without remote import. Review name and resources, then approve.
-6. Import starts powered off. Guest OS properties, cloud-init and resources are configured before power-on. Verify IP address and SSH access independently afterward.
+1. Register the ESXi host as a connector and store its credential in the vault:
+   `kw connectors add --label "ESXi lab" --driver esxi --endpoint https://esxi.lab`,
+   then `kw connectors credentials <conn-id>`. A changed certificate requires a new
+   explicit trust decision, not an automatic trust update.
+2. Build a graph that places `vmware-vm` on the server, datastore, networks and pool
+   you actually have. VMware identifiers are preserved exactly, including spaces.
+3. Supply name, CPU, RAM, disk and SSH public key, or select a managed key where
+   supported. The initial image is Ubuntu Server 24.04, with guest user `ubuntu` and
+   password login disabled. Disk size must be at least 10 GiB. See
+   [managed SSH keys](../../../docs/SSH_KEYS.md); private keys do not belong in
+   blueprint configuration.
+4. `kw deploy validate --graph-file graph.json` runs the preparation without creating
+   a job. Review the prepared plan and approve with `kw deploy approve <job-id>`;
+   `kw deploy watch <job-id>` follows execution.
+5. Import starts powered off. Guest OS properties, cloud-init and resources are
+   configured before power-on. Verify IP address and SSH access independently
+   afterward.
 
 ## Transport and limitations
 

@@ -45,8 +45,8 @@ Generate a permanent invite from Server Settings, then add it to:
 - `SUPPORT.md` (first entry of "Where to ask")
 - `site/index.html` (footer)
 
-Until the server exists, the README and site say there is no invite yet. Do not
-invent a link.
+Until the server exists, neither the README nor the site advertises one: they do
+not carry a community link at all, and no invite is invented here.
 
 ## Bot (optional, later)
 

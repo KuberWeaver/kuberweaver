@@ -111,7 +111,7 @@ request.
 - the Ansible executor installed on the control host (`ansible-playbook`,
   `ansible-galaxy`);
 - the brick's roles pinned and present locally; `plugins/*/roles/` is never
-  committed, except first-party roles such as `plugins/cloudflare-tunnel/roles/`.
+  committed, because a downloaded role keeps its own license.
 
 Without those, `snapshot` refuses and nothing is applied. That is the intended
 behaviour, not a missing feature.

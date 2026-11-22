@@ -2,7 +2,7 @@
 
 KuberWeaver can delegate browser sign-in to an external OpenID Connect provider
 (Authentik, Keycloak, Entra ID and similar). The feature is optional and
-**disabled by default**: with no `KUBERWEAVER_OIDC_ISSUER`, the portal behaves
+**disabled by default**: with no `KUBERWEAVER_OIDC_ISSUER`, the server behaves
 exactly as before and local accounts keep signing in with a password.
 
 The provider never replaces the password path. `POST /api/auth/login` is
@@ -17,7 +17,7 @@ and are never read from a token.
 | `KUBERWEAVER_OIDC_ISSUER` | unset | Issuer URL of the provider, for example `https://authentik.example.test/application/o/kuberweaver/`. Setting it enables the feature. |
 | `KUBERWEAVER_OIDC_CLIENT_ID` | unset | Client identifier registered at the provider. Required when the issuer is set. |
 | `KUBERWEAVER_OIDC_CLIENT_SECRET` | unset | Client secret. Required when the issuer is set; it is only sent to the token endpoint and never logged. |
-| `KUBERWEAVER_OIDC_REDIRECT_URL` | derived from the request | Exact callback URL registered at the provider, for example `https://portal.example.test/api/auth/oidc/callback`. Set it when the portal runs behind a reverse proxy, because the derived URL follows the request scheme and host. |
+| `KUBERWEAVER_OIDC_REDIRECT_URL` | derived from the request | Exact callback URL registered at the provider, for example `https://portal.example.test/api/auth/oidc/callback`. Set it when the server runs behind a reverse proxy, because the derived URL follows the request scheme and host. |
 | `KUBERWEAVER_OIDC_SCOPES` | `openid profile email` | Space-separated scopes; `openid` is mandatory. |
 | `KUBERWEAVER_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim that names the local account. |
 | `KUBERWEAVER_OIDC_LABEL` | `Single sign-on` | Button text advertised by `GET /api/auth/oidc/status`. |
@@ -26,10 +26,10 @@ and are never read from a token.
 
 Issuer, redirect and discovered endpoints must be absolute `http(s)` URLs without
 credentials, query or fragment. Cleartext `http` is only accepted for loopback
-hosts, where a lab provider may run beside the portal. An issuer is compared
+hosts, where a lab provider may run beside the server. An issuer is compared
 without its trailing slash.
 
-A partial configuration is reported, not guessed: the portal still starts and
+A partial configuration is reported, not guessed: the server still starts and
 local password sign-in keeps working, `GET /api/auth/oidc/status` answers
 `{"enabled": false, "reason": "configuration_error", "detail": "..."}` naming the
 missing variable, and every OIDC route answers `503`.
@@ -47,9 +47,9 @@ provider; the single-use `state` value plus the matching state cookie are its
 CSRF protection. The state cookie is `SameSite=Lax` so the provider's redirect
 can carry it back, while a callback URL replayed in another browser has no
 matching cookie and is refused. The session cookie keeps the flags described in
-[sessions](SESSIONS.md), including `SameSite=Strict` and `Secure` over HTTPS. The
-frontend reads the CSRF token from `GET /api/auth/me` after the redirect, exactly
-like a password login.
+[sessions](SESSIONS.md), including `SameSite=Strict` and `Secure` over HTTPS. A
+client built on this API reads the CSRF token from `GET /api/auth/me` after the
+redirect, exactly like a password login; no browser interface is shipped here.
 
 ## Token and claim checks
 
@@ -102,7 +102,7 @@ the client secret and upstream error bodies never enter an audit row.
   Logging out deletes the local session only; the provider session remains until
   it is ended at the provider.
 - Password login stays available for local administrators even when the provider
-  is enabled, so a broken provider cannot lock the portal.
+  is enabled, so a broken provider cannot lock the server.
 
 ## Provider registration
 
@@ -113,5 +113,5 @@ body (`client_secret_post`). Required scopes are `openid profile email` (or at
 least `openid` plus whatever claim carries the username). The client must
 publish a discovery document at
 `<issuer>/.well-known/openid-configuration` and an RS256 (or configured
-algorithm) signing key in its JWKS. Host clocks on the portal and the provider
+algorithm) signing key in its JWKS. Host clocks on the server and the provider
 must be synchronized; token lifetime is checked without a skew allowance.

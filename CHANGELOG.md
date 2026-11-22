@@ -17,7 +17,9 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Repository licence: GPL-3.0-or-later, with `COMMERCIAL-LICENSE.md` describing
   when a commercial agreement is required.
 - Static showcase site under `site/`, served by any static host and buildable
-  offline. It reproduces the README capability boundaries verbatim.
+  offline. It reproduces the README capability boundaries, with the single
+  deliberate difference that the optional OpenID Connect sign-in is described as
+  existing and off by default.
 - `docs/DISCORD.md`: the intended community server structure, to be created by
   an account holder (see SUPPORT.md for the current invite status).
 - `docs/AGENT_GUIDE.md`: the contract for a coding agent working in this
@@ -95,6 +97,24 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 
 ### Fixed
 
+- `ops/ci/secret_scan.py` now refuses `.env`, which `CONTRIBUTING.md` and
+  `SECURITY.md` already promised; `.env.example` stays committable. The gate had no
+  test of its own, so `tests/test_ci_hygiene.py` covers the refused paths, the
+  tolerated fixture cases and a clean tree.
+- Two pages documented a first-party exception at
+  `plugins/cloudflare-tunnel/roles/`, a directory that does not exist in the
+  repository. `docs/AGENT_GUIDE.md` and `docs/STATIC_SITE.md` now state the actual
+  rule: downloaded roles and collections are never committed.
+- `examples/extensions/esxi-ovf/README.md` described adding a VM "in Canvas",
+  the removed portal. The section is a CLI and API workflow.
+- `docs/OIDC.md` spoke of the frontend reading the CSRF token; it now says a client
+  built on the API does, and that no browser interface ships.
+- `site/README.md` claimed document links were relative and that one absolute URL
+  existed. They are absolute GitHub URLs by design, and there are two.
+- `docs/DISCORD.md` said the README and site announce that no invite exists; neither
+  carries a community link. It now says so.
+- `docs/README.md` listed `SERVICE_STUDIO.md` as current documentation while also
+  filing it under historical portal sections. The product table entry is gone.
 - Seventeen release-script tests were pinned to `develop` and failed once releases
   moved to `main`.
 - The README and the showcase page contradicted the implemented OIDC support: both

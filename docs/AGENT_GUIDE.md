@@ -87,8 +87,8 @@ Copy `plugins/web-nginx/` (manifest plus `iac/` playbooks). Change the manifest:
 
 Runtime state lives in `data/` and is never committed. Private notes live in
 `docs/prompt/` and are never committed. Downloaded Ansible roles and collections
-under `plugins/*/roles/` and `plugins/*/collections/` are never committed, except
-first-party roles such as `plugins/cloudflare-tunnel/roles/`.
+under `plugins/*/roles/` and `plugins/*/collections/` are never committed: the
+license of a downloaded role or collection is its own, not this project's.
 
 The project is a prototype with one maintainer. There is no merge guarantee and
 no review deadline.
