@@ -29,6 +29,22 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   exact fields the workload provider checks before touching a guest.
 - `docs/kw-cli-usage.md` rewritten in English, so the README rule that public
   documentation is in English holds on the most-read CLI page.
+- `docs/README.md`, `docs/AUTHORING.md` and one `README.md` per extension close the
+  "where do I put this" question; every brick and every extension now documents its
+  own contract.
+- `scripts/release.py` cuts releases from `main`, not from the stale `develop`
+  branch. `CONTRIBUTING.md`, `ops/autopilot/RULES.md` and the release-script tests
+  follow: pull requests target `main`.
+- `pyproject.toml` declares `license = GPL-3.0-or-later` and
+  `requires-python = ">=3.14"`, matching the pinned requirements and CI.
+- `pyrightconfig.json` removed: it referenced a type checker that is neither
+  installed nor run, so it advertised a check that does not exist.
+- `.gitignore` drops the rules for the removed React portal (`frontend/dist`,
+  `node_modules`, `*.tsbuildinfo`).
+- `docs/EXECUTION.md` separates the current `ansible-workload-v1` contract from the
+  older `ansible-container-v1` prototype path used by two demonstration entries.
+- `docs/CLEANUP.md` marked as an internal note: its list of entries to remove
+  contradicts the public capability table.
 - Labels for contribution triage: `plugin`, `brick`, `extension`, `kernel`,
   `cli`, `ci`, `security`, `needs-review`, `triage`.
 
@@ -40,9 +56,9 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - Scoped, expiring and revocable agent tokens, plus an MCP server that exposes typed domain tools instead of arbitrary commands.
 - Read-only observability snapshot for jobs, worker queue and storage health.
 - Autopilot loop on `feat/production-track`: bounded iterations, backlog in `ops/autopilot/STATE.json`, contract in `ops/autopilot/RULES.md`.
-- CI workflow covering the backend suite, frontend typecheck/test/build, a secret scan over tracked files and history, and repository hygiene checks.
+- CI workflow covering the backend suite, a secret scan over tracked files and history, and repository hygiene checks.
 - Contributor guide and release tooling: `CONTRIBUTING.md` and `scripts/release.py`.
-- Environment-based configuration for the state, plugins, frontend and OpenSSH paths, with drift-free defaults, absolute-path validation and a refusal that names the missing variable.
+- Environment-based configuration for the state, plugins and OpenSSH paths, with drift-free defaults, absolute-path validation and a refusal that names the missing variable.
 - Structured readiness at `GET /readyz` for the database, the selected secret source and the plugin directory, with `/healthz` kept as liveness only.
 - Argon2id password storage, a documented strength policy, administrator-managed accounts with fixed roles, and single-use bootstrap credentials that are retired when an account rotates its password; see `docs/USERS.md`.
 - Session hardening with an HttpOnly `SameSite=Strict` `kw_session` cookie, an 8-hour absolute deadline derived from the token issue time, a 30-minute idle deadline refreshed on use, login that replaces a presented session, and a per-session CSRF token; see `docs/SESSIONS.md`.
@@ -69,6 +85,13 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   `scripts/modularity_acceptance.py`). The HTTP API, the `kw` CLI and the MCP
   interface remain; a modular GUI can be built on the same API. `docs/THEMING.md`
   and `docs/NAVIGATION.md` are kept as historical records of that interface.
+- `pyrightconfig.json`, which referenced a type checker that is neither installed
+  nor run.
+
+### Fixed
+
+- Seventeen release-script tests were pinned to `develop` and failed once releases
+  moved to `main`.
 
 ### Security
 
