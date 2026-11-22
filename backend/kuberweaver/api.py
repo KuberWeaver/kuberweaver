@@ -1,7 +1,7 @@
 """HTTP adapters around microkernel services."""
 from fastapi import Depends, HTTPException
 from pydantic import ValidationError
-from .models import BlueprintRequest, Graph, JobRequest, Policies, Pricing, SettingsPatch
+from .models import BlueprintRequest, Graph, JobRequest, Policies, SettingsPatch
 from .providers import integrations as integration_list, resolve_provider, provider_listing
 from .runtime import TrustRequest, extension_listing, change_extension, ProviderPatch, change_provider_bindings
 from .storage import now
@@ -119,8 +119,6 @@ def install_api(app, plugins_dir, executor=None):
             try:
                 if patch.policies is not None:
                     settings['policies'] = Policies.model_validate({**settings['policies'], **patch.policies}).model_dump()
-                if patch.pricing is not None:
-                    settings['pricing'] = Pricing.model_validate({**settings['pricing'], **patch.pricing}).model_dump()
             except ValidationError:
                 raise HTTPException(422, 'Invalid settings field or value')
             from .runtime import persist_settings
@@ -247,10 +245,17 @@ def install_api(app, plugins_dir, executor=None):
         for job in active.values():
             report = admission.validate(job['graph'])
             breakdown += [{**row, 'job_id': job['id'], 'name': job['name']} for row in report['cost']['breakdown']]
-        monthly = round(sum(row['monthly'] for row in breakdown), 2)
-        return {'currency': 'EUR', 'monthly_total': monthly, 'breakdown': breakdown,
-                'recommendations': ([{'code': 'review_dev_capacity', 'message': 'Review unused dev workloads and right-size declared resources; estimates are not cloud billing.'}] if breakdown else []),
-                'pricing': admission.settings()['pricing'], 'basis': 'Declared resources of latest successful graph per environment, estimated monthly; not metered billing.'}
+        totals: dict[str | None, float] = {}
+        for row in breakdown:
+            currency = row.get('currency')
+            totals[currency] = round(totals.get(currency, 0.0) + row['monthly'], 2)
+        priced = {ccy: amount for ccy, amount in totals.items() if ccy}
+        single = next(iter(priced)) if len(priced) == 1 else None
+        monthly_total = round(priced[single], 2) if single else 0.0
+        return {'currency': single, 'monthly_total': monthly_total,
+                'by_currency': priced, 'breakdown': breakdown,
+                'recommendations': ([{'code': 'review_dev_capacity', 'message': 'Review unused dev workloads and right-size declared prices; estimates are not cloud billing.'}] if breakdown else []),
+                'basis': 'Declared monthly prices of the latest successful graph per environment; not metered billing.'}
 
     @app.get('/api/finops')
     def finops(current=Depends(user)):

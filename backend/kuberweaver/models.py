@@ -19,6 +19,8 @@ class GraphNode(StrictModel):
     label: str = Field(default='', max_length=160)
     position: Position = Field(default_factory=Position)
     config: dict[str, JsonValue] = Field(default_factory=dict)
+    price_monthly: float = Field(default=0, ge=0, le=1000000)
+    currency: str | None = Field(default=None, pattern=r'^[A-Z]{3}$')
 
 
 class Edge(StrictModel):
@@ -51,15 +53,8 @@ class Policies(StrictModel):
     allowed_environments: list[Literal['dev', 'staging', 'production']] = Field(default_factory=lambda: ['dev', 'staging', 'production'])
 
 
-class Pricing(StrictModel):
-    cpu: float = Field(default=4.0, ge=0, le=100000)
-    memory_gb: float = Field(default=1.5, ge=0, le=100000)
-    disk_gb: float = Field(default=0.1, ge=0, le=100000)
-
-
 class SettingsPatch(StrictModel):
     policies: dict[str, JsonValue] | None = None
-    pricing: dict[str, JsonValue] | None = None
 
 
 class JobRequest(StrictModel):

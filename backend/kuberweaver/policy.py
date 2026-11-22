@@ -4,7 +4,7 @@ import math
 import re
 from collections import deque
 from jsonschema import Draft202012Validator
-from .models import Policies, Pricing
+from .models import Policies
 
 ALLOWED_TARGETS = frozenset({'app', 'branch-client'})
 UNSAFE_KEYS = frozenset({'host', 'hosts', 'hostname', 'inventory', 'command', 'commands', 'cmd', 'script', 'playbook', 'shell', 'password', 'passwd', 'token', 'api_key', 'private_key', 'secret', 'secrets', 'ssh_key', 'ssh_password', 'become_password', 'ansible_host', 'ansible_user', 'ansible_password', 'connection', 'executable', 'environment', 'env'})
@@ -29,16 +29,16 @@ class Admission:
         self.catalog, self.store = catalog, store
 
     def settings(self):
-        return {'policies': self.store.get('settings', 'policies') or Policies().model_dump(),
-                'pricing': self.store.get('settings', 'pricing') or Pricing().model_dump()}
+        return {'policies': self.store.get('settings', 'policies') or Policies().model_dump()}
 
     def validate(self, graph, actor_role='admin'):
         manifests = self.catalog.discover()
         graph = self.catalog.normalize(graph)
         settings = self.settings()
-        policies, pricing = settings['policies'], settings['pricing']
+        policies = settings['policies']
         violations, warnings, breakdown = [], [], []
         resources = {'cpu': 0., 'memory_mb': 0., 'disk_gb': 0.}
+        by_currency: dict[str | None, float] = {}
 
         def deny(code, message, node_id=None):
             item = {'code': code, 'message': message}
@@ -156,12 +156,28 @@ class Admission:
                 # Charge each target, not merely each graph node.
                 resources[resource] += value * max(1, len(targets) if isinstance(targets, list) else 1)
             count = max(1, len(targets) if isinstance(targets, list) else 1)
-            amount = (plugin['price_monthly'] + node_resources['cpu'] * pricing['cpu'] + node_resources['memory_mb'] / 1024 * pricing['memory_gb'] + node_resources['disk_gb'] * pricing['disk_gb']) * count
-            breakdown.append({'node_id': identity, 'plugin_id': plugin['id'], 'targets': count, 'monthly': round(amount, 2), 'resources': node_resources})
+            # The price is declared, never derived: each node carries what the
+            # requester typed in, plus the service's own declared monthly price.
+            # CPU, memory and disk are quota dimensions, not pricing inputs.
+            declared = plugin.get('price_monthly', 0) + float(node.get('price_monthly', 0))
+            currency = node.get('currency') or plugin.get('currency')
+            if declared * count > 0 and not currency:
+                deny('missing_currency',
+                     f'Service {plugin["id"]} is priced without a currency; set "currency" '
+                     'on the graph node or in its manifest', identity)
+            amount = declared * count
+            by_currency[currency] = round(by_currency.get(currency, 0.0) + amount, 2)
+            breakdown.append({'node_id': identity, 'plugin_id': plugin['id'], 'targets': count,
+                              'monthly': round(amount, 2), 'currency': currency,
+                              'resources': node_resources})
         for resource in resources:
             if resources[resource] > policies[f'max_{resource}']:
                 deny('quota_' + resource, f'{resource} quota exceeded')
-        monthly = round(sum(item['monthly'] for item in breakdown), 2)
+        priced_currencies = {ccy for ccy, amount in by_currency.items() if ccy and amount > 0}
+        if len(priced_currencies) > 1:
+            deny('mixed_currency', 'A job cannot mix currencies; declare one per deployment')
+        currency = next(iter(priced_currencies), None)
+        monthly = round(by_currency.get(currency, 0.0), 2)
         if monthly > policies['max_monthly_cost']:
             deny('quota_cost', 'Monthly cost limit exceeded')
         if all_targets and strategy['canary'] > len(all_targets):
@@ -189,4 +205,6 @@ class Admission:
             deny('cycle', 'Dependency graph contains a cycle')
         phases = [{'phase': 'dependency', 'nodes': order}, {'phase': 'canary', 'count': strategy['canary']}, {'phase': 'rolling', 'batch_size': strategy['batch_size']}]
         return {'allowed': not violations, 'violations': violations, 'warnings': warnings,
-                'cost': {'monthly': monthly, 'currency': 'EUR', 'breakdown': breakdown}, 'phases': phases}
+                'cost': {'monthly': monthly, 'currency': currency,
+                         'by_currency': {ccy: amount for ccy, amount in by_currency.items() if ccy},
+                         'breakdown': breakdown}, 'phases': phases}

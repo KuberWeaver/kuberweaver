@@ -5,6 +5,7 @@ description: Real container on allowlisted GNS3 guests, deployed by Ansible.
 category: web
 icon: server
 price_monthly: 5
+currency: EUR
 capability: live
 engine: ansible
 schema:

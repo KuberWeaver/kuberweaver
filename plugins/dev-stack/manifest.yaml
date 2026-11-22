@@ -5,6 +5,7 @@ description: Planned frontend/backend service stack; deployment is disabled unti
 category: development
 icon: code
 price_monthly: 15
+currency: EUR
 capability: planned
 engine: opentofu
 schema:

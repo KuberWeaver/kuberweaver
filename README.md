@@ -169,7 +169,7 @@ For the web executor, `disk_gb` is a budgeting declaration, not an enforced disk
 
 ## Cost declaration
 
-Every node carries a monthly price that the requester types in the graph (`price_monthly`), default `0`, which means free. There is no rate table in the software: CPU, memory and disk are quota dimensions, not pricing inputs. The currency comes from the plugin manifest (`currency`). A job that mixes currencies is refused, and a manifest that declares a non-zero price without a currency is refused at admission with a named error.
+Every node carries a monthly price that the requester types in the graph (`price_monthly`), default `0`, which means free, plus an optional `currency` (three letters). A service can declare its own base `price_monthly` and `currency` in its manifest. There is no rate table in the software: CPU, memory and disk are quota dimensions, not pricing inputs. A node currency overrides the manifest one; a priced service without any currency is refused at admission with a named error, and a job that mixes currencies is refused.
 
 ## Data, secrets and recovery
 

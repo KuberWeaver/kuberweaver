@@ -5,6 +5,7 @@ description: Planned Cisco IOS configuration; deployment is disabled pending a v
 category: network
 icon: network
 price_monthly: 25
+currency: EUR
 capability: planned
 engine: opentofu
 schema:

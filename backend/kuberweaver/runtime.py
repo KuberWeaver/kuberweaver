@@ -7,7 +7,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict
 from fastapi import HTTPException
 from .extensions import ExtensionRegistry, inspect_directory, read_enabled
-from .models import Policies, Pricing
+from .models import Policies
 from .providers import register_builtins, DEFAULT_BINDINGS, resolve_provider, provider_listing
 from typing import Literal, Annotated
 from pydantic import Field
@@ -115,7 +115,7 @@ def configure(app):
     config_dir.mkdir(mode=0o700, exist_ok=True)
     config_dir.chmod(0o700)
     app.state.config_errors = []
-    for name, model in [('policies', Policies), ('pricing', Pricing)]:
+    for name, model in [('policies', Policies)]:
         paths = [config_dir / (name + extension) for extension in ('.yaml', '.yml', '.json')]
         present = [path for path in paths if path.exists()]
         if present:

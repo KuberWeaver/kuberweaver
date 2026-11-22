@@ -63,7 +63,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, JsonValue, Field
 from typing import Annotated, Literal
-from .models import Graph, Policies, Pricing, StrictModel
+from .models import Graph, Policies, StrictModel
 from .connections import ConnectionSpec, ConnectionPatch
 from .runtime import ProviderKind, ProviderName
 
@@ -74,7 +74,6 @@ BlueprintName = Annotated[str, Field(min_length=1, max_length=160)]
 
 class SettingsUpdate(StrictModel):
     policies: Policies | None = None
-    pricing: Pricing | None = None
 
 
 class DomainResult(BaseModel):
@@ -172,7 +171,7 @@ def create_server(config: ServerConfig, *, transport=None) -> FastMCP:
         ('list_plugins', '/api/plugins', 'Read plugin catalogue and configuration schemas.'),
         ('get_overview', '/api/overview', 'Read platform overview and latest jobs.'),
         ('get_topology', '/api/infrastructure', 'Read inventory topology through the selected provider.'),
-        ('get_settings', '/api/settings', 'Read policies, pricing and integration summaries.'),
+        ('get_settings', '/api/settings', 'Read policies and integration summaries.'),
         ('get_finops', '/api/finops', 'Read declared-resource cost estimates, not metered billing.'),
         ('get_diagnostics_cache', '/api/diagnostics', 'Read diagnostic provider cache; never request inference.'),
         ('list_audit', '/api/audit', 'Read the most recent platform audit events.'),
@@ -237,7 +236,7 @@ def create_server(config: ServerConfig, *, transport=None) -> FastMCP:
         return await api.request('POST', f'/api/jobs/{identity}/rollback')
 
     async def update_settings(settings: SettingsUpdate) -> DomainResult:
-        """Patch explicitly supplied policy/pricing fields; administrator authority required."""
+        """Patch explicitly supplied policy fields; administrator authority required."""
         return await api.request('PATCH', '/api/settings', settings.model_dump(exclude_unset=True, exclude_none=True))
 
     async def update_provider_bindings(bindings: Annotated[dict[ProviderKind, ProviderName], Field(min_length=1)]) -> DomainResult:
