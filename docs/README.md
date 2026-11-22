@@ -21,7 +21,6 @@ code, the code wins and the page is wrong: fix it in the same change.
 | `docs/EXECUTION.md` | manifest-driven execution, real transaction semantics, ownership, evidence |
 | `docs/WORKLOADS.md` | workload bricks: what a brick must declare, how one is validated |
 | `docs/PRESETS.md` | multi-brick stacks as data, one job per step |
-| `docs/SERVICE_STUDIO.md` | service catalogue, offerings, deployment requests |
 | `docs/EXTENSIONS.md` | Python extension protocol v1, providers and hooks |
 | `docs/MCP.md` | MCP server surface and its limits |
 | `docs/STATIC_SITE.md` | serving the `site/` showcase through KuberWeaver itself |

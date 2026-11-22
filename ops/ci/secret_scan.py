@@ -34,9 +34,11 @@ PATTERNS = [
 ]
 
 FORBIDDEN_PATHS = ('data/', 'docs/prompt/')
-FORBIDDEN_SUFFIXES = ('.pem', '.key', '.p12', '.pfx')
-FIXTURE_PATHS = ('tests/', 'frontend/src/')
-FIXTURE_SUFFIXES = ('.test.ts', '.test.tsx', '.spec.ts', '.spec.tsx')
+# `.env` is listed as a suffix so `.env.example` and `.env.sample` stay committable
+# while a real environment file never enters the repository.
+FORBIDDEN_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.env')
+FIXTURE_PATHS = ('tests/',)
+FIXTURE_SUFFIXES = ()
 
 
 def is_fixture(path: str) -> bool:
