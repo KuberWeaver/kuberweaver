@@ -64,7 +64,7 @@ def test_one_claim_excludes_concurrent_approval_reject_and_rollback(api, tmp_pat
     assert git(remote, 'rev-parse', 'refs/heads/approved') == stored['git_commit']
 
 
-@pytest.mark.parametrize('drift', ['graph', 'reject', 'source', 'manifest', 'credentials', 'provider', 'policy', 'remote_policy'])
+@pytest.mark.parametrize('drift', ['graph', 'reject', 'source', 'manifest', 'provider', 'policy', 'remote_policy'])
 def test_publication_drift_never_queues_stale_approval(api, tmp_path, monkeypatch, drift):
     import kuberweaver.jobs as module
     client, app, remote, enqueued, job, entered, release = paused_publication(api, tmp_path, monkeypatch)
@@ -92,8 +92,6 @@ def test_publication_drift_never_queues_stale_approval(api, tmp_path, monkeypatc
                     manifests[job['graph']['nodes'][0]['plugin_id']]['description'] = 'Changed'
                     return manifests
                 monkeypatch.setattr(app.state.catalog, 'discover', changed)
-            elif drift == 'credentials':
-                monkeypatch.setattr(module, 'execution_credential_binding', lambda app: {'changed': True})
             elif drift == 'provider':
                 monkeypatch.setattr(module, 'execution_binding', lambda app, *args: {'changed': True})
             elif drift == 'remote_policy':

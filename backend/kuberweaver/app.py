@@ -35,19 +35,19 @@ class Login(BaseModel):
 
 def create_app(state_dir: Path | str | None = None, testing: bool = False, *,
                plugins_dir: Path | str | None = None, frontend_dir: Path | str | None = None,
-               executor=None, oidc_http=None):
+               oidc_http=None):
     state_dir = Path(state_dir or configured_state_dir())
     store = Store(state_dir, exclusive=not testing)
     try:
         return _create_app(store, state_dir, testing, plugins_dir=plugins_dir,
-                           frontend_dir=frontend_dir, executor=executor, oidc_http=oidc_http)
+                           frontend_dir=frontend_dir, oidc_http=oidc_http)
     except BaseException:
         if store.backend == 'postgresql':
             store.conn.close()
         raise
 
 
-def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executor, oidc_http=None):
+def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, oidc_http=None):
     agent_tokens = AgentTokens(store)
     reporting_surface = ensure_reporting(store)
 
@@ -256,7 +256,7 @@ def _create_app(store, state_dir, testing, *, plugins_dir, frontend_dir, executo
         return {'status': 'ok', 'service': 'kuberweaver'}
 
     from .api import install_api
-    install_api(app, Path(plugins_dir or configured_plugins_dir()), executor=executor)
+    install_api(app, Path(plugins_dir or configured_plugins_dir()))
     from .health import install_health
     install_health(app)
     from fastapi.responses import FileResponse

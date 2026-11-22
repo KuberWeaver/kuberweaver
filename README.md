@@ -113,7 +113,8 @@ backend/kuberweaver/
   catalog.py                    declarative blueprint discovery
   extensions.py, runtime.py     SDK, activation and configuration
   providers.py                  built-in providers
-  execution.py                  lab executors (Ansible workload, local OCI/QEMU)
+  workload_execution.py         Ansible workload bricks on a recorded guest
+  local_execution.py            administrator-pinned rootless OCI and QEMU
   secrets.py                    replaceable secret sources
 kw/                             thin CLI client, the reference client over the API
 plugins/                        manifests, schemas and Ansible assets
@@ -148,19 +149,18 @@ Canonical hooks are `before_plan`, `after_approval`, `job_started` and `job_fini
 | --- | --- |
 | Catalogue, blueprint storage and governed deployment | Available through the API and the `kw` CLI. |
 | Sessions, RBAC, CSRF, quotas and approval | Local accounts plus an optional, disabled-by-default OpenID Connect sign-in that binds to an existing local account; no per-object authorization. |
-| NGINX and Apache | Real Ansible deployment on two allowlisted GNS3 guests, with HTTP verification. |
+| NGINX | Real Ansible deployment of the reviewed `web-nginx` brick on an allowlisted guest, with HTTP verification. No Apache brick ships. |
 | Canary, rolling and rollback | Exercised for managed web workloads; not a universal recovery guarantee. |
 | VMware Ubuntu OVF import | Create-only workflow; no update, deletion, rollback or automatic cleanup after an ambiguous failure. Target OS/SSH acceptance requires an authorized real import. |
 | ESXi discovery | Separate read-only provider; observed VMs are not proof of a running guest OS. |
 | OpenTofu/libvirt and blank-disk vSphere blueprint | Planned/disabled with documented transport and powered-off-create blockers; not promoted by the separate OVF workflow. |
-| Redis persistence | Service-specific lifecycle and restore tests; shipped manifest remains planned and runtime disabled pending real target acceptance. |
+| Redis persistence | Not provided. The prototype container engine that carried it was removed; no manifest ships. |
 | Frontend/backend stack, Cisco IOS, pfSense and cloud entries | Planned and disabled; no validated adapter/target path. |
 | GitOps | Local approved-plan commits; optional remote publication verifies the exact SHA. Test-repository evidence is not a hosted customer delivery pipeline. |
 | FinOps | Internal tariff estimates, not cloud billing or measured consumption. Prices are declared by the requester, not derived from a rate table. |
 | Diagnostics | Deterministic, read-only rules. No model provider is wired in. |
 | Notifications and ChatOps | Durable outbox, webhook delivery and signed callback exercised locally; no certified Slack/Teams integration or configured external SaaS recipient. |
 | Secrets | Replaceable OpenBao and local Fernet providers; local custody and transport limits apply. |
-| Execution credentials | Operation-scoped injection, isolation and cleanup; does not imply existing lab keys were replaced. |
 | External API/MCP clients | Explicit role/scopes, expiry and revocation; no automatic approval. |
 | Observability | Local metrics and authenticated snapshot; validated rules/dashboard files do not mean a deployed Prometheus/Grafana stack. |
 | Public marketplace, payments and untrusted-code isolation | Not provided. |
@@ -216,8 +216,6 @@ ops/ci/cli_smoke.sh         # installed kw against a real server, about one seco
 ```
 
 FastAPI serves the API on one origin. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory. Metrics describe the process and jobs, not a proven remote monitoring deployment.
-
-`scripts/api_acceptance.py` has real effects on example resources. Prepare target state and ports before running it; it is not a unit test.
 
 ## Security limits
 

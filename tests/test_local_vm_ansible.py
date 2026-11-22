@@ -459,7 +459,7 @@ def test_execution_requires_explicit_approval_of_the_exact_plan(tmp_path):
     runtime, runner = FakeRuntime(), FakeRunner()
     instance, document = prepared(tmp_path, runtime=runtime, runner=runner)
     for field, value in (('approved_by', None), ('approved_at', None),
-                         ('approved_execution_provider', {'name': 'default'}),
+                         ('approved_execution_provider', {'name': 'another-engine'}),
                          ('approved_prepared_plan', '0' * 64)):
         candidate = {**document, field: value}
         result = instance.execute(candidate, lambda *a: None)

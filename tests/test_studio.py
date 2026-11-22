@@ -350,6 +350,7 @@ def test_postgresql_studio_records_are_durable(tmp_path, pg_file):
     sample_manifest(plugins)
     state = tmp_path / 'pg-state'
     app = create_app(state_dir=state, plugins_dir=plugins, testing=True)
+    install_executor(app, RecordingExecutor())
     assert app.state.store.backend == 'postgresql'
     try:
         with TestClient(app) as client:

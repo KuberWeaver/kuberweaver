@@ -15,10 +15,11 @@ from .storage import now
 CONSUMER_METHODS = {'inventory': ('read',), 'diagnostics': ('read',),
                     'execution': ('execute', 'rollback'), 'notifications': ('send',),
                     'secrets': ('resolve',)}
-OPTIONAL_KINDS = frozenset({'inventory'})
+OPTIONAL_KINDS = frozenset({'inventory', 'execution'})
 
-# Inventory is opt-in: a topology source is a lab convenience, not a requirement.
-DEFAULT_BINDINGS = {'inventory': '', 'diagnostics': 'rules', 'execution': 'default',
+# Inventory and execution are opt-in: a topology source is a lab convenience, and
+# execution comes from the manifest's own declaration unless an administrator binds one.
+DEFAULT_BINDINGS = {'inventory': '', 'diagnostics': 'rules', 'execution': '',
                     'notifications': 'local-outbox', 'secrets': 'restricted-file'}
 
 
@@ -73,20 +74,12 @@ def provider_provenance(app, kind, name, *, provider=None):
     # entrypoint may merely import a provider implemented elsewhere.
     paths = [Path(inspect.getfile(cls)).resolve()
              for cls in type(provider).__mro__ if cls is not object]
-    if isinstance(provider, RuntimeExecutor):
-        # The registry object delegates to a separate implementation. Pin that
-        # class's source (and inherited implementations), not only this wrapper.
-        paths += [Path(inspect.getfile(cls)).resolve()
-                  for cls in type(provider.app.state.executor).__mro__ if cls is not object]
-        paths = sorted(set(paths))
     # Include the entire trusted package, not only the entrypoint/class definition.
     for report in app.state.extension_reports:
         if report.get('status') == 'loaded' and any(row['kind'] == kind and row['name'] == name for row in report.get('providers', [])):
             paths = sorted(set(paths) | {p for p in Path(report['path']).rglob('*') if p.is_file() and '__pycache__' not in p.parts})
             break
     owners = [type(provider)]
-    if isinstance(provider, RuntimeExecutor):
-        owners.append(type(provider.app.state.executor))
     # Walk each MRO declaration explicitly: a subclass must not hide a helper
     # required by an inherited implementation, nor may a wrapper hide delegates.
     for owner in owners:
@@ -103,26 +96,20 @@ def provider_provenance(app, kind, name, *, provider=None):
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
-def execution_credential_binding(app):
-    from .execution import TARGETS
-    from .execution_credentials import credential_configuration, credential_configuration_fingerprint
-    try:
-        configuration = credential_configuration(app.state.state_dir, TARGETS)
-        selected = None
-        if configuration and configuration['enabled']:
-            name = app.state.provider_bindings['secrets']
-            resolve_provider(app, 'secrets', name)
-            selected = {'name': name, 'provenance': provider_provenance(app, 'secrets', name)}
-        return credential_configuration_fingerprint(app.state.state_dir, TARGETS, selected)
-    except Exception:
-        raise HTTPException(503, 'Execution credential configuration or selected source unavailable') from None
-
-
 def graph_execution_name(app, graph):
-    """Only the trusted top-level manifest field selects registry execution."""
+    """Only the trusted top-level manifest field selects registry execution.
+
+    A global binding is only a fallback for a manifest that declares nothing; a
+    fresh install binds no execution provider at all, so an undeclared plugin is
+    refused here rather than silently routed to an implicit implementation.
+    """
     manifests = app.state.catalog.discover()
-    names = {manifests[node['plugin_id']].get('execution_provider', app.state.provider_bindings['execution'])
-             for node in graph['nodes']}
+    names = set()
+    for node in graph['nodes']:
+        declared = manifests[node['plugin_id']].get('execution_provider') or app.state.provider_bindings['execution']
+        if not declared:
+            raise HTTPException(422, f"{node['plugin_id']} declares no execution provider and no global binding selects one")
+        names.add(declared)
     if len(names) != 1:
         raise HTTPException(422, 'A job must use one execution provider')
     return names.pop()
@@ -302,8 +289,6 @@ def check_execution_pins(app, job, prefix='approved'):
     pinned = job[prefix + '_execution_provider']
     if execution_binding(app, pinned['name']) != pinned:
         raise RuntimeError('Execution source changed')
-    if job.get(prefix + '_credentials') != execution_credential_binding(app):
-        raise RuntimeError('Execution credential mapping changed')
     if digest(job['graph']) != job.get(prefix + '_graph_hash'):
         raise RuntimeError('Execution graph changed')
     manifests = app.state.catalog.discover()
@@ -378,29 +363,6 @@ def invoke_approved_execution(app, provider, operation, job, emit):
         provider.runner = runner
 
 
-class RuntimeExecutor:
-    source_dependencies = (Path(__file__).with_name("execution_credentials.py").resolve(),)
-    """Stable registry contract with an injectable execution implementation."""
-    def __init__(self, app):
-        self.app = app
-
-    def _invoke(self, operation, job, emit):
-        implementation = self.app.state.executor
-        if hasattr(implementation, 'secret_resolver'):
-            implementation.secret_resolver = lambda reference: resolve_provider(self.app, 'secrets').resolve(reference)
-
-        # Guard the delegated command boundary with the same durable approval,
-        # graph and dependency checks as directly registered providers, including
-        # restore. The registry wrapper itself has no runner to intercept.
-        return invoke_approved_execution(self.app, implementation, operation, job, emit)
-
-    def execute(self, job, emit):
-        return self._invoke('execute', job, emit)
-
-    def rollback(self, job, emit):
-        return self._invoke('rollback', job, emit)
-
-
 def register_builtins(registry, app):
     from .secrets import RestrictedFileProvider, OpenBaoProvider
     inventory = GNS3Inventory()
@@ -409,7 +371,6 @@ def register_builtins(registry, app):
     registry.register('inventory', 'gns3', inventory, {'read_only': True, 'status': 'configured'})
     registry.register('diagnostics', 'rules', rules, {'mode': 'rules', 'read_only': True, 'status': 'configured'})
     registry.register('notifications', 'local-outbox', outbox, {'external_delivery': False, 'status': 'configured'})
-    registry.register('execution', 'default', RuntimeExecutor(app), {'status': 'configured', 'description': 'Reviewed manifest-driven executor; approval is enforced by the microkernel.'})
     from .local_execution import LocalExecutor
     registry.register('execution', LocalExecutor.executor_id,
                       LocalExecutor(app.state.state_dir, plugins_dir=app.state.catalog.directory),

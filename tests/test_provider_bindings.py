@@ -60,7 +60,7 @@ def test_selected_execution_is_approved_pinned_and_uses_real_worker(api):
     assert result['approved_execution_provider']['provenance']
     # Binding may change when idle; rollback must use the approved provider, not its replacement.
     assert wait_idle(app)
-    assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 200
+    assert client.patch('/api/providers', json={'bindings': {'execution': 'ansible-workload-v1'}}).status_code == 200
     assert client.post(f"/api/jobs/{job['id']}/rollback").status_code == 200
     assert wait_job(client, job['id'])['result']['engine'] == 'alternate'
 
@@ -146,6 +146,9 @@ def test_selected_notification_consumer_sends_and_missing_provider_warns_without
     assert records[-1]['job_id'] == job['id'] and records[-1]['status'] == 'succeeded'
     assert wait_idle(app)
     assert client.post('/api/extensions/delivery/disable').status_code == 200
+    # Disabling an extension rebuilds the registry, so the review fixture that
+    # this suite registered directly has to be installed again.
+    install_executor(app, RecordingExecutor())
     second = client.post('/api/jobs', json={'graph': graph()}).json()
     assert client.post(f"/api/jobs/{second['id']}/approve").status_code == 200
     terminal = wait_job(client, second['id'])
@@ -199,6 +202,12 @@ def test_invalid_binding_schema_fails_capabilities_closed_without_disabling_auth
     (app.state.state_dir / 'config/providers.json').write_text(json.dumps({'schema_version': True, 'bindings': {}}))
     from kuberweaver.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
+    from kuberweaver.providers import provider_provenance
+    from test_core_jobs import RecordingExecutor
+    other_name = 'recording'
+    restarted.state.registry.register('execution', other_name, RecordingExecutor(), {'status': 'configured'})
+    restarted.state.provider_loaded_sources[('execution', other_name)] = provider_provenance(restarted, 'execution', other_name)
+    restarted.state.provider_bindings['execution'] = other_name
     with TestClient(restarted) as other:
         login(other, app.state.state_dir, 'admin')
         assert other.get('/api/jobs').status_code == 200
@@ -279,7 +288,7 @@ def test_queued_provider_binding_and_extension_changes_block_and_worker_rechecks
     app.state.worker.pause.clear()
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     assert client.post(f"/api/jobs/{job['id']}/approve").status_code == 200
-    assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 409
+    assert client.patch('/api/providers', json={'bindings': {'execution': 'ansible-workload-v1'}}).status_code == 409
     assert client.post('/api/extensions/queued-engine/disable').status_code == 409
     with (package / 'module.py').open('a') as stream:
         stream.write('# Unapproved implementation drift\n')
@@ -302,6 +311,6 @@ def test_provider_changes_wait_for_worker_completion_observers_not_just_terminal
     try:
         assert entered.wait(2)
         assert client.get(f"/api/jobs/{job['id']}").json()['status'] == 'succeeded'
-        assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 409
+        assert client.patch('/api/providers', json={'bindings': {'execution': 'ansible-workload-v1'}}).status_code == 409
     finally:
         release.set()

@@ -7,7 +7,6 @@ import pytest
 from test_core_graph import api, graph, manifest
 from test_core_jobs import RecordingExecutor, install_executor, wait_job
 from test_provider_bindings import install_extension
-from test_source_dependencies import queued_api, approve_queued
 
 
 SIMPLE_ENGINE = '''
@@ -50,7 +49,7 @@ def test_manifest_routes_execution_independently_of_global_binding(api):
     assert result['approved_execution_provider']['name'] == 'manifest-engine'
     assert result['result']['engine'] == 'manifest-engine'
     assert not default.calls
-    assert app.state.provider_bindings['execution'] == 'default'
+    assert app.state.provider_bindings['execution'] == 'recording'
 
 
 @pytest.mark.parametrize('field,value', [('execution_provider', 'other-engine'),
@@ -222,7 +221,6 @@ def test_saved_plan_is_prepared_by_same_worker_before_explicit_approval(api):
     assert job['preparation_execution_provider']['name'] == 'manifest-engine'
     assert job['preparation_graph_hash'] == digest(job['graph'])
     assert job['preparation_source_hashes']
-    assert 'preparation_credentials' in job
     assert client.post(f"/api/jobs/{job['id']}/approve").status_code == 409
     assert not boundaries and not (app.state.state_dir / 'gitops').exists()
     app.state.worker.pause.set()
@@ -333,7 +331,7 @@ def test_registry_changes_block_durable_inflight_states_without_active_thread(ap
     job['status'] = status
     app.state.store.put('jobs', job['id'], job)
     assert app.state.worker.active_identity is None
-    assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 409
+    assert client.patch('/api/providers', json={'bindings': {'execution': 'ansible-workload-v1'}}).status_code == 409
     assert client.post('/api/extensions/manifest-engine/disable').status_code == 409
 
 
@@ -436,150 +434,6 @@ def test_durable_job_drift_blocks_the_next_simulation_command(api, stage, field,
     assert provider.runner is simulated_command
 
 
-@pytest.mark.parametrize('field,value', [
-    ('id', 'unreviewed-job'),
-    ('status', 'pending_approval'),
-    ('status', 'rejected'),
-    ('graph', 'Unreviewed durable graph'),
-    ('approved_by', None),
-    ('git_commit', None),
-    ('operation', 'rollback'),
-    ('requires_manual_review', True),
-    ('approved_execution_provider', {'name': 'default', 'provenance': 'unreviewed'}),
-    ('approved_graph_hash', 'unreviewed'),
-    ('approved_manifest_hashes', {}),
-    ('approved_source_hashes', {}),
-    ('approved_credentials', 'unreviewed'),
-])
-def test_default_executor_reloads_durable_evidence_before_next_command(queued_api, field, value):
-    client, app, runner, _ = queued_api
-    assert not hasattr(app.state.registry.get('execution', 'default'), 'runner')
-
-    def changing_runner(argv, **kwargs):
-        result = runner(argv, **kwargs)
-        if len(runner.calls) == 1:  # First snapshot, before any mutation.
-            with app.state.store.lock:
-                current = app.state.jobs.get(identity)
-                if field == 'graph':
-                    current['graph']['name'] = value
-                else:
-                    current[field] = value
-                app.state.store.put('jobs', identity, current)
-        return result
-
-    app.state.executor.runner = changing_runner
-    identity = approve_queued(client)
-    app.state.worker.pause.set()
-    result = wait_job(client, identity)
-    assert [call[0] for call in runner.calls] == ['snapshot']
-    assert result['status'] == 'failed', result
-    assert result['requires_manual_review'] is True
-    assert result['can_rollback'] is False
-    assert result['result'] is None
-    if field != 'status':
-        assert (result['graph']['name'] if field == 'graph' else result[field]) == value
-    assert app.state.executor.runner is changing_runner
-
-
-@pytest.mark.parametrize('operation', ['execute', 'rollback'])
-@pytest.mark.parametrize('field,value', [('approved_by', None), ('id', 'unreviewed-job'),
-                                       ('status', 'pending_approval'), ('status', 'rejected')])
-def test_default_executor_retains_manual_review_when_restore_catches_trust_error(queued_api, operation, field, value):
-    client, app, runner, _ = queued_api
-    trigger = 'apply' if operation == 'execute' else 'restore'
-    changed = []
-
-    def changing_runner(argv, **kwargs):
-        result = runner(argv, **kwargs)
-        if runner.calls[-1][0] == trigger and not changed:
-            with app.state.store.lock:
-                current = app.state.jobs.get(identity)
-                current[field] = value
-                app.state.store.put('jobs', identity, current)
-            changed.append(True)
-        return result
-
-    app.state.executor.runner = changing_runner
-    identity = approve_queued(client)
-    app.state.worker.pause.set()
-    result = wait_job(client, identity)
-    if operation == 'rollback':
-        assert result['status'] == 'succeeded', result
-        assert client.post(f'/api/jobs/{identity}/rollback').status_code == 200
-        result = wait_job(client, identity)
-
-    expected = ['snapshot', 'snapshot', 'apply']
-    if operation == 'rollback':
-        expected += ['verify', 'apply', 'verify', 'restore']
-    assert [call[0] for call in runner.calls] == expected
-    assert result['status'] == 'rollback_failed', result
-    assert result['requires_manual_review'] is True
-    assert result['can_rollback'] is False
-    assert len(result['result']['snapshots']) == 2
-    assert app.state.executor.runner is changing_runner
-    journal = json.loads((app.state.state_dir / 'jobs' / identity / 'journal.json').read_text())
-    assert journal['status'] == 'rollback_failed'
-    assert journal['restored'] == ([1] if operation == 'rollback' else [])
-    restoration = result['result'] if operation == 'rollback' else result['result']['rollback']
-    assert restoration['status'] == 'rollback_failed'
-    assert len(restoration['errors']) == 1
-    assert len(restoration['evidence']) == (1 if operation == 'rollback' else 0)
-
-
-@pytest.mark.parametrize('dependency', ['implementation', 'source', 'manifest', 'credentials'])
-def test_default_executor_keeps_dependency_pins_at_each_command(queued_api, dependency):
-    client, app, runner, source = queued_api
-
-    def changing_runner(argv, **kwargs):
-        result = runner(argv, **kwargs)
-        if len(runner.calls) == 1:
-            if dependency in {'implementation', 'source'}:
-                path = source if dependency == 'implementation' else app.state.plugins_dir / '_shared/guest.py'
-                path.write_text(path.read_text() + '\n# Unapproved simulation dependency\n')
-            elif dependency == 'manifest':
-                path = app.state.plugins_dir / 'nginx/manifest.yaml'
-                value = app.state.catalog.discover()['nginx']
-                value['description'] = 'Changed after first snapshot'
-                path.write_text(json.dumps(value))
-            else:
-                path = app.state.state_dir / 'config/execution-credentials.json'
-                path.write_text(json.dumps({'enabled': False, 'targets': {}}))
-        return result
-
-    app.state.executor.runner = changing_runner
-    identity = approve_queued(client)
-    app.state.worker.pause.set()
-    result = wait_job(client, identity)
-    assert result['status'] == 'failed', result
-    assert result['requires_manual_review'] is True
-    assert [call[0] for call in runner.calls] == ['snapshot']
-    assert app.state.executor.runner is changing_runner
-
-
-def test_default_executor_allows_appended_events_during_commands_and_rollback(queued_api):
-    client, app, runner, _ = queued_api
-
-    def observed_runner(argv, **kwargs):
-        assert not app.state.store.lock._is_owned()
-        app.state.jobs.emit(identity, 'simulation', 'info', 'Command-boundary event appended')
-        return runner(argv, **kwargs)
-
-    app.state.executor.runner = observed_runner
-    identity = approve_queued(client)
-    app.state.worker.pause.set()
-    executed = wait_job(client, identity)
-    assert executed['status'] == 'succeeded', executed
-    assert executed['requires_manual_review'] is False
-    assert client.post(f'/api/jobs/{identity}/rollback').status_code == 200
-    restored = wait_job(client, identity)
-    assert restored['status'] == 'rolled_back', restored
-    assert restored['requires_manual_review'] is False
-    assert [call[0] for call in runner.calls] == [
-        'snapshot', 'snapshot', 'apply', 'verify', 'apply', 'verify', 'restore', 'restore']
-    assert len([event for event in restored['events'] if event['phase'] == 'simulation']) == 8
-    assert app.state.executor.runner is observed_runner
-
-
 @pytest.mark.parametrize('stage', ['approval', 'dequeue', 'command'])
 def test_saved_artifact_drift_never_replans_or_reaches_apply(api, stage):
     client, app = api
@@ -613,18 +467,16 @@ def test_saved_artifact_drift_never_replans_or_reaches_apply(api, stage):
     assert commands(provider) == (['init', 'plan', 'verify'] if stage == 'command' else ['init', 'plan'])
 
 
-@pytest.mark.parametrize('change', ['missing', 'summary', 'graph', 'credentials', 'source', 'provider_name'])
+@pytest.mark.parametrize('change', ['missing', 'summary', 'graph', 'source', 'provider_name'])
 def test_prepared_plan_cannot_be_blessed_after_preparation_drift(api, change):
     client, app = api
     provider, package = saved_engine(api)
     job = ready_job(api)
-    if change == 'credentials':
-        (app.state.state_dir / 'config/execution-credentials.json').write_text(json.dumps({'enabled': False, 'targets': {}}))
-    elif change == 'source':
+    if change == 'source':
         path = package / 'module.py'
         path.write_text(path.read_text() + '# unapproved simulation source\n')
     elif change == 'provider_name':
-        edit_manifest(app, execution_provider='default')
+        edit_manifest(app, execution_provider='ansible-workload-v1')
     else:
         current = app.state.jobs.get(job['id'])
         if change == 'missing':
@@ -718,7 +570,7 @@ def test_preparation_uses_single_worker_releases_lock_and_observes_each_operatio
         second = client.post('/api/jobs', json={'graph': graph()}).json()
         assert second['operation'] == 'prepare' and second['status'] == 'queued'
         assert client.post(f"/api/jobs/{first['id']}/approve").status_code == 409
-        assert client.patch('/api/providers', json={'bindings': {'execution': 'default'}}).status_code == 409
+        assert client.patch('/api/providers', json={'bindings': {'execution': 'ansible-workload-v1'}}).status_code == 409
         assert client.post('/api/extensions/manifest-engine/disable').status_code == 409
     finally:
         release.set()
@@ -740,7 +592,7 @@ def test_preparation_uses_single_worker_releases_lock_and_observes_each_operatio
     assert len(failures) == 3
 
 
-@pytest.mark.parametrize('change', ['source', 'manifest', 'credentials', 'graph'])
+@pytest.mark.parametrize('change', ['source', 'manifest', 'graph'])
 def test_preparation_initial_pins_are_revalidated_before_any_command(api, change):
     client, app = api
     provider, package = saved_engine(api)
@@ -751,8 +603,6 @@ def test_preparation_initial_pins_are_revalidated_before_any_command(api, change
         path.write_text(path.read_text() + '# unapproved simulation engine\n')
     elif change == 'manifest':
         edit_manifest(app, description='Changed manifest after queue admission')
-    elif change == 'credentials':
-        (app.state.state_dir / 'config/execution-credentials.json').write_text(json.dumps({'enabled': False, 'targets': {}}))
     else:
         current = app.state.jobs.get(job['id'])
         current['graph']['name'] = 'Changed graph after queue admission'
@@ -763,7 +613,7 @@ def test_preparation_initial_pins_are_revalidated_before_any_command(api, change
     assert not commands(provider)
 
 
-@pytest.mark.parametrize('change', ['source', 'credentials'])
+@pytest.mark.parametrize('change', ['source'])
 def test_preparation_initial_pins_are_revalidated_at_every_command(api, change):
     client, app = api
     provider, package = saved_engine(api)
@@ -771,11 +621,8 @@ def test_preparation_initial_pins_are_revalidated_at_every_command(api, change):
     def simulated_command(operation, job):
         boundary(operation, job)
         if operation == 'init':
-            if change == 'source':
-                path = package / 'module.py'
-                path.write_text(path.read_text() + '# changed after init simulation boundary\n')
-            else:
-                (app.state.state_dir / 'config/execution-credentials.json').write_text(json.dumps({'enabled': False, 'targets': {}}))
+            path = package / 'module.py'
+            path.write_text(path.read_text() + '# changed after init simulation boundary\n')
     provider.runner = simulated_command
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     result = wait_job(client, job['id'])

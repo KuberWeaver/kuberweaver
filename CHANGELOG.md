@@ -104,6 +104,22 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   `ops/autopilot-kw/`: iteration state files and a 3,300-line runner log. Build
   tooling, not product or deployment material; it now lives in `archive/`.
 - `spikes/`, which held only a bytecode cache.
+- The prototype container execution engine and everything that existed only for
+  it: `backend/kuberweaver/execution.py`, `execution_credentials.py`,
+  `redis_execution.py`, the `examples/extensions/redis-runtime/` adapter, the
+  `nginx`, `apache` and `redis` catalogue entries, the shared
+  `plugins/_shared/` container assets, `scripts/execution_live.py`,
+  `scripts/execution_blueprints.py` and `scripts/api_acceptance.py`. The engine
+  carried two lab addresses compiled into source; it is gone rather than made
+  configurable. Consequently the README rows "Execution credentials" and
+  "Redis persistence" are removed: neither capability exists any more.
+- Container-only tests and the credential-mapping tests:
+  `tests/test_execution.py`, `tests/test_redis_execution.py`,
+  `tests/test_execution_credentials.py`, `tests/test_source_dependencies.py`.
+  Approval-time source pinning stays covered by
+  `tests/test_provider_bindings.py::test_execution_source_drift_is_reported_unavailable_and_approval_denied`
+  and `tests/test_core_security.py`; only the container command-boundary
+  sequencing left with the engine.
 
 ### Changed
 

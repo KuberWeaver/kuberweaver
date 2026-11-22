@@ -19,6 +19,7 @@ def test_inventory_is_unbound_by_default_and_reported_as_such(tmp_path):
     plugins.mkdir()
     app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
     assert app.state.provider_bindings['inventory'] == ''
+    assert app.state.provider_bindings['execution'] == ''
 
     with TestClient(app) as client:
         credentials = bootstrap(tmp_path / 'data')
@@ -70,10 +71,14 @@ def test_a_required_capability_cannot_be_cleared(tmp_path):
         response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})
         client.headers['X-CSRF-Token'] = response.json()['csrf_token']
 
-        refused = client.patch('/api/providers', json={'bindings': {'execution': ''}})
+        # Execution is opt-in like inventory: clearing it is allowed and simply
+        # leaves the deployment to each manifest's own declaration.
+        cleared = client.patch('/api/providers', json={'bindings': {'execution': ''}})
+        assert cleared.status_code == 200
+        assert cleared.json()['bindings']['execution'] == ''
+        refused = client.patch('/api/providers', json={'bindings': {'diagnostics': ''}})
         assert refused.status_code == 422
-        assert 'execution needs a provider' in refused.json()['detail']
-        assert client.get('/api/providers').json()['bindings']['execution'] == 'default'
+        assert 'diagnostics needs a provider' in refused.json()['detail']
 
 
 def test_gns3_refuses_with_a_named_variable_when_it_is_not_configured(tmp_path, monkeypatch):

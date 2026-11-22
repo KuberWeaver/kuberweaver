@@ -35,12 +35,19 @@ def graph():
 @pytest.fixture
 def api(tmp_path):
     from kuberweaver.app import create_app
+    from kuberweaver.providers import provider_provenance
+    from test_core_jobs import RecordingExecutor
     plugins = tmp_path / 'plugins'
     manifest(plugins)
     app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
-    # The product ships with no inventory provider; these suites exercise the
-    # provider itself, so they bind it explicitly.
+    # The product ships with no inventory provider and binds no execution
+    # provider: every live manifest declares its own. These suites exercise the
+    # provider contract itself, so they bind both explicitly.
     app.state.provider_bindings['inventory'] = 'gns3'
+    fixture_name = 'fixture-recording'
+    app.state.registry.register('execution', fixture_name, RecordingExecutor(), {'status': 'configured'})
+    app.state.provider_loaded_sources[('execution', fixture_name)] = provider_provenance(app, 'execution', fixture_name)
+    app.state.provider_bindings['execution'] = fixture_name
     with TestClient(app) as client:
         credentials = bootstrap(tmp_path / 'data')
         response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})

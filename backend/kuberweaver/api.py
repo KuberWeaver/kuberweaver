@@ -15,15 +15,13 @@ from . import reporting
 from .policy import Admission
 
 
-def install_api(app, plugins_dir, executor=None):
+def install_api(app, plugins_dir):
     store = app.state.store
     user, role = app.state.user_dependency, app.state.role_dependency
     app.state.plugins_dir = plugins_dir
     catalog = app.state.catalog = Catalog(plugins_dir)
     admission = app.state.admission = Admission(catalog, store)
-    from .execution import Executor
     from .jobs import Jobs, Worker
-    app.state.executor = executor if executor is not None else Executor(store.path, plugins_dir)
     jobs = app.state.jobs = Jobs(app)
     app.state.worker = Worker(app)
     from .environment_state import install_environment_state_api
@@ -38,8 +36,6 @@ def install_api(app, plugins_dir, executor=None):
     install_connections_api(app)
     from .dashboards import install_dashboards_api
     install_dashboards_api(app)
-    if hasattr(app.state.executor, 'secret_resolver'):
-        app.state.executor.secret_resolver = lambda reference: resolve_provider(app, 'secrets').resolve(reference)
     from .notification_dispatcher import NotificationDispatcher
     services = getattr(app.state, 'background_services', [])
     services.append(NotificationDispatcher(app))
