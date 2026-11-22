@@ -108,6 +108,10 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - New `kw auth passwd`: self service asks for the current password, an
   administrator may set another account's password without it. Rotation still
   enforces the strength policy and retires the plaintext bootstrap line.
+- The CLI contract is locked in `tests/test_cli_contract.py` (help, exit codes,
+  stdout/stderr separation, JSON shape, no secret in output) and driven end to
+  end by `ops/ci/cli_smoke.sh`, which runs the installed binary against a real
+  server in about a second. CI runs both.
 - Budgets are declared, not derived. A graph node carries `price_monthly`
   (default `0`, which means free) and an optional three-letter `currency`; a
   service manifest can declare its own `price_monthly` and `currency`. CPU,

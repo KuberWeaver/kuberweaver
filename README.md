@@ -212,6 +212,7 @@ Run backend tests against disposable state, not the live database:
 state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests -q
 python3 ops/ci/check.py --fast
+ops/ci/cli_smoke.sh         # installed kw against a real server, about one second
 ```
 
 FastAPI serves the API on one origin. `/healthz`, `/readyz`, `/metrics` and `/docs` are local endpoints. `/healthz` is liveness only; `/readyz` reports the database, the selected secret source and the plugin directory. Metrics describe the process and jobs, not a proven remote monitoring deployment.

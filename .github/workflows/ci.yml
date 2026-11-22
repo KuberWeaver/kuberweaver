@@ -145,3 +145,25 @@ jobs:
         # The optional OpenTofu registry-download check stays opt-in: no
         # unpinned external installer or VM/deployment operation in this CI.
         run: python -m pytest tests -q --tb=short
+
+  cli-smoke:
+    name: CLI smoke walk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Install the CLI into a clean virtualenv
+        run: |
+          python -m venv "$RUNNER_TEMP/kwsmoke"
+          "$RUNNER_TEMP/kwsmoke/bin/python" -m pip install -r requirements.txt -r requirements-local-vault.txt
+          "$RUNNER_TEMP/kwsmoke/bin/python" -m pip install -e . --no-deps
+      - name: Drive the installed kw against a real server
+        env:
+          PYTHON: ${{ runner.temp }}/kwsmoke/bin/python
+          KW: ${{ runner.temp }}/kwsmoke/bin/kw
+        run: ops/ci/cli_smoke.sh
