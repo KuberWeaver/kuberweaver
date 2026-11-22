@@ -71,21 +71,32 @@ From the repository root:
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-execution.txt -r requirements-mcp.txt -r requirements-infrastructure.txt -r requirements-postgresql.txt -r requirements-local-vault.txt
 state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" KW_TOFU_LOCAL_CHECK=1 .venv/bin/python -m pytest tests -q
-npm --prefix frontend test -- --run
-npm --prefix frontend run build
 ```
 
-Browser acceptance has optional dependencies. Keep disposable default state: importing the ASGI module constructs an application, and sharing one PostgreSQL state between pytest and child servers deliberately triggers the single-controller lock. PostgreSQL fixtures create their own UUID schemas using `data/postgresql/test-url`; that file must select the test database, never the live database.
+The historical counts above include a React portal that has since been removed;
+there is no `npm` step anymore.
+
+## Running the contract tests
+
+Keep disposable default state: importing the ASGI module constructs an application,
+and sharing one PostgreSQL state between pytest and child servers deliberately
+triggers the single-controller lock. PostgreSQL fixtures create their own UUID
+schemas using `data/postgresql/test-url`; that file must select the test database,
+never the live database.
 
 ```sh
-uv pip install --python .venv/bin/python -r requirements-acceptance.txt
-# If no system Chrome/Chromium is available:
-.venv/bin/python -m playwright install chromium
-state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-browser-tests.XXXXXX")
-env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests/test_v2_real_protocol.py -q
+state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
+env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
+    KUBERWEAVER_STATE_DIR="$state" .venv/bin/python -m pytest tests -q
 ```
 
-This test uses disposable state and a test driver, not ESXi credentials or lab resources. Historical deployment acceptance scripts can mutate real targets and must not be treated as unit tests.
+The browser part of this suite was removed with the React portal it drove. A real
+browser acceptance has to be written against whatever interface replaces that
+portal; do not resurrect it by pointing at the API.
+
+The hypervisor contract tests use disposable state and a fixture driver, not ESXi
+credentials or lab resources. Historical deployment scripts can mutate real
+targets and must not be treated as unit tests.
 
 ## Separate integration work
 
