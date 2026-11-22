@@ -29,11 +29,13 @@ time to review it, with no promised timeline and no notification guarantee.
 Report privately. Never open a public issue or discussion for a suspected
 vulnerability, even a partial one or one you believe is theoretical.
 
-1. Open a private vulnerability report from the repository Security tab
-   ("Report a vulnerability"), which creates a draft advisory visible only to
-   maintainers.
-2. If you cannot use that form, contact the maintainer through a private channel
-   listed on the repository owner's GitHub profile.
+1. If the repository is public, open a private vulnerability report from the
+   repository Security tab ("Report a vulnerability"), which creates a draft
+   advisory visible only to maintainers.
+2. Until the repository is public that button does not exist: GitHub security
+   advisories and private vulnerability reporting are available on public
+   repositories only. Contact the maintainer through a private channel listed on
+   the repository owner's GitHub profile instead.
 
 Include the affected commit or version, the component, minimal reproduction
 steps, the observed impact and a suggested mitigation if you have one. Do not

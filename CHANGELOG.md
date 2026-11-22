@@ -97,9 +97,23 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 
 - Seventeen release-script tests were pinned to `develop` and failed once releases
   moved to `main`.
+- The README and the showcase page contradicted the implemented OIDC support: both
+  claimed there was no SSO at all. They now state that an optional external OpenID
+  Connect sign-in exists and stays off unless configured.
+- `LICENSE` carried the GPLv3 text without a notice, so it read as GPL-3.0-only while
+  every other document announced `GPL-3.0-or-later`. It now opens with the copyright
+  and the "version 3, or any later version" grant.
 
 ### Security
 
+- The GNS3 inventory provider no longer carries a compiled-in lab address. It reads
+  `KUBERWEAVER_GNS3_URL` and `KUBERWEAVER_GNS3_PROJECT`, and refuses with a named
+  variable in the error while either is unset. The project UUID disappeared from
+  `docs/ACCEPTANCE.md`, and the SSH fixture uses a documentation address
+  (`192.0.2.10`) instead of a private one.
+- `SECURITY.md` no longer sends reporters to a "Report a vulnerability" button that
+  does not exist on a private repository, and the issue-template contact link stops
+  pointing at an advisory form that only public repositories can use.
 - Passwords and tokens are never returned in list responses, and the secret scan blocks key material and provider tokens from entering the repository.
 - Legacy PBKDF2 password verifiers are upgraded to Argon2id on the next successful login; self-service rotation revokes every existing session and reissues only the caller's.
 - Expired or revoked sessions are deleted when presented and the stale cookie is cleared; tokens are stored as SHA-256 hashes, never in clear. Failed logins are limited to 10 per client and account and 30 per client per minute, answered with `429` and `Retry-After`, and unknown accounts are counted like wrong passwords.

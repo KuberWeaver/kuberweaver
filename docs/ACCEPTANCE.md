@@ -31,7 +31,7 @@ These gates define observable acceptance for the implemented scope, not a claim 
 
 ## Safety boundaries
 
-Only supplied GNS3 project 2c796f12-d163-44d9-8ebd-2a739c383b7b and explicitly named guest paths/resources are writable. Services deployed by KuberWeaver use kw-* resource names, /opt/kuberweaver and management ports 18090 through 18109. The optional OpenBao guest service has separate kw-openbao ownership. Do not change the GNS3 host routing/firewall, another project, physical LAN appliances, existing 8080 application or production deployments.
+Only the supplied GNS3 project and explicitly named guest paths/resources are writable. Services deployed by KuberWeaver use kw-* resource names, /opt/kuberweaver and management ports 18090 through 18109. The optional OpenBao guest service has separate kw-openbao ownership. Do not change the GNS3 host routing/firewall, another project, physical LAN appliances, existing 8080 application or production deployments.
 
 Control-plane HTTP listens on workstation loopback. Production exposure requires HTTPS, real identity hardening and a threat model beyond this local installation. The GNS3 server itself remains an existing unauthenticated LAN API, not made secure by this portal.
 

@@ -28,9 +28,12 @@ def test_observability_finops_blueprints_and_audit(api):
     assert 'kuberweaver_jobs{status="pending_approval"} 1' in metrics.text
 
 
-def test_gns3_inventory_provider_only_gets_actual_upstream_data(api):
+def test_gns3_inventory_provider_only_gets_actual_upstream_data(api, monkeypatch):
     client, app = api
     calls = []
+    monkeypatch.setenv('KUBERWEAVER_GNS3_URL', 'https://gns3.invalid:3080')
+    monkeypatch.setenv('KUBERWEAVER_GNS3_PROJECT', 'project-uuid')
+
     def transport(request):
         calls.append((request.method, str(request.url)))
         if request.url.path.endswith('/nodes'):

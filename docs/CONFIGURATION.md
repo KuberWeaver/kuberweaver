@@ -19,6 +19,8 @@ differs from the checkout layout selects its paths with the variables below.
 | `KUBERWEAVER_DASHBOARD_EMBED_ORIGINS` | empty | No | Comma-separated origins allowed to be embedded by the external dashboard registry. Empty refuses every embed. |
 | `KUBERWEAVER_DASHBOARD_PROBE_SECONDS` | `300` | No | Interval of the read-only dashboard health sweep. `0` disables the loop; otherwise 1 to 86400 seconds. |
 | `KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT` | `5` | No | Per-probe timeout, between 0.5 and 30 seconds. |
+| `KUBERWEAVER_GNS3_URL` | empty | For the GNS3 inventory provider | Base URL of your lab GNS3 server. The provider refuses with a named error while it is unset, because no lab address is compiled in. |
+| `KUBERWEAVER_GNS3_PROJECT` | empty | For the GNS3 inventory provider | Project UUID to read. Both variables must be set for the provider to query anything. |
 
 Existing database and MCP settings keep their documented behaviour:
 `KUBERWEAVER_DATABASE_URL_FILE`, `KUBERWEAVER_DATABASE_URL`,

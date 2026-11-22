@@ -74,3 +74,27 @@ def test_a_required_capability_cannot_be_cleared(tmp_path):
         assert refused.status_code == 422
         assert 'execution needs a provider' in refused.json()['detail']
         assert client.get('/api/providers').json()['bindings']['execution'] == 'default'
+
+
+def test_gns3_refuses_with_a_named_variable_when_it_is_not_configured(tmp_path, monkeypatch):
+    """No lab address is compiled in: an unset variable is named, not defaulted."""
+    from kuberweaver.app import create_app
+
+    monkeypatch.delenv('KUBERWEAVER_GNS3_URL', raising=False)
+    monkeypatch.delenv('KUBERWEAVER_GNS3_PROJECT', raising=False)
+
+    plugins = tmp_path / 'plugins'
+    plugins.mkdir()
+    app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)
+    with TestClient(app) as client:
+        credentials = bootstrap(tmp_path / 'data')
+        response = client.post('/api/auth/login', json={'username': 'admin', 'password': credentials['admin']})
+        client.headers['X-CSRF-Token'] = response.json()['csrf_token']
+
+        assert client.patch('/api/providers', json={'bindings': {'inventory': 'gns3'}}).status_code == 200
+        body = client.get('/api/infrastructure').json()
+        assert body['source'] == 'gns3'
+        errors = body['errors']
+        assert any(error['error_type'] == 'ConfigurationError' for error in errors), errors
+        assert any('KUBERWEAVER_GNS3_URL' in str(error.get('detail')) for error in errors), errors
+        assert body['nodes'] == [] and body['links'] == []
