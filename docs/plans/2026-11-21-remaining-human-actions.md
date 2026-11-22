@@ -54,8 +54,10 @@ gh repo edit EMRD95/kuberweaver --visibility public --accept-visibility-change-c
 gh repo view EMRD95/kuberweaver --json visibility,isPrivate
 ```
 
-À faire juste après: activer GitHub Pages (Settings > Pages > source: GitHub Actions)
-pour que `.github/workflows/pages.yml` déploie `site/`.
+À faire juste après: activer GitHub Pages (Settings > Pages > source: GitHub Actions),
+puis lancer le workflow « Deploy showcase site » à la main. Le workflow n'a pas de
+déclencheur sur `push`, volontairement: sur un dépôt privé sans Pages, il échouait
+à chaque modification de `site/` sur `Get Pages site failed`.
 
 ## 4. Optionnel mais recommandé avant le premier contributeur externe
 
