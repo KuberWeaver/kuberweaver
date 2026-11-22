@@ -22,7 +22,13 @@ if [ ! -x "$KW" ]; then
   exit 1
 fi
 
-STATE="$(mktemp -d "${TMPDIR:-/tmp}/kw-smoke.XXXXXX")"
+# The local vault refuses any path with a world-writable ancestor (a shared /tmp
+# is 1777), so the walk runs inside the user's cache directory, never /tmp.
+BASE="${KW_SMOKE_WORKDIR:-${XDG_CACHE_HOME:-$HOME/.cache}}"
+WORK="$BASE/kw-smoke-work"
+mkdir -p "$WORK"
+chmod 700 "$WORK"
+STATE="$(mktemp -d "$WORK/kw-smoke.XXXXXX")"
 SERVER_PID=""
 cleanup() {
   if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
