@@ -84,7 +84,11 @@ The full reference journey is in [kw CLI](docs/kw-cli-usage.md). In short:
 
 Do not reuse a reserved port for a different blueprint; inspect actual ownership before running again. Graph/environment/node identities determine resource ownership. Blueprint edges order deployment; they do not create network links, firewall rules or application wiring.
 
-Job endpoints on the management subnet `192.168.122.0/24` may require a tunnel from the workstation. Successful guest probes do not imply automatic LAN publication. The documented GNS3 deployment uses the lab server at `192.168.10.55`; these are installation-specific settings.
+Job endpoints on the management subnet may require a tunnel from the workstation.
+Successful guest probes do not imply automatic LAN publication. The documented GNS3
+deployment uses your own lab server address; set `KUBERWEAVER_GNS3_URL` and
+`KUBERWEAVER_GNS3_PROJECT` to it rather than reusing an example, because no lab
+address is compiled into the software.
 
 ## Modular architecture
 

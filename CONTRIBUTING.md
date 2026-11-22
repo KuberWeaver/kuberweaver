@@ -104,6 +104,7 @@ trailing whitespace and leftover conflict markers.
 | Branch | Purpose |
 | --- | --- |
 | `feat/<topic>` or `chore/<topic>` | One topic per branch, opened by contributors |
+| `fix/<topic>`, `docs/<topic>` | Small corrections and documentation-only work; same rules |
 | `main` | Default and released state. Pull requests target it directly |
 | `develop` | Historical integration branch. It receives nothing today; do not open a pull request against it |
 

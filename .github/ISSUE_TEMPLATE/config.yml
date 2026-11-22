@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/EMRD95/kuberweaver/blob/main/SUPPORT.md
     about: Where to ask questions, what is supported and what response to expect from a prototype with one maintainer.
   - name: Report a security vulnerability
-    url: https://github.com/EMRD95/kuberweaver/security/advisories/new
-    about: Report privately through a draft security advisory. Never open a public issue for a vulnerability.
+    url: https://github.com/EMRD95
+    about: Private reporting through the maintainer's GitHub profile. GitHub security advisories exist only on public repositories, so this contact link does not lead to a form today. Never open a public issue for a vulnerability.

@@ -173,8 +173,15 @@ def provider_listing(app):
             'active': active, 'available': available, 'errors': errors}
 
 
-GNS3_SERVER = 'http://192.168.10.55'
-GNS3_PROJECT = '2c796f12-d163-44d9-8ebd-2a739c383b7b'
+def gns3_target() -> tuple[str, str]:
+    """Read the lab server from the environment; no lab address is ever a default."""
+    return (os.environ.get('KUBERWEAVER_GNS3_URL', '').strip(),
+            os.environ.get('KUBERWEAVER_GNS3_PROJECT', '').strip())
+
+
+def gns3_configured() -> bool:
+    url, project = gns3_target()
+    return bool(url and project)
 
 
 class GNS3Inventory:
@@ -184,11 +191,19 @@ class GNS3Inventory:
         self.last_error = None
 
     def read(self):
-        result = {'project_id': GNS3_PROJECT, 'server_url': GNS3_SERVER, 'nodes': [],
+        server_url, project_id = gns3_target()
+        result = {'project_id': project_id, 'server_url': server_url, 'nodes': [],
                   'links': [], 'source': 'gns3', 'errors': []}
+        if not gns3_configured():
+            missing = 'KUBERWEAVER_GNS3_URL' if not server_url else 'KUBERWEAVER_GNS3_PROJECT'
+            result['errors'].append({'resource': 'configuration', 'message': 'GNS3 inventory unavailable',
+                                     'error_type': 'ConfigurationError',
+                                     'detail': f'{missing} is not set'})
+            self.last_error = True
+            return result
         for resource in ('nodes', 'links'):
             try:
-                response = self.client.get(f'{GNS3_SERVER}/v2/projects/{GNS3_PROJECT}/{resource}')
+                response = self.client.get(f'{server_url}/v2/projects/{project_id}/{resource}')
                 response.raise_for_status()
                 payload = response.json()
                 if not isinstance(payload, list):
@@ -213,9 +228,11 @@ class GNS3Inventory:
         return result
 
     def describe(self):
+        server_url, project_id = gns3_target()
         return {'id': 'gns3', 'name': 'GNS3 inventory', 'kind': 'inventory',
-                'status': 'degraded' if self.last_error else 'configured', 'read_only': True,
-                'server_url': GNS3_SERVER, 'project_id': GNS3_PROJECT, 'last_success': self.last_success,
+                'status': 'degraded' if (self.last_error or not gns3_configured()) else 'configured',
+                'read_only': True,
+                'server_url': server_url, 'project_id': project_id, 'last_success': self.last_success,
                 'description': 'Live read-only inventory; no topology mutation API is exposed.'}
 
 

@@ -32,7 +32,7 @@ def configure_ssh(tmp_path, monkeypatch):
         f'    CertificateFile {tmp_path / "unused-certificate"}\n'
         'Host infra-app infra-branch-client\n'
         '    User fixture-user\n'
-        '    ProxyCommand ssh -W %h:%p gns3@192.168.10.55\n')
+        '    ProxyCommand ssh -W %h:%p gns3@192.0.2.10\n')
     # Both executors import the constant; the test module also uses it in assertions.
     for module in (execution, redis_execution, sys.modules[__name__]):
         monkeypatch.setattr(module, 'SSH_CONFIG', config)
@@ -244,7 +244,7 @@ def test_selected_key_excludes_configured_and_agent_identities(tmp_path):
         assert ['identityagent', 'none'] in options
         assert ['stricthostkeychecking', 'true'] in options
         assert ['userknownhostsfile', str(SSH_CONFIG.parent / 'known_hosts')] in options
-        assert any(name == 'proxycommand' and 'gns3@192.168.10.55' in value for name, value in options)
+        assert any(name == 'proxycommand' and 'gns3@192.0.2.10' in value for name, value in options)
         params = json.loads(Path(argv[-1][1:]).read_text())
         Path(params['kw_result_path']).write_text('{"healthy": true}')
         return SimpleNamespace(returncode=0, stdout='', stderr='')
