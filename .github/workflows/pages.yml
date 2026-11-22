@@ -1,9 +1,10 @@
 name: Deploy showcase site
 
+# Manual only. The repository is private and Pages is not enabled yet, so
+# `actions/configure-pages` fails with "Get Pages site failed" on every push that
+# touches `site/`. Enable Pages in Settings > Pages once the repository is public,
+# then run this workflow by hand (Actions > Deploy showcase site > Run workflow).
 on:
-  push:
-    branches: [main]
-    paths: ['site/**']
   workflow_dispatch:
 
 permissions:

@@ -15,8 +15,13 @@ asset outside `site/`, so serving from anywhere works.
 
 ## Deploy on GitHub Pages
 
-Commit `site/`, then in repository Settings > Pages choose "Deploy from a
-branch", branch `main`, folder `/site`. No build step and no dependencies.
+Two steps, both human: enable Pages in repository Settings > Pages (GitHub Pages is
+free on a public repository, and requires a paid plan for a private one), then run
+the workflow by hand from Actions > "Deploy showcase site" > Run workflow. The
+workflow is manual on purpose: on a private repository without Pages enabled,
+`actions/configure-pages` fails on every push that touches `site/`.
+
+There is no build step and no runtime dependency; the published path is `/site`.
 
 ## Notes
 

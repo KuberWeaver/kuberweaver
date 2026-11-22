@@ -20,6 +20,9 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
   offline. It reproduces the README capability boundaries, with the single
   deliberate difference that the optional OpenID Connect sign-in is described as
   existing and off by default.
+- `.github/workflows/pages.yml` deploys `site/` to GitHub Pages on demand only:
+  it has no push trigger, because a private repository without Pages enabled makes
+  `actions/configure-pages` fail on every change to `site/`.
 - `docs/DISCORD.md`: the intended community server structure, to be created by
   an account holder (see SUPPORT.md for the current invite status).
 - `docs/AGENT_GUIDE.md`: the contract for a coding agent working in this
