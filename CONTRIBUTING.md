@@ -65,10 +65,11 @@ chmod 600 data/postgresql/test-url
 ```
 
 Without that file the durable-state fixtures skip, and the run still exits green.
-So read the last line, not just the exit code: with the fixture present the whole
-suite is `1918 passed, 2 skipped`; a run reporting dozens of skips means the
-PostgreSQL half did not execute and its green tells you nothing about durability.
-CI always provides a fresh test database, so its count is authoritative.
+So read the last line, not just the exit code: with the test database present the
+suite is `1918 passed, 2 skipped`; without it, `1876 passed, 44 skipped`. A green
+run reporting 44 skips means the PostgreSQL half did not execute, and its green
+tells you nothing about durability. CI always provides a fresh test database, so
+its count is authoritative.
 
 Each fixture creates its own schema and drops it, so the database stays reusable.
 `data/` is git-ignored.
