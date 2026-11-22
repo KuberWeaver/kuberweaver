@@ -15,7 +15,8 @@ nothing.
 
 ## Safety
 
-4. Never touch `main` directly. `main` moves only by merging a green `develop`.
+4. Never touch `main` directly. A change reaches `main` through a pull request that
+   CI has passed; the loop never merges.
 5. Never force-push, never rewrite published history, never delete a branch you
    did not create in this iteration.
 6. Never commit secrets. `data/`, `docs/prompt/`, private keys, credentials and
@@ -29,22 +30,21 @@ nothing.
 
 9. Every change ships with tests. A task is not done when the code compiles, it
    is done when a test proves the behaviour, including the refusal cases.
-10. The full backend suite must pass, and the frontend must typecheck and build,
-    before a commit is merged into `develop`.
+10. The full test suite must pass, including the PostgreSQL fixtures when they
+    can run, before a change is merged into `main`.
 11. No comments that narrate the process. Comments explain why a decision was
     made, in the present tense, and nothing else.
 12. Public documentation is in English. Commit messages are short and factual.
 
 ## Commit and branch protocol
 
-13. Work on the single long-lived branch `feat/production-track`. `develop` and
-    `main` are protected: merging requires a pull request and the CI check, so
-    the loop never merges. It rebases on `origin/develop` at the start of each
-    iteration and pushes the track branch.
+13. Work on a feature branch per topic. `main` is protected: merging requires a
+    pull request and the CI check, so the loop never merges. Rebase on `origin/main`
+    at the start of each iteration and push the branch.
 14. Commit subjects: `feat(<area>): <what>`, `fix(<area>): <what>`,
     `test(<area>): <what>`, `docs(<area>): <what>`, `chore: <what>`.
-15. Push after every green iteration. A human merges the track branch into
-    `develop` through a pull request when they choose to.
+15. Push after every green iteration. A human merges the branch into `main`
+    through a pull request when they choose to.
 16. Update `STATE.json` in the same iteration, in the same commit as the work.
 
 ## Deployment of the local instance
@@ -54,8 +54,8 @@ disk is not code in memory: a green commit that is never loaded is invisible.
 
 22. Do not restart the unit yourself: unattended runs are denied `systemctl`.
     The user timer `kuberweaver-deploy.timer` deploys the checked out commit
-    within two minutes, rebuilds the frontend when it changed, and records the
-    result in `~/.local/state/kuberweaver/deployed-sha`.
+    within two minutes and records the result in
+    `~/.local/state/kuberweaver/deployed-sha`.
 23. Do not leave uncommitted work that the timer would deploy: the timer deploys
     the commit, so a green iteration must commit.
 24. If a deployment is needed immediately for a verification, ask for it in the

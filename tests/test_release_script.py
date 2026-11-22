@@ -53,7 +53,7 @@ def repository(tmp_path: Path) -> Path:
     path = tmp_path / 'kuberweaver'
     path.mkdir()
     git(path, 'init', '--quiet')
-    git(path, 'symbolic-ref', 'HEAD', 'refs/heads/develop')
+    git(path, 'symbolic-ref', 'HEAD', 'refs/heads/main')
     (path / 'CHANGELOG.md').write_text(CHANGELOG, encoding='utf-8')
     git(path, 'add', 'CHANGELOG.md')
     git(path, 'commit', '--quiet', '-m', 'init')
@@ -112,7 +112,7 @@ def test_release_from_another_branch_is_refused(repository):
     git(repository, 'checkout', '--quiet', '-b', 'feat/something')
     result = release(repository)
     assert result.returncode == 1
-    assert 'releases are cut from develop' in result.stderr
+    assert 'releases are cut from main' in result.stderr
     assert tags(repository) == []
 
 
@@ -181,18 +181,18 @@ def test_already_documented_version_is_refused(repository):
     assert 'already documents version 0.1.0' in result.stderr
 
 
-def test_integration_branch_out_of_sync_with_the_remote_is_refused(repository):
+def test_default_branch_out_of_sync_with_the_remote_is_refused(repository):
     first = git(repository, 'rev-parse', 'HEAD').strip()
     (repository / 'CHANGELOG.md').write_text(CHANGELOG + '\n### Changed\n\n- Later work.\n', encoding='utf-8')
     git(repository, 'commit', '--quiet', '-am', 'later work')
-    git(repository, 'update-ref', 'refs/remotes/origin/develop', first)
+    git(repository, 'update-ref', 'refs/remotes/origin/main', first)
     result = release(repository)
     assert result.returncode == 1
-    assert 'not in sync with origin/develop' in result.stderr
+    assert 'not in sync with origin/main' in result.stderr
     assert tags(repository) == []
 
 
 def test_sync_check_is_skipped_when_the_remote_branch_is_absent(repository):
-    assert 'refs/remotes/origin/develop' not in git(repository, 'show-ref')
+    assert 'refs/remotes/origin/main' not in git(repository, 'show-ref')
     result = release(repository, '--dry-run')
     assert result.returncode == 0, result.stderr

@@ -23,6 +23,12 @@ No version has been tagged yet, so `Unreleased` collects everything that is on
 - `docs/AGENT_GUIDE.md`: the contract for a coding agent working in this
   repository, with the checks, the commit rules and the refusal paths. A root
   `AGENTS.md` would be the canonical location; it is not committed here.
+- `docs/README.md`: index of every documentation page, separating instructions
+  from internal notes and from school artifacts kept for provenance.
+- `docs/AUTHORING.md`: the shortest path to add a brick or an extension, with the
+  exact fields the workload provider checks before touching a guest.
+- `docs/kw-cli-usage.md` rewritten in English, so the README rule that public
+  documentation is in English holds on the most-read CLI page.
 - Labels for contribution triage: `plugin`, `brick`, `extension`, `kernel`,
   `cli`, `ci`, `security`, `needs-review`, `triage`.
 
