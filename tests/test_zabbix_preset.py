@@ -91,7 +91,7 @@ def test_every_step_passes_the_portal_admission_alone(tool, plan):
 
 def test_every_brick_is_a_pinned_live_workload(plan):
     from kuberweaver.workload_execution import WorkloadExecutor
-    executor = WorkloadExecutor(PLUGINS / 'unused', PLUGINS)
+    executor = WorkloadExecutor(PLUGINS / 'unused', PLUGINS / 'services')
     for step in plan['steps']:
         brick = executor.brick(step['brick'])
         assert brick['kind'] == 'workload'

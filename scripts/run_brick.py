@@ -35,7 +35,7 @@ def main() -> int:
 
     raw = arguments.config
     config = json.loads(Path(raw[1:]).read_text() if raw.startswith('@') else raw)
-    executor = WorkloadExecutor(arguments.state_dir, ROOT / 'modules',
+    executor = WorkloadExecutor(arguments.state_dir, ROOT / 'plugins',
                                 playbook=arguments.ansible, key_path=arguments.key,
                                 user='ubuntu')
     if arguments.lock_role:

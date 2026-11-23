@@ -35,8 +35,8 @@ refusals and the evidence layout.
 
 ## Install the pinned role
 
-    ansible-galaxy role install -r modules/services/web-nginx/requirements.yml \
-        -p modules/services/web-nginx/roles
+    ansible-galaxy role install -r plugins/web-nginx/requirements.yml \
+        -p plugins/web-nginx/roles
 
 Then record the resolved version and checksum:
 

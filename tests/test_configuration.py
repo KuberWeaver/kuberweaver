@@ -27,7 +27,7 @@ def configuration(monkeypatch):
 
 def test_defaults_point_inside_the_checkout(configuration):
     assert configuration.state_dir() == configuration.ROOT / 'data'
-    assert configuration.plugins_dir() == configuration.ROOT / 'modules'
+    assert configuration.plugins_dir() == configuration.ROOT / 'plugins'
     assert configuration.frontend_dir() == configuration.ROOT / 'frontend' / 'dist'
     assert configuration.ssh_config() == Path.home() / '.ssh' / 'config'
 

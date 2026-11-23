@@ -261,7 +261,7 @@ def test_a_job_cannot_be_executed_twice(tmp_path):
 def test_the_real_reference_brick_satisfies_the_contract():
     """The shipped brick, not a fixture, must honour the same rules."""
     root = Path(__file__).resolve().parents[1]
-    ex = WorkloadExecutor(root / 'state-probe', root / 'modules')
+    ex = WorkloadExecutor(root / 'state-probe', root / 'modules' / 'services')
     brick = ex.brick('web-nginx')
     assert brick['kind'] == 'workload'
     assert brick['executor'] == 'ansible-workload-v1'

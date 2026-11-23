@@ -85,7 +85,10 @@ class Catalog:
                 if path.is_symlink() or not path.resolve().is_relative_to(root):
                     raise ValueError('Plugin source symlinks are forbidden')
                 if path.is_file():
-                    digest.update(str(relative).encode() + b'\0')
+                    # The catalogue grouping is not part of the module's logical path.
+                    # Keep existing digests for byte-identical moves, not for edits.
+                    logical = Path(tree.name) / path.relative_to(tree)
+                    digest.update(str(logical).encode() + b'\0')
                     digest.update(path.read_bytes())
                     digest.update(b'\0')
         return digest.hexdigest()

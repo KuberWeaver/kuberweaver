@@ -32,8 +32,8 @@ here.
 
 ## Install the pinned collection
 
-    ansible-galaxy collection install -r modules/services/zabbix-server/requirements.yml \
-        -p modules/services/zabbix-server/collections
+    ansible-galaxy collection install -r plugins/zabbix-server/requirements.yml \
+        -p plugins/zabbix-server/collections
 
 The collection must sit beside the lifecycle playbooks because the isolated
 executor sets no global collection path. The brick refuses to run when the

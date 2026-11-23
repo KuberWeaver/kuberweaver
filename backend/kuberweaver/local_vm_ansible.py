@@ -37,8 +37,6 @@ from typing import Any
 import jsonschema
 import yaml
 
-from .module_paths import LAYOUT_SOURCE, MODULES_DIR, module_directory
-
 
 PROVIDER_ID = 'local-vm-ansible-v1'
 RUNTIME_CONTRACT = 'local-runtime-v1'
@@ -235,12 +233,10 @@ class LocalVmAnsibleProvider:
     supports_rollback = False
     ssh_keys: Any = None  # Injected by resolve_provider; never by job config.
 
-    source_dependencies = (LAYOUT_SOURCE,)
-
     def __init__(self, state_dir, plugins_dir=None, *, runtime=None, playbook=None,
                  user='ubuntu', runner=None):
         self.state_dir = Path(state_dir).absolute()
-        self.plugins_dir = Path(plugins_dir or MODULES_DIR).absolute()
+        self.plugins_dir = Path(plugins_dir or Path(__file__).resolve().parents[2] / 'plugins').absolute()
         self.runtime = runtime
         self.playbook = Path(playbook) if playbook else None
         self.user = user
@@ -251,12 +247,7 @@ class LocalVmAnsibleProvider:
 
     def brick(self) -> dict:
         """Load the single reviewed compound plugin and verify its pins."""
-        try:
-            directory = module_directory(self.plugins_dir, PLUGIN_ID)
-        except FileNotFoundError:
-            raise LocalVmAnsibleError('Reviewed compound plugin is not installed') from None
-        except ValueError as exc:
-            raise LocalVmAnsibleError('Unsafe compound plugin path') from exc
+        directory = self.plugins_dir / PLUGIN_ID
         manifest_path = directory / 'manifest.yaml'
         if directory.is_symlink() or manifest_path.is_symlink():
             raise LocalVmAnsibleError('Unsafe compound plugin path')

@@ -31,8 +31,8 @@ server's own checks run.
 
 ## Install the pinned collection
 
-    ansible-galaxy collection install -r modules/services/zabbix-agent/requirements.yml \
-        -p modules/services/zabbix-agent/collections
+    ansible-galaxy collection install -r plugins/zabbix-agent/requirements.yml \
+        -p plugins/zabbix-agent/collections
 
 The collection must sit beside the lifecycle playbooks because the isolated
 executor sets no global collection path.

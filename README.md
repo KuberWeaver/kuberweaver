@@ -126,7 +126,7 @@ ops/                            user systemd units
 site/                           static showcase page
 ```
 
-The `modules/` directory is the default catalogue. A custom `KUBERWEAVER_PLUGINS_DIR` can still point to a flat catalogue. Source packages in `extensions/` are separate from installed copies in `data/extensions/`.
+Edit recipes in `modules/`. The checked-in `plugins/` directory is a generated runtime catalogue: keeping the original paths and files preserves existing saved-plan and rollback checks. After changing a recipe, stage its source and run `python3 scripts/sync_compat_catalog.py`, then stage the generated files as well. Install Ansible dependencies into `plugins/` as shown in each recipe. Bundled compositions previously referenced under `presets/` now live under `blueprints/`. A custom flat `KUBERWEAVER_PLUGINS_DIR` still works. Source packages in `extensions/` are separate from installed copies in `data/extensions/`; no reinstall is required for this layout change.
 
 No browser interface ships. A modular GUI can be built on the same API.
 

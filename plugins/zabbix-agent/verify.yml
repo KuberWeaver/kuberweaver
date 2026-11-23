@@ -1,0 +1,60 @@
+---
+- name: Verify the zabbix-agent brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'zabbix-agent']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Probe the agent port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ kw_config.listen_port }}"
+        timeout: 5
+        state: started
+      register: kw_port
+      failed_when: false
+
+    - name: Ask the local agent for its own ping item
+      ansible.builtin.command:
+        argv: ['/usr/sbin/zabbix_agentd', '-t', 'agent.ping']
+      register: kw_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Read the agent configuration
+      ansible.builtin.slurp:
+        src: /etc/zabbix/zabbix_agentd.conf
+      register: kw_body
+      failed_when: false
+
+    - name: Record the assertions
+      ansible.builtin.set_fact:
+        kw_checks:
+          service-active: "{{ kw_unit.stdout | default('') | trim == 'active' }}"
+          port-listening: "{{ (kw_port.state | default('')) == 'started' }}"
+          ping-answered: "{{ '|1]' in (kw_ping.stdout | default('')) }}"
+          server-configured: "{{ ('Server=' ~ kw_config.server_host) in (kw_body.content | default('') | b64decode) }}"
+
+    - name: Fail when an assertion is not met
+      ansible.builtin.assert:
+        that:
+          - kw_checks['service-active'] | bool
+          - kw_checks['port-listening'] | bool
+          - kw_checks['ping-answered'] | bool
+          - kw_checks['server-configured'] | bool
+        fail_msg: "zabbix-agent verification failed: {{ kw_checks }}"
+        quiet: true
+
+    - name: Persist the verification report
+      ansible.builtin.copy:
+        content: "{{ {'brick': 'zabbix-agent', 'assertions': kw_checks} | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

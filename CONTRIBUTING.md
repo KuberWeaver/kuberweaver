@@ -20,6 +20,7 @@ privately instead of opening an issue.
 | `modules/resources/` | Infrastructure recipes and manifests |
 | `modules/services/` | Service recipes and manifests |
 | `blueprints/` | Bundled compositions of modules |
+| `plugins/` | Generated runtime catalogue, do not edit by hand |
 | `extensions/` | Independently installable Python extensions (protocol v1) |
 | `tests/` | pytest suite, including PostgreSQL-backed contracts |
 | `scripts/` | Lifecycle, acceptance and release commands |

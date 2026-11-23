@@ -1,0 +1,45 @@
+---
+- name: Remove the zabbix-web brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Remove the vhost
+      ansible.builtin.file:
+        path: /etc/apache2/sites-available/zabbix.conf
+        state: absent
+
+    - name: Disable the vhost when its link remains
+      ansible.builtin.file:
+        path: /etc/apache2/sites-enabled/zabbix.conf
+        state: absent
+      failed_when: false
+
+    - name: Reload Apache so the removed site stops being served
+      ansible.builtin.service:
+        name: apache2
+        state: reloaded
+      failed_when: false
+
+    - name: Remove the frontend package
+      ansible.builtin.apt:
+        name: zabbix-frontend-php
+        state: absent
+        purge: true
+
+    - name: Remove the frontend configuration
+      ansible.builtin.file:
+        path: /etc/zabbix/web/zabbix.conf.php
+        state: absent
+
+    - name: Persist the removal report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'zabbix-web',
+            'package_removed': true,
+            'apache_kept': true
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

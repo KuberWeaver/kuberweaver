@@ -1,0 +1,111 @@
+id: vmware-vm
+name: VMware VM
+version: 1.0.0
+description: Ubuntu 24.04 VM from an official cloud image, discovered ESXi options and managed SSH access. Creates new VMs only; existing VMs are not modified or deleted.
+category: compute
+icon: server
+price_monthly: 0
+capability: live
+engine: opentofu
+execution_provider: esxi-ovf
+admission_profile: virtual-machine
+executor: esxi-ovf-saved-plan-v1
+schema:
+  type: object
+  additionalProperties: false
+  required:
+  - connection_id
+  - vm_name
+  - datastore_id
+  - network_ids
+  - resource_pool_id
+  - ssh_key_id
+  properties:
+    connection_id:
+      type: string
+      x-options-source: connections
+      pattern: ^[0-9a-f]{32}$
+      title: ESXi server
+    vm_name:
+      type: string
+      pattern: ^[a-z][a-z0-9-]{0,39}$
+      title: VM name
+    datastore_id:
+      type: string
+      x-options-source: datastores
+      minLength: 1
+      maxLength: 128
+      pattern: ^[^\x00-\x1f\x7f]+$
+      title: ESXi datastore
+    network_ids:
+      type: array
+      minItems: 1
+      maxItems: 4
+      uniqueItems: true
+      items:
+        type: string
+        x-options-source: networks
+        minLength: 1
+        maxLength: 128
+        pattern: ^[^\x00-\x1f\x7f]+$
+      title: ESXi networks
+    resource_pool_id:
+      type: string
+      x-options-source: resource_pools
+      minLength: 1
+      maxLength: 128
+      pattern: ^[^\x00-\x1f\x7f]+$
+      title: Resource pool
+    cpu_sockets:
+      type: integer
+      minimum: 1
+      maximum: 4
+      default: 1
+      title: CPU sockets
+      description: Number of virtual CPU sockets. Use one socket on single-processor hosts.
+    cores_per_socket:
+      type: integer
+      minimum: 1
+      maximum: 8
+      default: 2
+      title: Cores per socket
+      description: Cores inside each socket. Total virtual CPUs is sockets multiplied by cores.
+    memory_mb:
+      type: integer
+      minimum: 512
+      maximum: 16384
+      default: 2048
+      title: Memory (MiB)
+    disk_gb:
+      type: integer
+      minimum: 10
+      maximum: 100
+      default: 20
+      title: Disk (GiB)
+    image_id:
+      type: string
+      enum:
+      - ubuntu-24.04
+      default: ubuntu-24.04
+      title: Operating system
+    ssh_key_id:
+      type: string
+      pattern: '^[0-9a-f]{32}$'
+      x-options-source: ssh-keys
+      title: SSH key
+      description: Select a managed key or generate one here. Only the public key is installed for the ubuntu account; the private key remains encrypted in the vault.
+defaults:
+  cpu_sockets: 1
+  cores_per_socket: 2
+  memory_mb: 2048
+  disk_gb: 20
+  image_id: ubuntu-24.04
+resources:
+  cpu: 2
+  memory_mb: 2048
+  disk_gb: 20
+security:
+  status: local_checks
+  checks: []
+iac:
+  template: main.tf

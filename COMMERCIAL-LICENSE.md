@@ -8,7 +8,7 @@ conditions it sets.
 ## Applying the license to this repository
 
 Every file in this repository is under GPL-3.0-or-later, with one exception:
-files under `modules/*/*/roles/` and `modules/*/*/collections/` come from their
+files under `modules/*/*/roles/`, `modules/*/*/collections/`, `plugins/*/roles/` and `plugins/*/collections/` come from their
 upstream projects and keep their own licenses.
 
 To make the grant explicit without editing every file, include this notice in a

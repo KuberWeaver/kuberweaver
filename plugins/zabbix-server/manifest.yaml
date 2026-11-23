@@ -1,0 +1,79 @@
+id: zabbix-server
+name: Zabbix server on a guest
+version: 1.0.0
+description: Zabbix server brick for an existing Ubuntu guest, wrapping the pinned community.zabbix.zabbix_server role and consuming the PostgreSQL brick's credential handoff.
+category: monitoring
+kind: workload
+capability: live
+engine: ansible
+executor: ansible-workload-v1
+execution_provider: ansible-workload-v1
+requires: compute.vm
+data_class: config
+implementation:
+  role: community.zabbix.zabbix_server
+  version: 4.2.0
+  license: GPL-3.0
+  source: https://github.com/ansible-collections/community.zabbix
+  reason: Maintained collection role that installs the official Zabbix 7 repository, the server package and the database schema.
+schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_uuid
+  - ssh_key_id
+  - database_handoff
+  properties:
+    target_uuid:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$
+    ssh_key_id:
+      type: string
+      pattern: ^[0-9a-f]{32}$
+    server_port:
+      type: integer
+      minimum: 1
+      maximum: 65535
+      default: 10051
+    database_handoff:
+      type: string
+      pattern: ^/[A-Za-z0-9._/-]{1,200}$
+      default: /etc/kuberweaver/postgresql/handoff.json
+    zabbix_version:
+      type: string
+      enum:
+      - "7.0"
+      - "7.2"
+      - "7.4"
+      default: "7.4"
+defaults:
+  server_port: 10051
+  database_handoff: /etc/kuberweaver/postgresql/handoff.json
+  zabbix_version: "7.4"
+resources:
+  cpu: 1
+  memory_mb: 1024
+  disk_gb: 10
+lifecycle:
+  snapshot: snapshot.yml
+  apply: apply.yml
+  verify: verify.yml
+  rollback: rollback.yml
+  remove: remove.yml
+verify:
+  assertions:
+  - id: service-active
+    description: the zabbix-server unit is active
+  - id: port-listening
+    description: the server accepts TCP connections on the configured port
+  - id: version-7
+    description: the installed server reports a Zabbix 7 version
+  - id: database-schema
+    description: the database holds a Zabbix schema version row
+teardown:
+  description: Removing the brick stops the server and removes its package and configuration; the database and its history stay with the db-postgresql brick.
+  removes:
+  - the zabbix-server package when the brick installed it
+  - /etc/zabbix/zabbix_server.conf when the brick wrote it
+  keeps:
+  - the PostgreSQL database, its role and the credential handoff

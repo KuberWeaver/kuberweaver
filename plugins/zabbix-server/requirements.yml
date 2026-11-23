@@ -1,0 +1,9 @@
+---
+# Pinned upstream collection. The brick refuses to run when the installed role
+# does not match this version and checksum. Collections sit beside the
+# lifecycle playbooks so the isolated executor finds them without a global path.
+collections:
+  - name: community.zabbix
+    version: "==4.2.0"
+  - name: community.postgresql
+    version: "==5.1.2"
