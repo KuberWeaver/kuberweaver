@@ -37,8 +37,8 @@ def state_dir() -> Path:
 
 
 def plugins_dir() -> Path:
-    """Reviewed plugin manifests: ``KUBERWEAVER_PLUGINS_DIR``."""
-    return _path('KUBERWEAVER_PLUGINS_DIR', ROOT / 'plugins')
+    """Reviewed module manifests: ``KUBERWEAVER_PLUGINS_DIR``."""
+    return _path('KUBERWEAVER_PLUGINS_DIR', ROOT / 'modules')
 
 
 def frontend_dir() -> Path:

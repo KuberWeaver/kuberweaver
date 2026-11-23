@@ -38,7 +38,7 @@ class Connections:
 
 
 def executor(tmp_path):
-    ex = module().OVFExecutor(tmp_path / 'states', ROOT / 'plugins/vmware-vm')
+    ex = module().OVFExecutor(tmp_path / 'states', ROOT / 'modules/resources/vmware-vm')
     ex.connections = Connections()
     from types import SimpleNamespace
     ex.ssh_keys = SimpleNamespace(binding=lambda identity: {
@@ -466,7 +466,7 @@ def test_admission_accepts_declared_topology_and_charges_total_vcpus(tmp_path):
     graph = job()['graph'] | {'name': 'Topology admission', 'strategy': {'canary': 1, 'batch_size': 1}}
     graph['nodes'] = [dict(graph['nodes'][0], config=dict(graph['nodes'][0]['config'],
                                                          cpu_sockets=2, cores_per_socket=4))]
-    admission = Admission(Catalog(ROOT / 'plugins'), Store(tmp_path / 'state'))
+    admission = Admission(Catalog(ROOT / 'modules'), Store(tmp_path / 'state'))
     result = admission.validate(graph)
     assert result['allowed'], result['violations']
     assert result['cost']['breakdown'][0]['resources']['cpu'] == 8
@@ -480,7 +480,7 @@ def test_admission_refuses_a_total_cpu_field_the_schema_does_not_declare(tmp_pat
     graph = job()['graph'] | {'name': 'Legacy cpu field', 'strategy': {'canary': 1, 'batch_size': 1}}
     graph['nodes'] = [dict(graph['nodes'][0], config=dict(graph['nodes'][0]['config'],
                                                          cpu=2, cpu_sockets=1, cores_per_socket=2))]
-    result = Admission(Catalog(ROOT / 'plugins'), Store(tmp_path / 'state')).validate(graph)
+    result = Admission(Catalog(ROOT / 'modules'), Store(tmp_path / 'state')).validate(graph)
     assert not result['allowed']
     assert [v['code'] for v in result['violations']] == ['config_schema']
     # The offending field name must be reported so the form can be corrected.

@@ -43,7 +43,7 @@ class TofuExecutor:
         self.state_dir = Path(state_dir).absolute()
         self.binary = Path(binary or ROOT / 'tools/tofu').absolute()
         self.runner = runner or subprocess.run
-        self.template_dir = Path(template_dir or ROOT / 'plugins/libvirt-vm')
+        self.template_dir = Path(template_dir or ROOT / 'modules/resources/libvirt-vm')
         # Set by the kernel when the extension runs inside the portal; a
         # standalone executor keeps its per-job folder as its only record.
         self.environments = environments

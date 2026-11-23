@@ -9,6 +9,8 @@ import yaml
 from jsonschema import Draft202012Validator
 from referencing import Registry
 
+from .module_paths import manifest_paths, module_directory
+
 
 class Catalog:
     def __init__(self, directory: Path):
@@ -18,7 +20,7 @@ class Catalog:
     def discover(self):
         items = {}
         self.errors = []
-        for path in sorted(self.directory.glob('*/manifest.yaml')):
+        for path in sorted(manifest_paths(self.directory)):
             try:
                 if path.is_symlink() or not path.resolve().is_relative_to(self.directory.resolve()):
                     raise ValueError('Manifest must remain inside plugins directory')
@@ -63,15 +65,16 @@ class Catalog:
     def fingerprint(self, plugin_id):
         import hashlib
         root = self.directory.resolve()
-        directory = root / plugin_id
-        if directory.is_symlink() or directory.resolve().parent != root or not directory.is_dir():
-            raise ValueError('Invalid plugin source directory')
+        try:
+            directory = module_directory(root, plugin_id)
+        except FileNotFoundError:
+            raise ValueError('Invalid plugin source directory') from None
         digest = hashlib.sha256()
         # Every blueprint conservatively pins the reviewed shared lifecycle tree,
         # including guest helpers loaded by Ansible outside its own directory.
         # Missing shared assets are pinned too, so adding them invalidates approval.
         for tree in (directory, root / '_shared'):
-            if tree.is_symlink() or tree.resolve().parent != root:
+            if tree.is_symlink() or not tree.resolve().is_relative_to(root):
                 raise ValueError('Invalid plugin source directory')
             digest.update(tree.name.encode() + b'\0')
             digest.update(b'present\0' if tree.exists() else b'absent\0')

@@ -15,7 +15,7 @@ Acquire the official image, verify checksums and their Canonical signature, then
 The script requires `/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg`. It stores the OVA and `image.json` under `data/os-images/ubuntu-24.04/`, outside Git. A different existing image is never silently replaced.
 
 ```sh
-.venv/bin/python scripts/plugins.py --data-dir data install examples/extensions/esxi-ovf
+.venv/bin/python scripts/plugins.py --data-dir data install extensions/esxi-ovf
 .venv/bin/python scripts/plugins.py --data-dir data enable esxi-ovf --trust
 ```
 

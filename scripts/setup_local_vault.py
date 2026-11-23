@@ -67,7 +67,7 @@ def _activation_target(data, data_fd):
 
 
 def install(data):
-    source = ROOT / 'examples/extensions/local-vault'
+    source = ROOT / 'extensions/local-vault'
     validate_package(source)
     with _directory(data) as data_fd:
         lock = os.open('.extensions.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,

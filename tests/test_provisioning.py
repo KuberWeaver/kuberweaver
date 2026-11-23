@@ -28,7 +28,7 @@ def job():
 
 
 def test_review_accepts_only_one_closed_independent_dev_vm(tmp_path):
-    ex = module().SavedPlanExecutor(tmp_path, module().ROOT / 'plugins/vsphere-vm')
+    ex = module().SavedPlanExecutor(tmp_path, module().ROOT / 'modules/resources/vsphere-vm')
     request = job()
     reviewed = ex.review(request)
     assert reviewed['name'] == 'kw-aaaaaaaaaaaa-blank-vm'
@@ -89,7 +89,7 @@ class ConnectionsBoundary:
 
 def test_pki_failure_is_explicit_before_tofu_or_sdk(tmp_path, monkeypatch):
     m = module()
-    ex = m.SavedPlanExecutor(tmp_path / 'state', m.ROOT / 'plugins/vsphere-vm',
+    ex = m.SavedPlanExecutor(tmp_path / 'state', m.ROOT / 'modules/resources/vsphere-vm',
                              runner=lambda *a, **kw: pytest.fail('No command on PKI failure'))
     ex.connections = ConnectionsBoundary()
     def certificate_failure(*args, **kwargs):
@@ -107,7 +107,7 @@ def test_local_template_init_validate_and_real_schema(tmp_path):
     if os.environ.get('KW_TOFU_LOCAL_CHECK') != '1':
         pytest.skip('explicit registry download opt-in: KW_TOFU_LOCAL_CHECK=1')
     m = module()
-    template = m.ROOT / 'plugins/vsphere-vm/main.tf'
+    template = m.ROOT / 'modules/resources/vsphere-vm/main.tf'
     assert template.is_file(), 'Reviewed HCL template is missing'
     (tmp_path / 'main.tf').write_bytes(template.read_bytes())
     (tmp_path / '.terraform.lock.hcl').write_bytes((template.parent / '.terraform.lock.hcl').read_bytes())
@@ -134,7 +134,7 @@ def test_local_template_init_validate_and_real_schema(tmp_path):
 
 
 def test_official_provider_stopped_create_blocks_before_planning(tmp_path, monkeypatch):
-    ex = module().SavedPlanExecutor(tmp_path, module().ROOT / 'plugins/vsphere-vm',
+    ex = module().SavedPlanExecutor(tmp_path, module().ROOT / 'modules/resources/vsphere-vm',
                                     runner=lambda *a, **kw: pytest.fail('No command expected'))
     ex.connections = ConnectionsBoundary()
     monkeypatch.setattr(ex, '_tls', lambda connection: 'c' * 64)
@@ -210,7 +210,7 @@ def executor(tmp_path, monkeypatch):
     template = tmp_path / 'template'
     template.mkdir()
     for name in ('manifest.yaml', 'main.tf', '.terraform.lock.hcl'):
-        (template / name).write_bytes((m.ROOT / 'plugins/vsphere-vm' / name).read_bytes())
+        (template / name).write_bytes((m.ROOT / 'modules/resources/vsphere-vm' / name).read_bytes())
     connections = ConnectionsBoundary()
     boundary = TofuBoundary(connections)
     ex = m.SavedPlanExecutor(tmp_path / 'state', template, binary=binary, runner=boundary)
@@ -736,7 +736,7 @@ def test_connection_and_secret_changes_cannot_cross_command_boundary(tmp_path, m
 
 def test_catalogue_has_only_real_discovery_selectors():
     from kuberweaver.catalog import Catalog
-    blueprint = Catalog(module().ROOT / 'plugins').discover()['vsphere-vm']
+    blueprint = Catalog(module().ROOT / 'modules').discover()['vsphere-vm']
     assert blueprint['execution_provider'] == 'vsphere-provisioner'
     assert blueprint['admission_profile'] == 'virtual-machine'
     assert blueprint['capability'] == 'planned' and blueprint['engine'] == 'opentofu'
@@ -751,7 +751,7 @@ def test_catalogue_has_only_real_discovery_selectors():
 def test_extension_is_disabled_until_explicit_trust_and_uses_scoped_data(tmp_path, monkeypatch):
     import shutil
     from kuberweaver.extensions import ExtensionRegistry
-    source = module().ROOT / 'examples/extensions/vsphere-provisioning'
+    source = module().ROOT / 'extensions/vsphere-provisioning'
     assert source.is_dir(), 'Opt-in vSphere extension package missing'
     extensions = tmp_path / 'extensions'
     shutil.copytree(source, extensions / 'vsphere-provisioning')
@@ -764,7 +764,7 @@ def test_extension_is_disabled_until_explicit_trust_and_uses_scoped_data(tmp_pat
     provider = registry.get('execution', 'vsphere-provisioner')
     assert isinstance(provider, module().SavedPlanExecutor)
     assert provider.state_dir == tmp_path / 'plugin-data/vsphere-provisioning/states'
-    assert provider.template_dir == module().ROOT / 'plugins/vsphere-vm'
+    assert provider.template_dir == module().ROOT / 'modules/resources/vsphere-vm'
     assert provider.connections is None  # resolve_provider performs the injection.
     assert not provider.supports_rollback
     fresh = ExtensionRegistry()
@@ -809,7 +809,7 @@ def test_ambiguous_managed_state_never_counts_as_verified(tmp_path, monkeypatch,
 
 def test_reviewed_distribution_lock_precedes_init_and_disallows_reselection(tmp_path, monkeypatch):
     m = module()
-    lock = m.ROOT / 'plugins/vsphere-vm/.terraform.lock.hcl'
+    lock = m.ROOT / 'modules/resources/vsphere-vm/.terraform.lock.hcl'
     assert lock.is_file(), 'Reviewed official provider distribution lock is missing'
     ex, boundary = executor(tmp_path, monkeypatch)
     prepared_job(ex)

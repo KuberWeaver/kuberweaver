@@ -133,7 +133,7 @@ def _brick_contract(plugins_dir, brick_id):
         brick = WorkloadExecutor(Path(plugins_dir) / 'unused', plugins_dir).brick(brick_id)
     except WorkloadError as error:
         raise PresetError(f'brick {brick_id}: {error}') from None
-    lock_path = Path(plugins_dir) / brick_id / 'roles.lock.json'
+    lock_path = brick['_directory'] / 'roles.lock.json'
     _require(lock_path.is_file(), f'brick {brick_id} has no roles.lock.json')
     try:
         lock = json.loads(lock_path.read_text())
@@ -208,7 +208,7 @@ def main(argv=None):
     parser.add_argument('preset', help='path to a preset YAML file')
     parser.add_argument('--uuid', required=True, help='target guest UUID for every step')
     parser.add_argument('--ssh-key', required=True, help='managed SSH key id for every step')
-    parser.add_argument('--plugins', default=str(ROOT / 'plugins'), help='plugin catalogue directory')
+    parser.add_argument('--plugins', default=str(ROOT / 'modules'), help='module catalogue directory')
     arguments = parser.parse_args(argv)
     try:
         preset = load_preset(arguments.preset)

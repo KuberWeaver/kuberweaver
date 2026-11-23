@@ -406,7 +406,7 @@ def test_setup_publishes_only_opt_in_extension_config_and_verifies_readonly(tmp_
 
 def install_example(tmp_path):
     import shutil
-    source = ROOT / "examples/extensions/openbao-local"
+    source = ROOT / "extensions/openbao-local"
     assert source.is_dir(), "optional local OpenBao extension is not implemented"
     extensions = tmp_path / "extensions"
     shutil.copytree(source, extensions / "openbao-local", ignore=shutil.ignore_patterns("__pycache__"))

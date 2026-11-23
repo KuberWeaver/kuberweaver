@@ -15,7 +15,7 @@ import pytest
 from pyVmomi import vim
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "examples/extensions/esxi-runtime"
+PACKAGE = ROOT / "extensions/esxi-runtime"
 sys.path.insert(0, str(ROOT / "backend"))
 
 CONNECTION = {"endpoint": "https://192.0.2.10", "tls_sha256": None}

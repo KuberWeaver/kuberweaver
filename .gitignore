@@ -11,9 +11,9 @@ __pycache__/
 tools/
 
 # Brick roles are installed from their pinned requirements, never committed
-plugins/*/roles/
+modules/*/*/roles/
 # Brick collections are installed from their pinned requirements, never committed
-plugins/*/collections/
+modules/*/*/collections/
 
 # Archived reference material, kept on disk and out of Git
 archive/

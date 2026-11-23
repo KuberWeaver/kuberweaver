@@ -32,7 +32,7 @@ The playbook generates a random password on the guest, stores it in
 handoff (`db_name`, `db_user`, `host`, `port`, `password_file`) to
 `handoff_path`. Neither value is an input, neither is returned by the portal and
 neither is written to Git. A dependent brick reads the handoff by path; the
-preset in `presets/zabbix-7.yaml` is the only consumer in this repository.
+preset in `blueprints/zabbix-7.yaml` is the only consumer in this repository.
 
 ## Lifecycle
 
@@ -44,10 +44,10 @@ preset in `presets/zabbix-7.yaml` is the only consumer in this repository.
 
 ## Install the pinned role and modules
 
-    ansible-galaxy role install -r plugins/db-postgresql/requirements.yml \
-        -p plugins/db-postgresql/roles
+    ansible-galaxy role install -r modules/services/db-postgresql/requirements.yml \
+        -p modules/services/db-postgresql/roles
     ansible-galaxy collection install community.postgresql:==5.1.2 \
-        -p plugins/db-postgresql/collections
+        -p modules/services/db-postgresql/collections
 
 The collection must sit beside the lifecycle playbooks because the isolated
 executor sets no global collection path. The brick refuses to run when the

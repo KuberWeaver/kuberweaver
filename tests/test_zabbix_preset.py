@@ -19,8 +19,8 @@ import yaml
 
 ROOT = Path(__file__).parents[1]
 SCRIPT = ROOT / 'scripts' / 'validate_preset.py'
-PRESET = ROOT / 'presets' / 'zabbix-7.yaml'
-PLUGINS = ROOT / 'plugins'
+PRESET = ROOT / 'blueprints' / 'zabbix-7.yaml'
+PLUGINS = ROOT / 'modules'
 UUID = '6f1c2b3a-4d5e-4f60-8a9b-0c1d2e3f4a5b'
 KEY = 'b' * 32
 
@@ -100,11 +100,11 @@ def test_every_brick_is_a_pinned_live_workload(plan):
         assert brick['execution_provider'] == executor.executor_id
         assert brick['data_class'] in {'config', 'state'}
         assert brick['verify']['assertions']
-        lock = json.loads((PLUGINS / step['brick'] / 'roles.lock.json').read_text())
+        lock = json.loads((PLUGINS / 'services' / step['brick'] / 'roles.lock.json').read_text())
         entry = lock[brick['implementation']['role']]
         assert entry['version'] == brick['implementation']['version']
         for action in ('snapshot', 'apply', 'verify', 'rollback'):
-            assert (PLUGINS / step['brick'] / brick['lifecycle'][action]).is_file()
+            assert (PLUGINS / 'services' / step['brick'] / brick['lifecycle'][action]).is_file()
 
 
 def test_a_bad_uuid_or_key_is_refused(tool, preset):
@@ -159,7 +159,7 @@ def test_a_preset_must_not_carry_the_portal_inputs(tool, tmp_path):
 
 
 def test_a_missing_role_lock_is_refused(tool, tmp_path):
-    source = PLUGINS / 'zabbix-agent'
+    source = PLUGINS / 'services' / 'zabbix-agent'
     target = tmp_path / 'plugins' / 'zabbix-agent'
     target.mkdir(parents=True)
     (target / 'manifest.yaml').write_text((source / 'manifest.yaml').read_text())

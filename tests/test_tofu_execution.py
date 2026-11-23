@@ -151,9 +151,9 @@ def test_planned_catalog_and_disabled_extension_discovery(tmp_path):
     from backend.kuberweaver.catalog import Catalog
     from backend.kuberweaver.extensions import ExtensionRegistry
     module = importlib.import_module('backend.kuberweaver.tofu_execution')
-    assert Catalog(module.ROOT / 'plugins').discover()['libvirt-vm']['capability'] == 'planned'
+    assert Catalog(module.ROOT / 'modules').discover()['libvirt-vm']['capability'] == 'planned'
     registry = ExtensionRegistry()
-    registry.load_directory(module.ROOT / 'examples/extensions', enabled=set())
+    registry.load_directory(module.ROOT / 'extensions', enabled=set())
     assert not any(x['name'] == 'opentofu' for x in registry.list())
 
 

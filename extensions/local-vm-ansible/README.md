@@ -3,7 +3,7 @@
 Opt-in registration of the compound execution provider
 `local-vm-ansible-v1`. It composes a local `local-runtime-v1` provisioner, an
 attested SSH host identity check, and the digest-pinned playbooks in
-`plugins/local-vm-ansible`.
+`modules/resources/local-vm-ansible`.
 
 Nothing here is sandboxed: an extension is trusted Python. Approval, plan
 digests, provenance pins and the command-boundary guards still apply unchanged.
@@ -11,7 +11,7 @@ digests, provenance pins and the command-boundary guards still apply unchanged.
 ## Install
 
 1. Copy this directory into `<state>/extensions/local-vm-ansible` (no symlinks).
-2. Install the reviewed `plugins/local-vm-ansible` brick in the catalog
+2. Install the reviewed `modules/resources/local-vm-ansible` brick in the catalog
    directory.
 3. Install `ansible-core==2.20.11` and an OpenSSH client on the controller.
 4. Provide a guest image the local runtime can boot with the `ubuntu` account,

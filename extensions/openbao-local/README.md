@@ -48,8 +48,8 @@ Success JSON should report `initialized: true`, `sealed: false`, pinned digest, 
 The script **does not install or activate the extension**. After reviewing its code:
 
 ```bash
-.venv/bin/python scripts/plugins.py --data-dir "$STATE" doctor examples/extensions/openbao-local
-.venv/bin/python scripts/plugins.py --data-dir "$STATE" install examples/extensions/openbao-local
+.venv/bin/python scripts/plugins.py --data-dir "$STATE" doctor extensions/openbao-local
+.venv/bin/python scripts/plugins.py --data-dir "$STATE" install extensions/openbao-local
 .venv/bin/python scripts/plugins.py --data-dir "$STATE" enable openbao-local --trust
 ```
 

@@ -20,7 +20,7 @@ be purely observational, and it must say so in its report.
 ## What it proves
 
 - an extension declares `api_version: 1`, a file entrypoint and a capability list;
-- the kernel loads it from `examples/extensions/` after installation;
+- the kernel loads the installed copy from `data/extensions/`;
 - a provider returns a structured result (`mode`, `findings`, `summary`,
   `explanation`), and the explanation states what it does **not** check;
 - a finding carries `provenance`: source event, record path, job id, time;
@@ -28,7 +28,7 @@ be purely observational, and it must say so in its report.
 
 ## Read before writing your own
 
-1. Copy this directory to `examples/extensions/<your-id>/`.
+1. Copy this directory to `extensions/<your-id>/`.
 2. Change `plugin.yaml`: `id`, `description`, and the capabilities you really use.
    Remove every capability you do not implement; an unused declaration widens the
    trust surface for nothing.

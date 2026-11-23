@@ -2,8 +2,8 @@
 
 KuberWeaver is an early-stage, self-hosted infrastructure management prototype:
 one FastAPI kernel (`backend/kuberweaver/`), the `kw` CLI (`kw/`), a declarative
-catalogue of workload bricks (`plugins/*/`) and separately installed Python
-extensions (`examples/extensions/`). This document is written for someone who has
+catalogue of workload bricks (`modules/services/`) and separately installed Python
+extensions (`extensions/`). This document is written for someone who has
 never seen the repository. It does not describe a finished product: the project is
 an early-stage prototype with one maintainer.
 
@@ -17,8 +17,10 @@ privately instead of opening an issue.
 | --- | --- |
 | `backend/kuberweaver/` | FastAPI kernel: HTTP, RBAC, approvals, durable state, audit, orchestration, catalogue and extension registry |
 | `kw/` | Thin CLI client, the reference client over the API |
-| `plugins/` | Declarative bricks: `manifest.yaml`, JSON Schema and Ansible assets |
-| `examples/extensions/` | Independently installable Python extensions (protocol v1) |
+| `modules/resources/` | Infrastructure recipes and manifests |
+| `modules/services/` | Service recipes and manifests |
+| `blueprints/` | Bundled compositions of modules |
+| `extensions/` | Independently installable Python extensions (protocol v1) |
 | `tests/` | pytest suite, including PostgreSQL-backed contracts |
 | `scripts/` | Lifecycle, acceptance and release commands |
 | `ops/` | User systemd units and CI helpers |
@@ -157,9 +159,9 @@ editor checks you use locally, but the three jobs above are the gates.
 
 A brick deploys one reviewed piece of software on one existing guest. It carries
 a manifest, a closed JSON Schema and Ansible playbooks, not kernel branches.
-`plugins/web-nginx/` is the reference implementation.
+`modules/services/web-nginx/` is the reference implementation.
 
-1. Create `plugins/<id>/` with:
+1. Create `modules/services/<id>/` with:
    - `manifest.yaml`: `id`, `name`, `version`, `description`, `category`,
      `kind: workload`, `capability`, `engine`, `executor`, `requires`,
      `data_class`, `implementation` (pinned upstream role, version, license,
@@ -168,7 +170,7 @@ a manifest, a closed JSON Schema and Ansible playbooks, not kernel branches.
      and `iac/remove.yml`, referenced from `lifecycle`.
    - A `README.md` describing the contract and the refusals.
 2. Pin the upstream Ansible role or collection in a requirements file. Never
-   commit `plugins/*/roles/` or `plugins/*/collections/`.
+   commit `modules/*/*/roles/` or `modules/*/*/collections/`.
 3. Declare at least one assertion in `verify.assertions` and prove it on a real
    target. A brick without evidence is refused at preparation time.
 4. Add tests for the refusal cases: unknown target, missing evidence, schema
@@ -194,8 +196,8 @@ Local lifecycle, from the application root:
 
 ```sh
 .venv/bin/python scripts/plugins.py path
-.venv/bin/python scripts/plugins.py doctor examples/extensions/lab-notes
-.venv/bin/python scripts/plugins.py install examples/extensions/lab-notes
+.venv/bin/python scripts/plugins.py doctor extensions/lab-notes
+.venv/bin/python scripts/plugins.py install extensions/lab-notes
 .venv/bin/python scripts/plugins.py enable lab-notes --trust
 .venv/bin/python scripts/plugins.py disable lab-notes
 ```
