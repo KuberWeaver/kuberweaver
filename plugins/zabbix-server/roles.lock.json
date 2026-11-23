@@ -1,7 +1,0 @@
-{
-  "community.zabbix.zabbix_server": {
-    "version": "4.2.0",
-    "sha256": "2855d407527b23bcb50eeb62761dc2f70ba6085b25c0eebba51256b7f1404d63",
-    "license": "GPL-3.0"
-  }
-}

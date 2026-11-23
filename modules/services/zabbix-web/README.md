@@ -32,8 +32,8 @@ appears in the plan or the job result.
 
 ## Install the pinned collection
 
-    ansible-galaxy collection install -r plugins/zabbix-web/requirements.yml \
-        -p plugins/zabbix-web/collections
+    ansible-galaxy collection install -r modules/services/zabbix-web/requirements.yml \
+        -p modules/services/zabbix-web/collections
 
 The collection must sit beside the lifecycle playbooks because the isolated
 executor sets no global collection path.

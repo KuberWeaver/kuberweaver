@@ -88,5 +88,5 @@ not against compromise of the OS account or root.
 
 No bug bounty, no paid incident response, no CVE assignment on request, and no
 support for infrastructure KuberWeaver did not touch. Reports about third-party
-components vendored under `modules/*/*/roles/`, `modules/*/*/collections/`, `plugins/*/roles/` or `plugins/*/collections/` go to
+components vendored under `modules/*/*/roles/` or `modules/*/*/collections/` go to
 their upstream projects.

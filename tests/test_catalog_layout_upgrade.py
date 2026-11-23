@@ -1,30 +1,7 @@
 """Compatibility of reviewed module source pins across a catalogue move."""
-from pathlib import Path
 import shutil
-import subprocess
-import sys
 
 from kuberweaver.catalog import Catalog
-from kuberweaver import configuration
-
-
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def test_release_keeps_the_original_runtime_catalogue_and_template_paths(monkeypatch):
-    monkeypatch.delenv('KUBERWEAVER_PLUGINS_DIR', raising=False)
-    assert configuration.plugins_dir() == ROOT / 'plugins'
-    for path in ('vmware-vm/main.tf', 'vmware-vm/manifest.yaml',
-                 'vsphere-vm/main.tf', 'vsphere-vm/manifest.yaml',
-                 'vsphere-vm/.terraform.lock.hcl'):
-        old = ROOT / 'plugins' / path
-        assert old.is_file() and not old.is_symlink()
-        assert old.read_bytes() == (ROOT / 'modules' / 'resources' / path).read_bytes()
-
-
-def test_runtime_catalogue_matches_tracked_source():
-    subprocess.run([sys.executable, str(ROOT / "scripts/sync_compat_catalog.py"), "--check"],
-                   cwd=ROOT, check=True)
 
 
 def test_moving_source_into_a_group_preserves_reviewed_fingerprint(tmp_path):

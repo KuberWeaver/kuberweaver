@@ -37,6 +37,9 @@ except ImportError:  # pragma: no cover - exercised only in a broken install.
     jsonschema = None
     yaml = None
 
+from .module_paths import LAYOUT_SOURCE, MODULES_DIR, module_directory
+
+
 EXECUTOR_ID = 'local-runtime-v1'
 CONFIG_FILE = 'local-runtime.json'
 ROOT = Path(__file__).resolve().parents[2]
@@ -93,6 +96,8 @@ class LocalExecutor:
     supports_rollback = True
     supports_decommission = True
 
+    source_dependencies = (LAYOUT_SOURCE,)
+
     def __init__(self, state_dir, *, plugins_dir=None, runner=None):
         state_dir = Path(state_dir)
         if not state_dir.is_absolute():
@@ -100,7 +105,7 @@ class LocalExecutor:
         if state_dir.is_symlink():
             raise ValueError('Symlinked local runtime state directory is forbidden')
         self.state_dir = state_dir
-        self.plugins_dir = Path(plugins_dir or ROOT / 'plugins').absolute()
+        self.plugins_dir = Path(plugins_dir or MODULES_DIR).absolute()
         # Kept injectable for direct tests; every normal operation uses the
         # fixed argv built in this file, never a graph-supplied command.
         self.runner = runner or subprocess.run
@@ -366,14 +371,15 @@ class LocalExecutor:
             raise RuntimeError('Local runtime manifest dependencies unavailable')
         if plugin_id not in PLUGINS:
             raise ValueError('Unsupported local runtime brick')
-        directory = self.plugins_dir / plugin_id
+        try:
+            directory = module_directory(self.plugins_dir, plugin_id)
+        except FileNotFoundError:
+            raise ValueError('Local runtime manifest is missing or oversized') from None
         manifest_path = directory / 'manifest.yaml'
         if directory.is_symlink() or manifest_path.is_symlink():
             raise ValueError('Symlinked local runtime manifest is forbidden')
         if not manifest_path.is_file() or manifest_path.stat().st_size > 65536:
             raise ValueError('Local runtime manifest is missing or oversized')
-        if directory.resolve().parent != self.plugins_dir.resolve():
-            raise ValueError('Local runtime manifest is outside the plugin directory')
         manifest = yaml.safe_load(manifest_path.read_text(encoding='utf-8'))
         expected = PLUGINS[plugin_id]
         if (not isinstance(manifest, dict) or manifest.get('id') != plugin_id

@@ -6,7 +6,7 @@ except ModuleNotFoundError:
 
 
 def register(ctx):
-    provider = OVFExecutor(ctx.plugin_data_dir() / 'states', ROOT / 'plugins/vmware-vm')
+    provider = OVFExecutor(ctx.plugin_data_dir() / 'states', ROOT / 'modules/resources/vmware-vm')
     ctx.register('execution', 'esxi-ovf', provider, {
         'label': 'ESXi Ubuntu / OpenTofu + OVF Tool',
         'available': provider.read()['status'] == 'configured', 'status': provider.read()['status'], 'requires_saved_plan': True,
