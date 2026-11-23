@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / 'backend'))
 
 from kuberweaver.catalog import Catalog  # noqa: E402
 from kuberweaver.models import Graph  # noqa: E402
+from kuberweaver.module_paths import module_directory  # noqa: E402
 from kuberweaver.policy import Admission  # noqa: E402
 from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor  # noqa: E402
 
@@ -130,10 +131,13 @@ def dependency_order(steps):
 
 def _brick_contract(plugins_dir, brick_id):
     try:
-        brick = WorkloadExecutor(Path(plugins_dir) / 'unused', plugins_dir).brick(brick_id)
-    except WorkloadError as error:
+        directory = module_directory(plugins_dir, brick_id)
+        brick = WorkloadExecutor(Path(plugins_dir) / 'unused', directory.parent).brick(brick_id)
+    except FileNotFoundError:
+        raise PresetError(f'brick {brick_id}: Unknown brick: {brick_id}') from None
+    except (WorkloadError, ValueError) as error:
         raise PresetError(f'brick {brick_id}: {error}') from None
-    lock_path = Path(plugins_dir) / brick_id / 'roles.lock.json'
+    lock_path = brick['_directory'] / 'roles.lock.json'
     _require(lock_path.is_file(), f'brick {brick_id} has no roles.lock.json')
     try:
         lock = json.loads(lock_path.read_text())
@@ -208,7 +212,7 @@ def main(argv=None):
     parser.add_argument('preset', help='path to a preset YAML file')
     parser.add_argument('--uuid', required=True, help='target guest UUID for every step')
     parser.add_argument('--ssh-key', required=True, help='managed SSH key id for every step')
-    parser.add_argument('--plugins', default=str(ROOT / 'plugins'), help='plugin catalogue directory')
+    parser.add_argument('--plugins', default=str(ROOT / 'plugins'), help='module catalogue directory')
     arguments = parser.parse_args(argv)
     try:
         preset = load_preset(arguments.preset)

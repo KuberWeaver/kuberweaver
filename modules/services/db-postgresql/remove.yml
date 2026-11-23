@@ -1,0 +1,71 @@
+---
+- name: Remove the db-postgresql brick
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    kw_password_file: "{{ kw_config.handoff_path | dirname }}/{{ kw_config.db_user }}.password"
+  tasks:
+    - name: Check whether the managed database still exists
+      ansible.builtin.command:
+        argv: ['psql', '-tAc', "SELECT 1 FROM pg_database WHERE datname='{{ kw_config.db_name }}'"]
+      become_user: postgres
+      register: kw_database
+      changed_when: false
+      failed_when: false
+
+    - name: Refuse to remove a database that still holds data
+      ansible.builtin.fail:
+        msg: >-
+          Database {{ kw_config.db_name }} still exists. This brick cannot restore
+          monitoring history, so removal requires drop_data=true and an accepted
+          data loss.
+      when:
+        - (kw_database.stdout | default('') | trim) == '1'
+        - not (kw_config.drop_data | bool)
+
+    - name: Drop the managed database
+      ansible.builtin.command:
+        argv: ['psql', '-tAc', "DROP DATABASE IF EXISTS \"{{ kw_config.db_name }}\""]
+      become_user: postgres
+      when:
+        - (kw_database.stdout | default('') | trim) == '1'
+        - kw_config.drop_data | bool
+
+    - name: Drop the managed login role
+      ansible.builtin.command:
+        argv: ['psql', '-tAc', "DROP ROLE IF EXISTS \"{{ kw_config.db_user }}\""]
+      become_user: postgres
+      when: kw_config.drop_data | bool
+
+    - name: Stop and disable the cluster
+      ansible.builtin.service:
+        name: postgresql
+        state: stopped
+        enabled: false
+
+    - name: Remove the package
+      ansible.builtin.apt:
+        name: postgresql
+        state: absent
+        purge: true
+
+    - name: Remove the handoff and password files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ kw_config.handoff_path }}"
+        - "{{ kw_password_file }}"
+
+    - name: Persist the removal report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'db-postgresql',
+            'database_dropped': kw_config.drop_data | bool,
+            'package_removed': true
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

@@ -15,6 +15,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from .module_paths import manifest_paths
 from .providers import resolve_provider
 
 OK = 'ok'
@@ -65,8 +66,8 @@ def _plugins(directory):
         root = Path(directory).absolute()
         if root.is_symlink() or not root.is_dir():
             raise ValueError('plugin directory is missing')
-        manifests = sum(1 for child in root.iterdir()
-                        if child.is_dir() and not child.is_symlink() and (child / 'manifest.yaml').is_file())
+        manifests = sum(1 for path in manifest_paths(root)
+                        if not path.parent.is_symlink() and path.is_file())
         if not manifests:
             raise ValueError('no plugin manifests')
     except (OSError, TypeError, ValueError):

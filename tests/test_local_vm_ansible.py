@@ -24,7 +24,7 @@ from kuberweaver.local_vm_ansible import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_DIR = ROOT / 'plugins' / 'local-vm-ansible'
+PLUGIN_DIR = ROOT / 'modules' / 'resources' / 'local-vm-ansible'
 UUID = '564df7bb-3ddf-7a1e-5a9f-f5fc1cb31d7a'
 ANSIBLE = Path(sys.executable).with_name('ansible-playbook')
 
@@ -572,7 +572,7 @@ def test_the_composition_contains_no_fetch_or_shell():
 def test_the_example_extension_package_is_valid():
     from kuberweaver.extensions import validate_package
 
-    manifest = validate_package(ROOT / 'examples' / 'extensions' / 'local-vm-ansible')
+    manifest = validate_package(ROOT / 'extensions' / 'local-vm-ansible')
     assert manifest['id'] == 'local-vm-ansible'
     assert 'providers:execution' in manifest['capabilities']
 
@@ -581,7 +581,7 @@ def _loaded_example(tmp_path):
     from kuberweaver.extensions import ExtensionRegistry
 
     package = tmp_path / 'extensions' / 'local-vm-ansible'
-    shutil.copytree(ROOT / 'examples' / 'extensions' / 'local-vm-ansible', package)
+    shutil.copytree(ROOT / 'extensions' / 'local-vm-ansible', package)
     registry = ExtensionRegistry()
     reports = registry.load_directory(tmp_path / 'extensions', {'local-vm-ansible'})
     assert reports[0]['status'] == 'loaded', reports

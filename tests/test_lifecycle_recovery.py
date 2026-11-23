@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_example_observes_actual_worker_and_selected_diagnostics_reads_durable_evidence(api):
     client, app = api
-    shutil.copytree(ROOT / 'examples/extensions/lab-notes', app.state.extensions_dir / 'lab-notes')
+    shutil.copytree(ROOT / 'extensions/lab-notes', app.state.extensions_dir / 'lab-notes')
     assert client.post('/api/extensions/lab-notes/enable', json={'trusted': True}).status_code == 200
     response = client.patch('/api/providers', json={'bindings': {'diagnostics': 'lab-notes'}})
     assert response.status_code == 200, response.text

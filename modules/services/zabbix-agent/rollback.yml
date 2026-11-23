@@ -1,0 +1,46 @@
+---
+- name: Roll back the zabbix-agent brick
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Restore the previous agent configuration
+      ansible.builtin.copy:
+        dest: /etc/zabbix/zabbix_agentd.conf
+        content: "{{ kw_snapshot.config_content }}"
+        owner: root
+        group: root
+        mode: "0644"
+      when: kw_snapshot.config_existed | bool
+      no_log: true
+
+    - name: Remove a configuration that did not exist before
+      ansible.builtin.file:
+        path: /etc/zabbix/zabbix_agentd.conf
+        state: absent
+      when: not (kw_snapshot.config_existed | bool)
+
+    - name: Stop the agent when it was not running before this brick
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: stopped
+      when: not (kw_snapshot.unit_active | bool)
+
+    - name: Remove the package when the brick installed it
+      ansible.builtin.apt:
+        name: zabbix-agent
+        state: absent
+        purge: true
+      when: not (kw_snapshot.package_installed | bool)
+
+    - name: Persist the rollback report
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'zabbix-agent',
+            'config_restored': kw_snapshot.config_existed | bool,
+            'package_removed': not (kw_snapshot.package_installed | bool)
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

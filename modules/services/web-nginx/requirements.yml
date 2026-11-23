@@ -1,0 +1,6 @@
+---
+# Pinned upstream. The brick refuses to run when the installed role does not
+# match this version and checksum.
+roles:
+  - name: geerlingguy.nginx
+    version: "3.3.1"

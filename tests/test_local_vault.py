@@ -57,7 +57,7 @@ def test_setup_cli_opt_in_extension_and_no_binding_change(tmp_path):
 def test_extension_missing_storage_is_unavailable_without_initializing(tmp_path):
     import shutil
     from kuberweaver.extensions import ExtensionRegistry
-    source = ROOT / 'examples/extensions/local-vault'
+    source = ROOT / 'extensions/local-vault'
     assert source.is_dir(), 'opt-in local vault extension is missing'
     shutil.copytree(source, tmp_path / 'extensions/local-vault')
     registry = ExtensionRegistry()

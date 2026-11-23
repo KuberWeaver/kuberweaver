@@ -1,0 +1,67 @@
+---
+- name: Snapshot the db-postgresql brick target
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    kw_password_file: "{{ kw_config.handoff_path | dirname }}/{{ kw_config.db_user }}.password"
+  tasks:
+    - name: Read the package state
+      ansible.builtin.command:
+        argv: ['dpkg-query', '-W', '-f=${Status}', 'postgresql']
+      register: kw_package
+      changed_when: false
+      failed_when: false
+
+    - name: Read the cluster unit state
+      ansible.builtin.command:
+        argv: ['systemctl', 'is-active', 'postgresql']
+      register: kw_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect the data directory and the generated files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /var/lib/postgresql
+        - "{{ kw_config.handoff_path }}"
+        - "{{ kw_password_file }}"
+      register: kw_paths
+
+    - name: Locate the cluster configuration
+      ansible.builtin.find:
+        paths: /etc/postgresql
+        patterns: ['postgresql.conf', 'pg_hba.conf']
+        recurse: true
+      register: kw_config_files
+      failed_when: false
+
+    - name: Read the cluster configuration
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ kw_config_files.files | default([]) }}"
+      register: kw_config_bodies
+      no_log: true
+
+    - name: Record the configuration content
+      ansible.builtin.set_fact:
+        kw_config_map: "{{ (kw_config_map | default({})) | combine({item.item.path: (item.content | b64decode)}) }}"
+      loop: "{{ kw_config_bodies.results | default([]) }}"
+      no_log: true
+
+    - name: Persist the snapshot
+      ansible.builtin.copy:
+        content: "{{ {
+            'brick': 'db-postgresql',
+            'package_installed': 'install ok installed' in (kw_package.stdout | default('')),
+            'unit_active': (kw_unit.stdout | default('') | trim) == 'active',
+            'data_directory_existed': kw_paths.results[0].stat.exists,
+            'handoff_existed': kw_paths.results[1].stat.exists,
+            'password_existed': kw_paths.results[2].stat.exists,
+            'configs': kw_config_map | default({})
+          } | to_nice_json }}"
+        dest: "{{ kw_result_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

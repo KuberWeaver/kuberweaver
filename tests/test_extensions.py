@@ -295,7 +295,7 @@ class LifecycleTests(PackageFixture, unittest.TestCase):
     def test_example_diagnostic_appears_only_when_enabled(self):
         from kuberweaver.extensions import ExtensionRegistry
         import shutil
-        shutil.copytree(ROOT / "examples" / "extensions" / "lab-notes", self.plugins / "lab-notes")
+        shutil.copytree(ROOT / "extensions" / "lab-notes", self.plugins / "lab-notes")
         registry = ExtensionRegistry()
         report = registry.load_directory(self.plugins, {"lab-notes"})
         self.assertEqual(report[0]["status"], "loaded")

@@ -16,7 +16,7 @@ This file is the project documentation. Detailed reference material that used to
 - **Drift reports:** the nightly read-only comparison of each recorded declaration against the live hypervisor, field by field, with no remediation.
 - **Git-backed declarations:** a CI bundle pins one commit, one stack declaration and one saved OpenTofu plan by SHA-256, verified from the Git object database and executed as-is.
 - **Workload bricks:** one pinned Ansible role on one recorded guest, prepared from the deployment evidence a succeeded provisioning job produced, approved as an exact saved plan.
-- **Presets:** a saved stack graph of workload bricks, validated into dependency-ordered one-brick jobs. The Zabbix 7 preset composes PostgreSQL, the server, the web frontend and the agent on one guest.
+- **Bundled blueprints:** a saved stack graph of workload bricks, validated into dependency-ordered one-brick jobs. The Zabbix 7 blueprint composes PostgreSQL, the server, the web frontend and the agent on one guest.
 - **Users, sessions and single sign-on:** Argon2id password storage, a strength policy, account rotation, cookie flags, absolute and idle timeouts, CSRF binding, login throttling, and an optional external OpenID Connect sign-in that binds to an existing local account.
 
 ## Community
@@ -117,12 +117,16 @@ backend/kuberweaver/
   local_execution.py            administrator-pinned rootless OCI and QEMU
   secrets.py                    replaceable secret sources
 kw/                             thin CLI client, the reference client over the API
-plugins/                        manifests, schemas and Ansible assets
-examples/extensions/            independently installable Python examples
+modules/resources/              infrastructure manifests and provisioning assets
+modules/services/               service manifests and execution assets
+blueprints/                     reusable compositions shipped with the project
+extensions/                     independently installable Python extensions
 scripts/                        lifecycle and acceptance commands
 ops/                            user systemd units
 site/                           static showcase page
 ```
+
+Edit recipes in `modules/`. The checked-in `plugins/` directory is a generated runtime catalogue: keeping the original paths and files preserves existing saved-plan and rollback checks. After changing a recipe, stage its source and run `python3 scripts/sync_compat_catalog.py`, then stage the generated files as well. Install Ansible dependencies into `plugins/` as shown in each recipe. Bundled compositions previously referenced under `presets/` now live under `blueprints/`. A custom flat `KUBERWEAVER_PLUGINS_DIR` still works. Source packages in `extensions/` are separate from installed copies in `data/extensions/`; no reinstall is required for this layout change.
 
 No browser interface ships. A modular GUI can be built on the same API.
 
@@ -131,7 +135,7 @@ A compatible service adds a manifest, JSON Schema and execution assets, not `if 
 Example installation, disabled until explicitly trusted:
 
 ```sh
-.venv/bin/python scripts/plugins.py install examples/extensions/lab-notes
+.venv/bin/python scripts/plugins.py install extensions/lab-notes
 .venv/bin/python scripts/plugins.py doctor lab-notes
 .venv/bin/python scripts/plugins.py enable lab-notes --trust
 .venv/bin/python scripts/plugins.py disable lab-notes
