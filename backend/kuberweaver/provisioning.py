@@ -45,7 +45,12 @@ class SavedPlanExecutor:
 
     def __init__(self, state_dir, template_dir, binary=None, runner=None):
         self.state_dir = Path(state_dir).absolute()
-        self.template_dir = Path(template_dir).absolute()
+        directory = Path(template_dir).absolute()
+        # Installed first-party extensions may still pass their old catalogue path.
+        # Translate only those exact paths, never a custom template directory.
+        if directory.parent == ROOT / 'plugins' and directory.name in {'vmware-vm', 'vsphere-vm'}:
+            directory = ROOT / 'modules' / 'resources' / directory.name
+        self.template_dir = directory
         self.binary = Path(binary or ROOT / 'tools/tofu').absolute()
         self.runner = runner or subprocess.run
         self._active_job: tuple[int, str] | None = None  # Current flock-owning execution thread only.

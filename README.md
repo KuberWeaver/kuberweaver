@@ -126,7 +126,9 @@ ops/                            user systemd units
 site/                           static showcase page
 ```
 
-Edit recipes in `modules/`. The checked-in `plugins/` directory is a generated runtime catalogue: keeping the original paths and files preserves existing saved-plan and rollback checks. After changing a recipe, stage its source and run `python3 scripts/sync_compat_catalog.py`, then stage the generated files as well. Install Ansible dependencies into `plugins/` as shown in each recipe. Bundled compositions previously referenced under `presets/` now live under `blueprints/`. A custom flat `KUBERWEAVER_PLUGINS_DIR` still works. Source packages in `extensions/` are separate from installed copies in `data/extensions/`; no reinstall is required for this layout change.
+`modules/` is the only built-in runtime catalogue. Edit recipes and install their Ansible dependencies in the appropriate `modules/resources/<id>/` or `modules/services/<id>/` directory. Custom catalogues, including flat ones, can still use `KUBERWEAVER_PLUGINS_DIR`. Source packages in `extensions/` are separate from installed copies in `data/extensions/`.
+
+**Upgrading from the former flat layout:** if you explicitly configured `KUBERWEAVER_PLUGINS_DIR` to the old built-in directory, unset it or point it at `modules/`. Reinstall pinned Ansible dependencies at their new paths; do not delete locally downloaded artifacts or state before securing a backup. The bundled VMware extensions can resolve relocated templates for newly prepared plans. Already reviewed plans and historical rollback or retirement operations remain bound to their original sources and paths. Finish pending work on the original installation before upgrading, or prepare and explicitly approve a new request where safe. If an existing deployment still needs a historical rollback or retirement tied to the old sources, keep its original installation and state available for recovery. Never replay an interrupted deployment or rewrite saved pins to make them pass.
 
 No browser interface ships. A modular GUI can be built on the same API.
 

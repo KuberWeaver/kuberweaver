@@ -22,6 +22,8 @@ from typing import Any
 import jsonschema
 import yaml
 
+from .module_paths import LAYOUT_SOURCE, MODULES_DIR, module_directory
+
 
 class WorkloadError(Exception):
     """A brick contract or execution invariant was violated."""
@@ -54,7 +56,7 @@ class WorkloadExecutor:
     def __init__(self, state_dir, plugins_dir=None, *, playbook=None, key_path=None,
                  user='ubuntu', runner=None):
         self.state_dir = Path(state_dir).absolute()
-        self.plugins_dir = Path(plugins_dir or Path(__file__).resolve().parents[2] / 'plugins').absolute()
+        self.plugins_dir = Path(plugins_dir or MODULES_DIR).absolute()
         self.playbook = playbook
         self.key_path = Path(key_path).absolute() if key_path else None
         self.user = user
@@ -66,7 +68,12 @@ class WorkloadExecutor:
 
     def brick(self, brick_id):
         """Load and validate a brick manifest against the contract."""
-        directory = self.plugins_dir / brick_id
+        try:
+            directory = module_directory(self.plugins_dir, brick_id)
+        except FileNotFoundError:
+            raise WorkloadError(f'Unknown brick: {brick_id}') from None
+        except ValueError:
+            raise WorkloadError('Unsafe brick manifest path') from None
         manifest_path = directory / 'manifest.yaml'
         if not manifest_path.is_file() or not directory.is_dir():
             raise WorkloadError(f'Unknown brick: {brick_id}')
@@ -349,10 +356,12 @@ class WorkloadProvider:
     supports_rollback = False
     ssh_keys: Any = None
 
+    source_dependencies = (LAYOUT_SOURCE,)
+
     def __init__(self, state_dir, plugins_dir=None, *, store=None, inspector=None,
                  playbook=None, user='ubuntu'):
         self.state_dir = Path(state_dir).absolute()
-        self.plugins_dir = Path(plugins_dir or Path(__file__).resolve().parents[2] / 'plugins').absolute()
+        self.plugins_dir = Path(plugins_dir or MODULES_DIR).absolute()
         self.store = store
         self.inspector = inspector
         self.playbook = Path(playbook) if playbook else None

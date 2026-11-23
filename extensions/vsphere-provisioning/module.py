@@ -10,7 +10,7 @@ except ModuleNotFoundError:
 
 
 def register(ctx):
-    provider = SavedPlanExecutor(ctx.plugin_data_dir() / 'states', ROOT / 'plugins/vsphere-vm')
+    provider = SavedPlanExecutor(ctx.plugin_data_dir() / 'states', ROOT / 'modules/resources/vsphere-vm')
     ctx.register('execution', 'vsphere-provisioner', provider, {
         'label': 'vSphere / OpenTofu (stopped-create blocked)',
         'available': False, 'status': 'blocked', 'requires_saved_plan': True,

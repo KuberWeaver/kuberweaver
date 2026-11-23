@@ -1,3 +1,0 @@
-#!/bin/sh
-# Fixed trusted transport. No graph can replace this SSH config or destination.
-exec /usr/bin/ssh -F /home/ubu/Desktop/infra-platform-lab/ssh_config "$@"

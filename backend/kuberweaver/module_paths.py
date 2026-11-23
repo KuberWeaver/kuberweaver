@@ -3,6 +3,10 @@ from pathlib import Path
 import re
 
 
+LAYOUT_SOURCE = Path(__file__).resolve()
+MODULES_DIR = LAYOUT_SOURCE.parents[2] / 'modules'
+
+
 def module_roots(root):
     root = Path(root)
     yield root

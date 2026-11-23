@@ -212,7 +212,7 @@ def main(argv=None):
     parser.add_argument('preset', help='path to a preset YAML file')
     parser.add_argument('--uuid', required=True, help='target guest UUID for every step')
     parser.add_argument('--ssh-key', required=True, help='managed SSH key id for every step')
-    parser.add_argument('--plugins', default=str(ROOT / 'plugins'), help='module catalogue directory')
+    parser.add_argument('--plugins', default=str(ROOT / 'modules'), help='module catalogue directory')
     arguments = parser.parse_args(argv)
     try:
         preset = load_preset(arguments.preset)

@@ -1,7 +1,0 @@
-{
-  "community.zabbix.zabbix_agent": {
-    "version": "4.2.0",
-    "sha256": "56bd18dc33463c2e837df3cf9ec4dc922aed0a8b6582cde9594f781519852f22",
-    "license": "GPL-3.0"
-  }
-}

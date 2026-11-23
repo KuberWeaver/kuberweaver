@@ -764,7 +764,7 @@ def test_extension_is_disabled_until_explicit_trust_and_uses_scoped_data(tmp_pat
     provider = registry.get('execution', 'vsphere-provisioner')
     assert isinstance(provider, module().SavedPlanExecutor)
     assert provider.state_dir == tmp_path / 'plugin-data/vsphere-provisioning/states'
-    assert provider.template_dir == module().ROOT / 'plugins/vsphere-vm'
+    assert provider.template_dir == module().ROOT / 'modules/resources/vsphere-vm'
     assert provider.connections is None  # resolve_provider performs the injection.
     assert not provider.supports_rollback
     fresh = ExtensionRegistry()
