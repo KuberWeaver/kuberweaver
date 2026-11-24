@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from kuberweaver.secrets import SecretError, SecretValue
+from backend.secrets import SecretError, SecretValue
 
 
 def vault_module():
     try:
-        return importlib.import_module('kuberweaver.local_vault')
+        return importlib.import_module('backend.local_vault')
     except ModuleNotFoundError:
         pytest.fail('optional local vault implementation is missing')
 
@@ -44,7 +44,7 @@ def test_setup_cli_opt_in_extension_and_no_binding_change(tmp_path):
     repeated = subprocess.run(command + ['--install'], capture_output=True, text=True)
     assert repeated.returncode == 0
     assert json.loads(repeated.stdout)['extension_activation_changed'] is False
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
     registry = ExtensionRegistry()
     reports = registry.load_directory(tmp_path / 'extensions', {'local-vault'})
     assert reports[0]['status'] == 'loaded'
@@ -56,7 +56,7 @@ def test_setup_cli_opt_in_extension_and_no_binding_change(tmp_path):
 
 def test_extension_missing_storage_is_unavailable_without_initializing(tmp_path):
     import shutil
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
     source = ROOT / 'extensions/local-vault'
     assert source.is_dir(), 'opt-in local vault extension is missing'
     shutil.copytree(source, tmp_path / 'extensions/local-vault')
@@ -137,7 +137,7 @@ def test_authenticated_human_ingestion_and_agent_denial_with_real_extension(tmp_
     import sys
     from fastapi.testclient import TestClient
     from test_connections import make_app, login, spec, issue_agent
-    from kuberweaver.runtime import rebuild_registry
+    from backend.runtime import rebuild_registry
     app = make_app(tmp_path, monkeypatch)
     result = subprocess.run([sys.executable, str(ROOT / 'scripts/setup_local_vault.py'),
         '--data-dir', str(app.state.state_dir), '--install'], capture_output=True, text=True)
@@ -228,13 +228,13 @@ def test_interprocess_writes_are_serialized(tmp_path):
     directory = tmp_path / 'vault'
     module.initialize(directory)
     code = '''import os,sys
-from kuberweaver.local_vault import LocalVaultProvider
-from kuberweaver.secrets import SecretValue
+from backend.local_vault import LocalVaultProvider
+from backend.secrets import SecretValue
 p = LocalVaultProvider(sys.argv[1], allow_write=True)
 for i in range(12):
     p.store('shared', SecretValue(bytes([int(sys.argv[2])]) * 4096))
 '''
-    env = {**os.environ, 'PYTHONPATH': str(ROOT / 'backend')}
+    env = {**os.environ, 'PYTHONPATH': str(ROOT)}
     processes = [subprocess.Popen([sys.executable, '-c', code, str(directory), str(index)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) for index in range(1, 5)]
     for process in processes:

@@ -14,7 +14,7 @@ why.
 ```sh
 state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
-  KUBERWEAVER_STATE_DIR="$state" PYTHONPATH=backend \
+  KUBERWEAVER_STATE_DIR="$state" \
   .venv/bin/python -m pytest tests -q
 ```
 

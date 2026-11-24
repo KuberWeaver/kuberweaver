@@ -8,15 +8,14 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'backend'))
 
 
 def module():
-    return importlib.import_module('kuberweaver.mcp_server')
+    return importlib.import_module('backend.mcp_server')
 
 
 def test_only_safe_administrator_origins_and_private_token_files(tmp_path):
-    assert importlib.util.find_spec('kuberweaver.mcp_server') is not None, 'MCP adapter missing'
+    assert importlib.util.find_spec('backend.mcp_server') is not None, 'MCP adapter missing'
     m = module()
     token = tmp_path / 'token'
     token.write_text('test-private-bearer\n')
@@ -115,7 +114,7 @@ def test_complete_domain_surface_exact_paths_types_and_annotations(tmp_path):
     def normalized(body):
         # The tool serializes the validated Graph, so defaults it declares are part
         # of the request body; compare against the same canonical form.
-        from kuberweaver.models import Graph
+        from backend.models import Graph
         return Graph.model_validate(body).model_dump()
 
     mutations = {
@@ -181,7 +180,6 @@ def test_real_stdio_discovery_and_unauthenticated_http_denial(tmp_path):
                     assert denied.isError
                     assert 'HTTP 401' in denied.content[0].text
         asyncio.run(check())
-
 
 from contextlib import contextmanager
 
@@ -340,9 +338,9 @@ def real_api(tmp_path, *, plugins_dir=None):
     # server registers the same review fixture the in-process suites use.
     launcher = tmp_path / 'serve.py'
     launcher.write_text(
-        'from kuberweaver.app import create_app\n'
+        'from backend.app import create_app\n'
         'import uvicorn\n'
-        'from kuberweaver.providers import provider_provenance\n'
+        'from backend.providers import provider_provenance\n'
         '\n'
         'class FixtureExecution:\n'
         "    def execute(self, job, emit):\n"
@@ -355,7 +353,7 @@ def real_api(tmp_path, *, plugins_dir=None):
         "app.state.provider_loaded_sources[('execution', 'recording')] = provider_provenance(app, 'execution', 'recording')\n"
         "app.state.provider_bindings['execution'] = 'recording'\n"
         f'uvicorn.run(app, host="127.0.0.1", port={port}, log_level="error")\n')
-    env = {**os.environ, 'PYTHONPATH': str(ROOT / 'backend')}
+    env = {**os.environ, 'PYTHONPATH': str(ROOT)}
     log = (tmp_path / 'uvicorn.log').open('w+')
     process = subprocess.Popen([sys.executable, str(launcher)], env=env, stdout=log, stderr=log)
     base_url = f'http://127.0.0.1:{port}'

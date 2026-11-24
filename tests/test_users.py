@@ -1,12 +1,8 @@
 """User store, password policy, role checks and bootstrap rotation."""
 import hashlib
-from pathlib import Path
-import sys
 
 import pytest
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 from test_core_auth import bootstrap
 
@@ -16,7 +12,7 @@ ROTATED = 'harbour lantern tide 91'
 
 @pytest.fixture
 def api(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     application = create_app(state_dir=tmp_path, testing=True)
     with TestClient(application) as client:
         yield client, application, tmp_path
@@ -39,7 +35,7 @@ def legacy_hash(password, salt='ab' * 16):
 
 
 def test_argon2id_hash_is_salted_and_verifiable():
-    from kuberweaver.passwords import check_password, hash_password, needs_rehash
+    from backend.passwords import check_password, hash_password, needs_rehash
 
     encoded = hash_password(STRONG)
     assert encoded.startswith('$argon2id$v=19$m=19456,t=2,p=1$')
@@ -52,7 +48,7 @@ def test_argon2id_hash_is_salted_and_verifiable():
 
 
 def test_legacy_pbkdf2_account_keeps_working_and_upgrades_on_login(api):
-    from kuberweaver.passwords import check_password, needs_rehash
+    from backend.passwords import check_password, needs_rehash
 
     client, app, path = api
     legacy = legacy_hash(STRONG)
@@ -72,7 +68,7 @@ def test_legacy_pbkdf2_account_keeps_working_and_upgrades_on_login(api):
     ('x' * 513, 'too_long'),
 ])
 def test_password_policy_refuses_weak_passwords(password, reason):
-    from kuberweaver.passwords import PasswordPolicy, WeakPassword
+    from backend.passwords import PasswordPolicy, WeakPassword
 
     with pytest.raises(WeakPassword) as refusal:
         PasswordPolicy().validate(password, 'freshuser')
@@ -80,7 +76,7 @@ def test_password_policy_refuses_weak_passwords(password, reason):
 
 
 def test_strong_passphrase_without_symbols_is_accepted():
-    from kuberweaver.passwords import PasswordPolicy
+    from backend.passwords import PasswordPolicy
 
     assert PasswordPolicy().validate('tidal harbour lantern 47', 'admin') == 'tidal harbour lantern 47'
 

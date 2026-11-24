@@ -13,8 +13,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
-from kuberweaver.extensions import inspect_directory, read_enabled, validate_package
+sys.path.insert(0, str(ROOT))
+from backend.extensions import inspect_directory, read_enabled, validate_package
 
 
 def safe(path: Path) -> Path:
@@ -58,7 +58,7 @@ def doctor(path: Path, execute: bool, trust: bool) -> dict:
     # A fresh interpreter/temporary data tree protects app registry/state, NOT the host.
     probe = '''import contextlib, io, json, pathlib, shutil, sys, tempfile
 sys.path.insert(0, sys.argv[1])
-from kuberweaver.extensions import ExtensionRegistry
+from backend.extensions import ExtensionRegistry
 with tempfile.TemporaryDirectory(dir=sys.argv[3]) as temporary:
     root = pathlib.Path(temporary) / "extensions"
     root.mkdir()
@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(dir=sys.argv[3]) as temporary:
 '''
     scratch = os.environ.get("TMPDIR", str(Path.home() / ".hermes" / "cache" / "scratch"))
     Path(scratch).mkdir(parents=True, exist_ok=True)
-    result = subprocess.run([sys.executable, "-I", "-c", probe, str(ROOT / "backend"), str(path), scratch, manifest["id"]], text=True, capture_output=True, timeout=15)
+    result = subprocess.run([sys.executable, "-I", "-c", probe, str(ROOT), str(path), scratch, manifest["id"]], text=True, capture_output=True, timeout=15)
     if result.returncode:
         raise ValueError("Isolated doctor failed; no plugin output is disclosed")
     report = json.loads(result.stdout)

@@ -10,10 +10,10 @@ import stat
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'backend'))
-from kuberweaver.local_vault import _atomic, _directory, _read, initialize
-from kuberweaver.secrets import SecretError
-from kuberweaver.extensions import validate_package
+sys.path.insert(0, str(ROOT))
+from backend.local_vault import _atomic, _directory, _read, initialize
+from backend.secrets import SecretError
+from backend.extensions import validate_package
 
 
 def _activation(fd):

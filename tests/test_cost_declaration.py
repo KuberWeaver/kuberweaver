@@ -5,13 +5,8 @@ plus the service's own manifest price, in one currency declared by the node or b
 the manifest.
 """
 import json
-import sys
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from test_core_graph import api, graph  # noqa: E402
 
@@ -101,7 +96,7 @@ def test_a_priced_service_without_any_currency_is_refused(client):
 
 
 def test_an_unknown_currency_code_is_rejected_by_the_catalog(tmp_path):
-    from kuberweaver.catalog import Catalog
+    from backend.catalog import Catalog
     _write_manifest(tmp_path / 'bad-currency',
                     _manifest('bad-currency', price_monthly=5, currency='Euro'))
     catalog = Catalog(tmp_path)

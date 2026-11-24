@@ -33,7 +33,7 @@ class RecordingExecutor:
 
 def install_executor(app, executor, name='recording'):
     """Explicitly register test-injected code before approval, never after it."""
-    from kuberweaver.providers import provider_provenance
+    from backend.providers import provider_provenance
     try:
         app.state.registry.register('execution', name, executor, {'status': 'configured'})
     except ValueError:
@@ -109,7 +109,7 @@ def test_restart_never_reapplies_interrupted_jobs(api):
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     job['status'] = 'running'
     app.state.store.put('jobs', job['id'], job)
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
     with TestClient(restarted) as other:
         login(other, app.state.state_dir, 'admin')

@@ -14,8 +14,8 @@ from test_postgresql_store import pg_file
 
 def make_app(path, monkeypatch):
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
-    from kuberweaver.app import create_app
-    from kuberweaver.local_vault import initialize, LocalVaultProvider
+    from backend.app import create_app
+    from backend.local_vault import initialize, LocalVaultProvider
     app = create_app(state_dir=path / 'state', testing=True)
     directory = path / 'vault'
     if not directory.exists():
@@ -152,7 +152,7 @@ def test_private_material_tamper_fails_sanitized(platform, tmp_path, attack):
         path.write_bytes(b'tampered')
     if attack == 'private-mismatch':
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        from kuberweaver.secrets import SecretValue
+        from backend.secrets import SecretValue
         private = Ed25519PrivateKey.generate().private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.OpenSSH, serialization.NoEncryption())
         secret = SecretValue(private)
         try:
@@ -305,7 +305,7 @@ def test_binding_is_public_only_stable_and_disable_reenable_invalidates(platform
     assert service.binding(key['id']) != before
     app.state.provider_bindings['secrets'] = 'restricted-file'
     assert service.binding(key['id'])['secrets_provider'] == 'test-vault'
-    monkeypatch.setattr('kuberweaver.ssh_keys.provider_provenance', lambda *a, **k: 'changed')
+    monkeypatch.setattr('backend.ssh_keys.provider_provenance', lambda *a, **k: 'changed')
     with pytest.raises(HTTPException) as drift:
         service.binding(key['id'])
     assert drift.value.status_code == 503

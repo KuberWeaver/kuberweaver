@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import pytest
 
-from kuberweaver.storage import Store, StorageError
+from backend.storage import Store, StorageError
 
 
 @pytest.fixture
@@ -12,7 +12,7 @@ def pg_file(tmp_path, monkeypatch):
     import psycopg
     from psycopg.conninfo import make_conninfo
     from psycopg import sql
-    from kuberweaver.postgres import read_dsn_file
+    from backend.postgres import read_dsn_file
     source = Path(os.environ.get('KUBERWEAVER_TEST_DATABASE_URL_FILE', Path(__file__).parents[1] / 'data/postgresql/test-url'))
     if not source.exists():
         pytest.skip('Dedicated PostgreSQL test DSN file not configured')
@@ -33,8 +33,8 @@ def pg_file(tmp_path, monkeypatch):
 
 
 def test_postgresql_store_durable_contract(tmp_path, pg_file):
-    from kuberweaver.agent_auth import AgentTokens
-    from kuberweaver.sessions import Sessions
+    from backend.agent_auth import AgentTokens
+    from backend.sessions import Sessions
     store = Store(tmp_path / 'state')
     assert store.backend == 'postgresql'
     assert not (store.path / 'platform.sqlite3').exists()
@@ -87,7 +87,7 @@ def test_postgresql_fresh_transaction_rollback_and_error_redaction(tmp_path, pg_
 
 
 def test_postgresql_rejects_incompatible_schema_before_bootstrap(tmp_path, pg_file):
-    from kuberweaver.postgres import Connection, read_dsn_file
+    from backend.postgres import Connection, read_dsn_file
     db = Connection(read_dsn_file(pg_file))
     db.execute('CREATE TABLE sessions(token_hash TEXT PRIMARY KEY, user_id TEXT, csrf TEXT, expires REAL)')
     # execute handles only known CREATE IF NOT EXISTS DDL; this deliberately
@@ -99,7 +99,7 @@ def test_postgresql_rejects_incompatible_schema_before_bootstrap(tmp_path, pg_fi
 
 
 def test_schema_without_unique_usernames_is_refused(tmp_path, pg_file):
-    from kuberweaver.postgres import Connection, read_dsn_file
+    from backend.postgres import Connection, read_dsn_file
     db = Connection(read_dsn_file(pg_file))
     db.execute('CREATE TABLE users(id TEXT PRIMARY KEY, username TEXT, role TEXT, password_hash TEXT)')
     with pytest.raises(StorageError, match='schema'):
@@ -128,7 +128,7 @@ def test_exclusive_controller_lock(tmp_path, pg_file):
 
 
 def test_test_role_is_not_administrative(pg_file):
-    from kuberweaver.postgres import Connection, read_dsn_file
+    from backend.postgres import Connection, read_dsn_file
     db = Connection(read_dsn_file(pg_file))
     assert db.execute('SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user').fetchone() == {'rolsuper': False, 'rolcreatedb': False, 'rolcreaterole': False}
     db.close()
@@ -138,7 +138,7 @@ def test_exclusive_locks_are_schema_scoped(tmp_path, monkeypatch, pg_file):
     import uuid
     from psycopg import sql
     from psycopg.conninfo import make_conninfo
-    from kuberweaver.postgres import Connection, read_dsn_file
+    from backend.postgres import Connection, read_dsn_file
     first = Store(tmp_path / 'one', exclusive=True)
     db = Connection(read_dsn_file(pg_file))
     schema = 'kw_test_' + uuid.uuid4().hex
@@ -176,7 +176,7 @@ def test_empty_explicit_database_file_never_falls_back(tmp_path, monkeypatch):
 
 
 def test_sql_translation_preserves_literals():
-    from kuberweaver.postgres import translate_sql
+    from backend.postgres import translate_sql
     assert translate_sql("SELECT '?' AS q, ? AS value -- ?\n", (1,)) == "SELECT '?' AS q, %s AS value -- ?\n"
     sql = translate_sql('INSERT OR REPLACE INTO jobs(id,body) VALUES(?,?)', ('id', '{}'))
     assert 'ON CONFLICT (id) DO UPDATE' in sql
@@ -199,7 +199,7 @@ def test_private_config_file_required(tmp_path, monkeypatch):
 
 
 def test_bootstrap_existing_credentials_rolls_back_and_releases_lease(tmp_path, pg_file, monkeypatch):
-    from kuberweaver.postgres import Connection, read_dsn_file
+    from backend.postgres import Connection, read_dsn_file
     state = tmp_path / 'state'
     state.mkdir()
     credentials = state / 'bootstrap-credentials.txt'
@@ -228,8 +228,8 @@ def test_bootstrap_existing_credentials_rolls_back_and_releases_lease(tmp_path, 
 
 @pytest.mark.parametrize('committed', [False, True])
 def test_bootstrap_commit_uncertainty_preserves_recovery_file(tmp_path, pg_file, monkeypatch, committed):
-    from kuberweaver.postgres import Connection, read_dsn_file
-    from kuberweaver.storage import check_password
+    from backend.postgres import Connection, read_dsn_file
+    from backend.storage import check_password
     original = Connection.commit
     def fail(self):
         if committed:
@@ -262,7 +262,7 @@ def test_bootstrap_commit_uncertainty_preserves_recovery_file(tmp_path, pg_file,
 
 @pytest.mark.parametrize('rollback_fails', [False, True])
 def test_bootstrap_publication_failure_cleanup_requires_confirmed_rollback(tmp_path, pg_file, monkeypatch, rollback_fails):
-    from kuberweaver.postgres import Connection, read_dsn_file, acquire_controller_lock
+    from backend.postgres import Connection, read_dsn_file, acquire_controller_lock
     def fail_sync(fd):
         raise OSError('injected publication failure')
     def fail_rollback(self):

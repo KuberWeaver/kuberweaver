@@ -69,9 +69,9 @@ if ! vault_output="$("$PYTHON" scripts/setup_local_vault.py --data-dir "$STATE/d
 fi
 
 echo "starting a throwaway server on 127.0.0.1:$PORT"
-PYTHONPATH="$ROOT/backend" KUBERWEAVER_STATE_DIR="$STATE/data" \
+KUBERWEAVER_STATE_DIR="$STATE/data" \
   KUBERWEAVER_PLUGINS_DIR="$ROOT/modules" \
-  "$PYTHON" -m uvicorn kuberweaver.app:app --host 127.0.0.1 --port "$PORT" \
+  "$PYTHON" -m uvicorn backend.app:app --host 127.0.0.1 --port "$PORT" \
   --log-level warning >/dev/null 2>&1 &
 SERVER_PID=$!
 

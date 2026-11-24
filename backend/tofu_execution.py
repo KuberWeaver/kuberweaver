@@ -16,12 +16,9 @@ import re
 import subprocess
 from xml.etree import ElementTree as ET
 
-try:
-    from .configuration import require_ssh_config, ssh_config
-except ImportError:  # Standalone loading used by provisioning tests.
-    from backend.kuberweaver.configuration import require_ssh_config, ssh_config
+from .configuration import require_ssh_config, ssh_config
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 SSH_CONFIG = ssh_config()
 ALIAS = 'infra-hypervisor'
 PROVIDER_VERSION = '0.9.9'

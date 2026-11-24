@@ -2,15 +2,11 @@
 import hashlib
 import json
 import stat
-import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.environment_state import EnvironmentStates, StateConflict, StateError
+from backend.environment_state import EnvironmentStates, StateConflict, StateError
 from test_postgresql_store import pg_file  # noqa: F401  fixture
 
 JOB_A = 'a' * 32
@@ -28,7 +24,7 @@ DIGEST = hashlib.sha256(json.dumps(DOCUMENT, sort_keys=True,
 def make_app(path, monkeypatch, name='state'):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -310,7 +306,7 @@ def test_agent_tokens_use_the_infrastructure_scope(platform):
 
 
 def test_postgresql_registers_the_state_tables(tmp_path, pg_file):
-    from kuberweaver.storage import Store
+    from backend.storage import Store
 
     store = Store(tmp_path / 'pg-state')
     try:

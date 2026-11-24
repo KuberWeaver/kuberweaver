@@ -1,17 +1,13 @@
 """Drift reports: per-field comparison of recorded state against live resources."""
 import json
-import sys
 import time
 from contextlib import contextmanager
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.adoption import connection_inspector, marker_digest
-from kuberweaver.drift import (DEFAULT_INTERVAL, DRIFT, EMPTY, IN_SYNC,
+from backend.adoption import connection_inspector, marker_digest
+from backend.drift import (DEFAULT_INTERVAL, DRIFT, EMPTY, IN_SYNC,
                                INTERVAL_VARIABLE, UNAVAILABLE, UNSUPPORTED,
                                UNVERIFIED, DriftLoop, DriftService,
                                declared_attributes, drift_schedule)
@@ -38,7 +34,7 @@ def make_app(path, monkeypatch, name='state'):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
     monkeypatch.delenv(INTERVAL_VARIABLE, raising=False)
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -459,8 +455,8 @@ def test_the_kernel_wires_the_drift_service(platform):
 
 
 def test_postgresql_registers_the_drift_table(tmp_path, pg_file):
-    from kuberweaver.environment_state import EnvironmentStates
-    from kuberweaver.storage import Store
+    from backend.environment_state import EnvironmentStates
+    from backend.storage import Store
 
     store = Store(tmp_path / 'pg-drift')
     try:

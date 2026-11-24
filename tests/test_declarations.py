@@ -3,19 +3,16 @@ import hashlib
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.declarations import (DeclarationService, GitRepository, PlanApplier,
+from backend.declarations import (DeclarationService, GitRepository, PlanApplier,
                                       PlanExecutionError, repository_status)
-from kuberweaver.environment_state import EnvironmentStates
-from kuberweaver.storage import Store
+from backend.environment_state import EnvironmentStates
+from backend.storage import Store
 from test_postgresql_store import pg_file  # noqa: F401  fixture
 
 PLAN = b'PK\x03\x04' + b'pinned plan bytes'
@@ -148,7 +145,7 @@ def login(client, app, role='admin'):
 @pytest.fixture
 def web(tmp_path, monkeypatch):
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(tmp_path / 'module-app'))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     app = create_app(state_dir=tmp_path / 'web-state', testing=True)
     with TestClient(app) as client:
         login(client, app)

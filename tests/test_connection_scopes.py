@@ -1,7 +1,7 @@
 """Agent scopes cover connection metadata, not credential ingestion."""
 import pytest
 
-from kuberweaver.agent_auth import permits, required_scope
+from backend.agent_auth import permits, required_scope
 
 IDENTITY = 'a' * 32
 

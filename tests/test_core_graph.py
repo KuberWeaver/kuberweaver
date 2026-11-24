@@ -1,12 +1,9 @@
 import copy
 import json
-import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from test_core_auth import bootstrap
 
 
@@ -34,8 +31,8 @@ def graph():
 
 @pytest.fixture
 def api(tmp_path):
-    from kuberweaver.app import create_app
-    from kuberweaver.providers import provider_provenance
+    from backend.app import create_app
+    from backend.providers import provider_provenance
     from test_core_jobs import RecordingExecutor
     plugins = tmp_path / 'plugins'
     manifest(plugins)

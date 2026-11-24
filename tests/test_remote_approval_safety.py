@@ -11,7 +11,7 @@ from test_remote_gitops import git, configure
 
 
 def paused_publication(api, tmp_path, monkeypatch):
-    import kuberweaver.gitops as module
+    import backend.gitops as module
     client, app = api
     remote = tmp_path / 'reserved.git'
     git(tmp_path, 'init', '--bare', str(remote))
@@ -66,7 +66,7 @@ def test_one_claim_excludes_concurrent_approval_reject_and_rollback(api, tmp_pat
 
 @pytest.mark.parametrize('drift', ['graph', 'reject', 'source', 'manifest', 'provider', 'policy', 'remote_policy'])
 def test_publication_drift_never_queues_stale_approval(api, tmp_path, monkeypatch, drift):
-    import kuberweaver.jobs as module
+    import backend.jobs as module
     client, app, remote, enqueued, job, entered, release = paused_publication(api, tmp_path, monkeypatch)
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(client.post, f"/api/jobs/{job['id']}/approve")

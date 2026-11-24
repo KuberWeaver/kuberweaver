@@ -7,8 +7,8 @@ as unavailable and every preparation is refused: no silent fallback.
 import importlib.util
 from pathlib import Path
 
-from kuberweaver import configuration
-from kuberweaver.local_vm_ansible import LocalVmAnsibleProvider
+from backend import configuration
+from backend.local_vm_ansible import LocalVmAnsibleProvider
 
 ADAPTER = 'runtime_adapter.py'
 

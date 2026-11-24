@@ -26,15 +26,15 @@ def configure(state, remote, **extra):
 
 
 def test_missing_config_is_disabled_without_git(tmp_path):
-    assert importlib.util.find_spec('kuberweaver.gitops') is not None
-    remote = importlib.import_module('kuberweaver.gitops')
+    assert importlib.util.find_spec('backend.gitops') is not None
+    remote = importlib.import_module('backend.gitops')
     assert remote.publish(tmp_path, 'a' * 40) == {
         'status': 'disabled', 'required_before_execution': True, 'verified_commit': None}
     assert remote.safe_status(tmp_path)['status'] == 'disabled'
 
 
 def test_approval_publishes_exact_local_commit(api, tmp_path):
-    from kuberweaver.gitops import safe_status
+    from backend.gitops import safe_status
     client, app = api
     remote = tmp_path / 'destination.git'
     git(tmp_path, 'init', '--bare', str(remote))
@@ -66,7 +66,7 @@ def test_approval_publishes_exact_local_commit(api, tmp_path):
     {'unexpected': 'secret'}, {'enabled': False, 'remote_url': 'https://bad'},
 ])
 def test_invalid_configuration_fails_closed(tmp_path, change):
-    from kuberweaver.gitops import safe_status, publish
+    from backend.gitops import safe_status, publish
     configure(tmp_path, tmp_path / 'remote.git', **change)
     expected = {'status': 'configuration_error', 'required_before_execution': True, 'verified_commit': None}
     assert safe_status(tmp_path) == expected
@@ -75,7 +75,7 @@ def test_invalid_configuration_fails_closed(tmp_path, change):
 
 @pytest.mark.parametrize('url', ['ssh://git@gitops.example.org/team/plans.git', 'git@gitops.example.org:team/plans.git'])
 def test_approved_ssh_configuration_is_safe_to_present(tmp_path, url):
-    from kuberweaver.gitops import safe_status
+    from backend.gitops import safe_status
     configure(tmp_path, url, allow_local_test_path=False)
     assert safe_status(tmp_path) == {'status': 'configured', 'required_before_execution': True, 'verified_commit': None}
 
@@ -129,7 +129,7 @@ def install_git_boundary(tmp_path, monkeypatch, behavior):
 
 @pytest.mark.parametrize('mode,expected', [('timeout', 'timeout'), ('output', 'output_limit'), ('readback', 'verification_failed')])
 def test_remote_process_failures_never_queue_or_leak(api, tmp_path, monkeypatch, mode, expected):
-    import kuberweaver.gitops as module
+    import backend.gitops as module
     client, app = api
     remote = tmp_path / 'boundary.git'
     git(tmp_path, 'init', '--bare', str(remote))
@@ -173,7 +173,7 @@ def test_explicitly_disabled_preserves_local_artifact_and_job_shape(api, tmp_pat
 
 
 def test_duplicate_config_fields_are_not_an_approval_authority(tmp_path):
-    from kuberweaver.gitops import safe_status
+    from backend.gitops import safe_status
     config = tmp_path / 'config'
     config.mkdir()
     (config / 'gitops.json').write_text('{"enabled": true, "enabled": false}')
@@ -218,7 +218,7 @@ def test_fast_forward_ignores_local_rewrites_and_never_runs_hooks(api, tmp_path,
 
 @pytest.mark.parametrize('via_chatops', [False, True])
 def test_real_remote_commands_never_hold_shared_store_lock(api, tmp_path, monkeypatch, via_chatops):
-    import kuberweaver.gitops as module
+    import backend.gitops as module
     from test_chatops import setup_chatops, issue, signed
     client, app = api
     remote = tmp_path / 'unlocked.git'
@@ -244,8 +244,8 @@ def test_real_remote_commands_never_hold_shared_store_lock(api, tmp_path, monkey
 
 @pytest.mark.parametrize('crash_point', ['publication', 'revalidation'])
 def test_interrupted_approval_is_durable_and_never_retried(api, monkeypatch, crash_point):
-    import kuberweaver.jobs as module
-    from kuberweaver.storage import Store
+    import backend.jobs as module
+    from backend.storage import Store
     from fastapi import HTTPException
     client, app = api
     enqueued = []

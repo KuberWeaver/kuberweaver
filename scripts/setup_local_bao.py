@@ -18,8 +18,8 @@ from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
-from kuberweaver.secrets import OpenBaoProvider, SecretError, SecretValue, _protected_read
+sys.path.insert(0, str(ROOT))
+from backend.secrets import OpenBaoProvider, SecretError, SecretValue, _protected_read
 
 SCOPE = "kuberweaver/connections"
 POLICY_NAME = "kuberweaver-v2-connections"

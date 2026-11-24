@@ -1,13 +1,10 @@
 """External dashboard registry: real SQLite and auth, no outbound request."""
 import json
 import re
-import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 
 def spec(**changes):
@@ -30,7 +27,7 @@ def make_app(path, monkeypatch, origins=None, name='state'):
         monkeypatch.delenv('KUBERWEAVER_DASHBOARD_EMBED_ORIGINS', raising=False)
     else:
         monkeypatch.setenv('KUBERWEAVER_DASHBOARD_EMBED_ORIGINS', origins)
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -358,7 +355,7 @@ def test_deep_links_keep_the_probe_on_the_same_origin(platform):
 
 
 def test_postgresql_registers_the_dashboard_table():
-    from kuberweaver.postgres import COLUMNS, DDL, translate_sql
+    from backend.postgres import COLUMNS, DDL, translate_sql
     assert COLUMNS['dashboards'] == ('id', 'body')
     statement = translate_sql('CREATE TABLE IF NOT EXISTS dashboards(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
     assert statement == f'CREATE TABLE IF NOT EXISTS dashboards ({DDL["dashboards"]})'

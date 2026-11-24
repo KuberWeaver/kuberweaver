@@ -35,7 +35,7 @@ from .environment_state import StateConflict, StateError
 from .models import Graph
 from .storage import now
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 CONFIG_FILE = 'declarations.json'
 MAX_CONFIG = 16384
 MAX_BUNDLE = 65536

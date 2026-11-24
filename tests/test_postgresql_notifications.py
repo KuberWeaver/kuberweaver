@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-from kuberweaver.notifications import NotificationError, WebhookNotifications
+from backend.notifications import NotificationError, WebhookNotifications
 from test_notifications_delivery import setup_app, event, receiver
 
 
@@ -32,8 +32,8 @@ def pg_store(tmp_path, monkeypatch):
     psycopg = pytest.importorskip('psycopg')
     from psycopg.conninfo import conninfo_to_dict, make_conninfo
     from psycopg import sql
-    from kuberweaver.postgres import read_dsn_file
-    from kuberweaver.storage import Store
+    from backend.postgres import read_dsn_file
+    from backend.storage import Store
 
     source = Path(os.environ.get('KUBERWEAVER_TEST_DATABASE_URL_FILE',
                   Path(__file__).resolve().parents[1] / 'data/postgresql/test-url'))

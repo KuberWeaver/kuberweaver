@@ -18,8 +18,8 @@ import sqlite3
 import struct
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from kuberweaver.postgres import COLUMNS, DDL, ORDERED, Connection, StorageError, acquire_controller_lock, initialize, read_dsn_file
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from backend.postgres import COLUMNS, DDL, ORDERED, Connection, StorageError, acquire_controller_lock, initialize, read_dsn_file
 
 
 @contextmanager

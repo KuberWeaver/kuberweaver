@@ -22,7 +22,7 @@ re-read files already established above.
 # tests, disposable state, never the live data/ directory
 state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
-  KUBERWEAVER_STATE_DIR="$state" PYTHONPATH=backend \
+  KUBERWEAVER_STATE_DIR="$state" \
   .venv/bin/python -m pytest tests -q --tb=short
 
 # one file
@@ -75,7 +75,7 @@ Copy `plugins/web-nginx/` (manifest plus `iac/` playbooks). Change the manifest:
 
 | Path | Role |
 | --- | --- |
-| `backend/kuberweaver/` | kernel, HTTP, sessions, RBAC, approvals, storage |
+| `backend/` | kernel, HTTP, sessions, RBAC, approvals, storage |
 | `kw/` | reference CLI over the API |
 | `plugins/<id>/` | service catalogue entries (manifest + Ansible) |
 | `examples/extensions/<id>/` | Python extensions, protocol v1 |

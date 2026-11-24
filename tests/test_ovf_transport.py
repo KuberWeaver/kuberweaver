@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 def transport():
-    path = ROOT / 'backend/kuberweaver/ovf_transport.py'
+    path = ROOT / 'backend/ovf_transport.py'
     assert path.exists(), 'Pin-only native transport not implemented'
     spec = importlib.util.spec_from_file_location('ovf_transport_test', path)
     module = importlib.util.module_from_spec(spec)

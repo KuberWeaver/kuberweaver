@@ -127,7 +127,7 @@ def record_evidence(app, *, uuid=UUID, address=ADDRESS, environment='dev', job_i
 
 @pytest.fixture
 def portal(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     plugins = tmp_path / 'plugins'
     write_brick(plugins)
     app = create_app(state_dir=tmp_path / 'data', plugins_dir=plugins, testing=True)

@@ -42,7 +42,7 @@ from .module_paths import LAYOUT_SOURCE, MODULES_DIR, module_directory
 
 EXECUTOR_ID = 'local-runtime-v1'
 CONFIG_FILE = 'local-runtime.json'
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 JOB_ID = re.compile(r'[0-9a-f]{32}\Z')
 NODE_ID = re.compile(r'[a-z0-9][a-z0-9-]{0,63}\Z')

@@ -8,12 +8,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
 
 
 class RegistryTests(unittest.TestCase):
     def test_registration_is_generic_unique_and_json_safe(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         registry = ExtensionRegistry()
         provider = object()
         description = {"label": "Local provider", "nested": {"version": 1}}
@@ -33,7 +32,7 @@ class RegistryTests(unittest.TestCase):
             registry.register("diagnostics", "secret-repr", provider, {"unsafe": provider})
 
     def test_hook_system_exit_is_reported_and_async_hooks_rejected(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         registry = ExtensionRegistry()
         def stop(_payload):
             raise SystemExit(2)
@@ -46,7 +45,7 @@ class RegistryTests(unittest.TestCase):
             registry.add_hook("job_finished", unsupported)
 
     def test_hooks_copy_nested_payloads_and_isolate_failures(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         registry = ExtensionRegistry()
         payload = {"approval": {"allowed": False}}
         seen = []
@@ -89,7 +88,7 @@ class PackageFixture:
 
 class LoadingTests(PackageFixture, unittest.TestCase):
     def test_manifest_path_and_schema_validation_is_fail_closed(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         for index, entrypoint in enumerate(("../escape.py", "/module.py", "sub/module.py")):
             self.plugin(f"traversal-{index}", entrypoint=entrypoint)
         linked = self.plugin("linked")
@@ -108,7 +107,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         json.dumps(reports)
 
     def test_duplicate_ids_are_both_rejected(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin("one", plugin_id="same")
         self.plugin("two", plugin_id="same")
         reports = ExtensionRegistry().load_directory(self.plugins, {"same"})
@@ -116,7 +115,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertTrue(all(r["error"] == "Duplicate extension id" for r in reports))
 
     def test_enabled_registration_is_atomic_and_valid_siblings_survive(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin("broken", capabilities=["providers:diagnostics", "hooks:job_finished"], code='''
             def register(ctx):
                 ctx.register("diagnostics", "partial", lambda: None)
@@ -139,7 +138,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual(registry.load_directory(self.plugins, {"working"})[1]["status"], "error")
 
     def test_undeclared_capabilities_are_rejected(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         cases = {
             "provider": 'ctx.register("infrastructure", "bad", object())',
             "hook": 'ctx.add_hook("job_finished", lambda payload: None)',
@@ -153,7 +152,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual(registry.list(), [])
 
     def test_data_directory_is_contained_persistent_and_rejects_symlinks(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin(capabilities=["data:read-write", "providers:diagnostics"], code='''
             def register(ctx):
                 state = ctx.plugin_data_dir()
@@ -177,7 +176,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual(list(outside.iterdir()), [])
 
     def test_async_registration_and_import_exits_are_isolated(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin("async-plugin", code="async def register(ctx): pass\n")
         self.plugin("exits", code="raise SystemExit(99)\n")
         self.plugin("valid")
@@ -186,7 +185,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual([r["status"] for r in reports], ["error", "error", "loaded"])
 
     def test_context_identity_and_capabilities_cannot_be_reassigned(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin(capabilities=["providers:diagnostics"], code='''
             def register(ctx):
                 for field, value in (("plugin_id", "other"), ("capabilities", frozenset({"providers:infrastructure"}))):
@@ -204,7 +203,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual([r["name"] for r in registry.list()], ["later"])
 
     def test_conflicting_provider_rolls_back_all_new_entries_and_hooks(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         self.plugin(capabilities=["providers:diagnostics", "hooks:job_finished"], code='''
             def register(ctx):
                 ctx.register("diagnostics", "unique", object())
@@ -220,7 +219,7 @@ class LoadingTests(PackageFixture, unittest.TestCase):
         self.assertEqual(registry.emit("job_finished", {}), [])
 
     def test_disabled_extensions_are_never_imported(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         sentinel = self.base / "executed"
         self.plugin(code=f"from pathlib import Path\nPath({str(sentinel)!r}).touch()\ndef register(ctx): pass\n")
         for enabled in (None, set()):
@@ -239,7 +238,7 @@ class LifecycleTests(PackageFixture, unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_local_install_is_disabled_until_explicit_trust_and_enable(self):
-        from kuberweaver.extensions import read_enabled
+        from backend.extensions import read_enabled
         source = self.plugin()
         self.cli("install", str(source))
         config = self.base / "data" / "extensions.json"
@@ -275,7 +274,7 @@ class LifecycleTests(PackageFixture, unittest.TestCase):
         self.assertEqual(result["status"], "error")
 
     def test_duplicate_yaml_fields_and_symlinked_packages_are_rejected(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         source = self.plugin()
         with (source / "plugin.yaml").open("a") as stream:
             stream.write("id: shadow-id\n")
@@ -284,7 +283,7 @@ class LifecycleTests(PackageFixture, unittest.TestCase):
         self.assertEqual([r["status"] for r in reports], ["error", "error"])
 
     def test_config_fails_closed_when_malformed(self):
-        from kuberweaver.extensions import read_enabled
+        from backend.extensions import read_enabled
         config = self.base / "extensions.json"
         self.assertEqual(read_enabled(config), set())
         for value in ('not json', '{"enabled":"demo"}', '{"schema_version":1,"enabled":["../escape"]}'):
@@ -293,7 +292,7 @@ class LifecycleTests(PackageFixture, unittest.TestCase):
                 read_enabled(config)
 
     def test_example_diagnostic_appears_only_when_enabled(self):
-        from kuberweaver.extensions import ExtensionRegistry
+        from backend.extensions import ExtensionRegistry
         import shutil
         shutil.copytree(ROOT / "extensions" / "lab-notes", self.plugins / "lab-notes")
         registry = ExtensionRegistry()

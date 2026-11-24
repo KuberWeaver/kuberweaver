@@ -56,5 +56,5 @@ No full CRUD or universal rollback is provided. An ambiguous import may leave re
 Local tests run real OpenTofu with an injected importer; they do not alone prove Ubuntu boots. Local TLS tests check wrong-pin rejection before an HTTP request. Import, OS and SSH acceptance require an actually approved plan against the target ESXi. Passing local tests is not production-maturity evidence.
 
 ```sh
-KUBERWEAVER_STATE_DIR=/path/to/test-state PYTHONPATH=backend .venv/bin/python -m pytest tests/test_ovf_provisioning.py tests/test_ovf_transport.py -q
+KUBERWEAVER_STATE_DIR=/path/to/test-state .venv/bin/python -m pytest tests/test_ovf_provisioning.py tests/test_ovf_transport.py -q
 ```

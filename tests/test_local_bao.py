@@ -8,8 +8,7 @@ import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
-from kuberweaver.secrets import SecretError
+from backend.secrets import SecretError
 
 
 def load_setup():
@@ -414,7 +413,7 @@ def install_example(tmp_path):
 
 
 def test_missing_extension_config_registers_safe_unconfigured_provider(tmp_path):
-    from kuberweaver.extensions import ExtensionRegistry, validate_package
+    from backend.extensions import ExtensionRegistry, validate_package
     extensions = install_example(tmp_path)
     manifest = validate_package(extensions / "openbao-local")
     assert set(manifest["capabilities"]) == {"providers:secrets", "data:read-write"}
@@ -430,8 +429,8 @@ def test_missing_extension_config_registers_safe_unconfigured_provider(tmp_path)
 
 @pytest.mark.parametrize("operation", ["store", "resolve"])
 def test_registered_extension_reserves_setup_marker_before_network(tmp_path, monkeypatch, http_api, operation):
-    from kuberweaver.extensions import ExtensionRegistry
-    from kuberweaver.secrets import SecretValue
+    from backend.extensions import ExtensionRegistry
+    from backend.secrets import SecretValue
     import traceback
 
     setup = load_setup()
@@ -467,8 +466,8 @@ def test_registered_extension_reserves_setup_marker_before_network(tmp_path, mon
 
 @pytest.mark.parametrize("reference", ["test-connection", "setup-check-other", "setup-check/connection", "connection/setup-check"])
 def test_configured_extension_reuses_provider_without_network_at_registration(tmp_path, monkeypatch, http_api, reference):
-    from kuberweaver.extensions import ExtensionRegistry
-    from kuberweaver.secrets import OpenBaoProvider, SecretValue
+    from backend.extensions import ExtensionRegistry
+    from backend.secrets import OpenBaoProvider, SecretValue
     setup = load_setup()
     fixture = BaoFixture()
     extensions = install_example(tmp_path)
@@ -513,7 +512,7 @@ def test_configured_extension_reuses_provider_without_network_at_registration(tm
     "token-permissions", "token-symlink", "token-absent", "token-invalid", "endpoint", "namespace",
     "approved", "read-only", "extra-mount", "loopback-disabled", "bootstrap-token"])
 def test_extension_bad_config_is_unavailable_not_a_portal_failure(tmp_path, fault):
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
     setup = load_setup()
     extensions = install_example(tmp_path)
     local = setup.LocalBao(tmp_path)

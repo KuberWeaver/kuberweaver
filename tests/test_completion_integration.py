@@ -5,8 +5,8 @@ from test_notifications_delivery import receiver
 
 
 def test_notification_consumer_api_delivers_real_http_and_returns_sanitized_readback(api, receiver, tmp_path):
-    from kuberweaver.notifications import WebhookNotifications
-    from kuberweaver.secrets import RestrictedFileProvider
+    from backend.notifications import WebhookNotifications
+    from backend.secrets import RestrictedFileProvider
     client, app = api
     for service in getattr(app.state, 'background_services', []):
         service.close()

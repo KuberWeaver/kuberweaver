@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor
+from backend.workload_execution import WorkloadError, WorkloadExecutor
 
 
 MANIFEST = {

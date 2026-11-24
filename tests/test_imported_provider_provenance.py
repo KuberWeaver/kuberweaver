@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from test_core_graph import api
 from test_provider_bindings import install_extension
-from kuberweaver.providers import execution_binding
+from backend.providers import execution_binding
 
 
 @pytest.mark.parametrize('changed', ['class', 'dependency'])

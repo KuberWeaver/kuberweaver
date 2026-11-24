@@ -5,8 +5,8 @@ import sqlite3
 import pytest
 
 from test_postgresql_store import pg_file
-from kuberweaver.storage import Store, StorageError
-from kuberweaver.postgres import Connection, read_dsn_file
+from backend.storage import Store, StorageError
+from backend.postgres import Connection, read_dsn_file
 
 SPEC = importlib.util.spec_from_file_location('migrate_postgresql', Path(__file__).parents[1] / 'scripts/migrate_postgresql.py')
 
@@ -41,8 +41,8 @@ def sqlite_source(tmp_path, monkeypatch):
     root = tmp_path / 'source'
     store = Store(root)
     store.execute('CREATE TABLE IF NOT EXISTS connections(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
-    from kuberweaver.agent_auth import AgentTokens
-    from kuberweaver.sessions import Sessions
+    from backend.agent_auth import AgentTokens
+    from backend.sessions import Sessions
     AgentTokens(store)
     user = store.one("SELECT * FROM users WHERE role='admin'")
     token, csrf = Sessions(store).create(user)
@@ -79,7 +79,7 @@ def test_real_migration_preserves_bytes_order_sequences_and_auth(tmp_path, monke
     connection.close()
     monkeypatch.setenv('KUBERWEAVER_DATABASE_URL_FILE', str(pg_file))
     reopened = Store(tmp_path / 'reopened')
-    from kuberweaver.sessions import Sessions
+    from backend.sessions import Sessions
     assert Sessions(reopened).resolve(token) == {'id': user['id'], 'username': 'admin', 'role': 'admin', 'csrf': csrf}
     assert reopened.one('SELECT * FROM users WHERE id=?', (user['id'],))['password_hash'] == user['password_hash']
     assert reopened.one('SELECT count(*) AS n FROM users')['n'] == 3
@@ -117,7 +117,7 @@ def test_deleted_audit_high_water_mark_is_preserved(tmp_path, monkeypatch, pg_fi
 
 def test_migration_refuses_active_postgresql_controller(tmp_path, monkeypatch, pg_file):
     root, *_ = sqlite_source(tmp_path, monkeypatch)
-    from kuberweaver.postgres import acquire_controller_lock
+    from backend.postgres import acquire_controller_lock
     active = Connection(read_dsn_file(pg_file))
     acquire_controller_lock(active)
     with pytest.raises(StorageError, match='active'):

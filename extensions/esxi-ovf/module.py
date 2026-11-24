@@ -1,8 +1,5 @@
 """Registration performs no command, SDK login or remote mutation."""
-try:
-    from kuberweaver.ovf_provisioning import ROOT, OVFExecutor
-except ModuleNotFoundError:
-    from backend.kuberweaver.ovf_provisioning import ROOT, OVFExecutor
+from backend.ovf_provisioning import ROOT, OVFExecutor
 
 
 def register(ctx):

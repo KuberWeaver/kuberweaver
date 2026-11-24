@@ -4,12 +4,6 @@ No hypervisor lab. Reuses the connection test boundaries (recording driver +
 connection-secrets source). Verifies the CLI is a thin client: same routes, roles,
 CSRF and session persistence as the GUI, no direct database writes.
 """
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "backend"))
 
 import httpx
 import pytest
@@ -28,7 +22,7 @@ def env(tmp_path, monkeypatch):
     import time
     import uvicorn
 
-    # Isolate BEFORE importing kuberweaver.app (it builds a module-level app on
+    # Isolate BEFORE importing backend.app (it builds a module-level app on
     # first import): point it at a scratch state dir and force SQLite, so we never
     # touch data/ or share the PostgreSQL test database / advisory lock.
     monkeypatch.setenv("KUBERWEAVER_STATE_DIR", str(tmp_path / "module-app"))
@@ -36,8 +30,8 @@ def env(tmp_path, monkeypatch):
     monkeypatch.delenv("KUBERWEAVER_DATABASE_URL_FILE", raising=False)
 
     from test_core_graph import manifest as sample_manifest
-    from kuberweaver.app import create_app
-    from kuberweaver.connections import install_connections_api
+    from backend.app import create_app
+    from backend.connections import install_connections_api
     plugins = tmp_path / "plugins"
     sample_manifest(plugins)
     app = create_app(state_dir=tmp_path / "state", plugins_dir=plugins, testing=True)
@@ -45,7 +39,7 @@ def env(tmp_path, monkeypatch):
         install_connections_api(app)
     boundaries(app)
     # Real encrypted local vault, writable, bound as the default secrets source.
-    from kuberweaver.local_vault import initialize, LocalVaultProvider
+    from backend.local_vault import initialize, LocalVaultProvider
     vault_dir = tmp_path / "vault"
     initialize(vault_dir)
     app.state.registry.register("secrets", "test-vault",
@@ -531,7 +525,7 @@ def _declaration_world(app, tmp_path):
     app; only the OpenTofu boundary is faked (Recorder), the service path is real.
     Same boundary substitution as tests/test_declarations.py."""
     from test_declarations import make_repository, write_bundle, commit, Recorder
-    from kuberweaver.declarations import GitRepository
+    from backend.declarations import GitRepository
     repo = make_repository(tmp_path / "git")
     bundle = write_bundle(repo)
     revision = commit(repo)

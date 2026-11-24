@@ -3,7 +3,7 @@ import pytest
 
 
 def test_app_requests_controller_exclusivity_by_runtime_mode(tmp_path, monkeypatch):
-    import kuberweaver.app as module
+    import backend.app as module
     original = module.Store
     seen = []
 
@@ -21,8 +21,8 @@ def test_app_requests_controller_exclusivity_by_runtime_mode(tmp_path, monkeypat
 
 
 def test_observability_handles_postgres_storage_failure_without_details(api, monkeypatch):
-    from kuberweaver.observability import snapshot
-    from kuberweaver.storage import StorageError
+    from backend.observability import snapshot
+    from backend.storage import StorageError
     _, app = api
 
     def failed(*args, **kwargs):
@@ -43,8 +43,8 @@ def test_postgresql_startup_flock_failure_releases_connection(tmp_path, pg_file)
     import asyncio
     import subprocess
     import sys
-    from kuberweaver.app import create_app
-    from kuberweaver.storage import Store
+    from backend.app import create_app
+    from backend.storage import Store
 
     app = create_app(tmp_path / 'server', testing=False)
     holder = subprocess.Popen(
@@ -75,9 +75,9 @@ def test_postgresql_startup_flock_failure_releases_connection(tmp_path, pg_file)
 @pytest.mark.parametrize('stage', ['AgentTokens', 'install_api'])
 @pytest.mark.parametrize('failure', [RuntimeError, KeyboardInterrupt])
 def test_postgresql_construction_failure_releases_connection(tmp_path, pg_file, monkeypatch, stage, failure):
-    import kuberweaver.app as module
-    import kuberweaver.api as api_module
-    from kuberweaver.storage import Store
+    import backend.app as module
+    import backend.api as api_module
+    from backend.storage import Store
 
     captured = []
 
@@ -105,8 +105,8 @@ def test_postgresql_construction_failure_releases_connection(tmp_path, pg_file, 
 
 def test_postgresql_controller_lease_released_after_lifespan(tmp_path, pg_file):
     from fastapi.testclient import TestClient
-    from kuberweaver.app import create_app
-    from kuberweaver.storage import Store, StorageError
+    from backend.app import create_app
+    from backend.storage import Store, StorageError
     app = create_app(tmp_path / 'server', testing=False)
     try:
         with TestClient(app, base_url='http://localhost'):

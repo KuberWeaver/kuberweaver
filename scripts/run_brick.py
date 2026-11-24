@@ -11,9 +11,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor  # noqa: E402
+from backend.workload_execution import WorkloadError, WorkloadExecutor  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 

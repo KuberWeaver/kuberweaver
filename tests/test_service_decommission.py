@@ -176,7 +176,7 @@ def test_provider_exception_is_persisted_without_fallback_to_rollback(api):
 
 
 def test_retirement_uses_the_pinned_provider_not_the_current_binding(api):
-    from kuberweaver.providers import provider_provenance
+    from backend.providers import provider_provenance
 
     client, app = api
     retiring, rebound = RetiringExecutor(), RetiringExecutor()
@@ -223,7 +223,7 @@ def test_retirement_refuses_a_changed_execution_pin(api):
 
 @pytest.mark.parametrize('status', ['decommission_queued', 'decommissioning'])
 def test_interrupted_retirement_requires_manual_review(api, status):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     client, app = api
     job = client.post('/api/jobs', json={'graph': graph()}).json()

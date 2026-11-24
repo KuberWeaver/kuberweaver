@@ -25,7 +25,7 @@ import jsonschema
 from referencing import Registry
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 TOFU_SHA256 = '9ce9173bf161f6466ef57dab7edebe8f55089fdf81caa967415323c25d004990'
 CLI_CONFIG = b'disable_checkpoint = true\n'
 ADDRESS = 'vsphere_virtual_machine.vm'

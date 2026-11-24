@@ -4,12 +4,6 @@ These are the properties an operator or a wrapper script depends on, so they are
 asserted once here instead of being re-derived in every command test.
 """
 import json
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "backend"))
 
 from click.testing import CliRunner  # noqa: E402
 

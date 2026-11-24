@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from kuberweaver.local_vm_ansible import (
+from backend.local_vm_ansible import (
     HANDOFF_SCHEMA,
     LocalVmAnsibleError,
     LocalVmAnsibleProvider,
@@ -393,7 +393,7 @@ def test_preparation_is_deterministic_and_has_no_private_material(tmp_path):
 
 
 def test_prepared_plan_satisfies_the_kernel_public_contract(tmp_path):
-    from kuberweaver.jobs import safe_prepared_plan
+    from backend.jobs import safe_prepared_plan
 
     plan = provider(tmp_path).prepare_plan(job(), lambda *a: None)
     assert safe_prepared_plan(plan) == plan
@@ -562,7 +562,7 @@ def test_the_provider_has_no_automatic_rollback(tmp_path):
 # ------------------------------------------------------------------- supply chain
 
 def test_the_composition_contains_no_fetch_or_shell():
-    source = (ROOT / 'backend' / 'kuberweaver' / 'local_vm_ansible.py').read_text()
+    source = (ROOT / 'backend' / 'local_vm_ansible.py').read_text()
     assert '"ansible-galaxy"' not in source and "'ansible-galaxy'" not in source
     assert 'shell=True' not in source
     assert 'pip install' not in source
@@ -570,7 +570,7 @@ def test_the_composition_contains_no_fetch_or_shell():
 
 
 def test_the_example_extension_package_is_valid():
-    from kuberweaver.extensions import validate_package
+    from backend.extensions import validate_package
 
     manifest = validate_package(ROOT / 'extensions' / 'local-vm-ansible')
     assert manifest['id'] == 'local-vm-ansible'
@@ -578,7 +578,7 @@ def test_the_example_extension_package_is_valid():
 
 
 def _loaded_example(tmp_path):
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
 
     package = tmp_path / 'extensions' / 'local-vm-ansible'
     shutil.copytree(ROOT / 'extensions' / 'local-vm-ansible', package)

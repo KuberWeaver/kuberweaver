@@ -179,7 +179,7 @@ def test_offering_publication_is_admin_only_and_refuses_unsupported_graphs(api):
 
 
 def test_offering_publish_copies_the_blueprint_and_versions_by_title(api):
-    from kuberweaver.jobs import digest
+    from backend.jobs import digest
 
     client, app = api
     record = save_blueprint(client)
@@ -330,7 +330,7 @@ def test_jobs_without_studio_attribution_never_appear_in_services(api):
 
 
 def test_postgresql_registers_the_studio_tables():
-    from kuberweaver.postgres import COLUMNS, DDL, ORDERED, translate_sql
+    from backend.postgres import COLUMNS, DDL, ORDERED, translate_sql
 
     for table in ('studio_artifacts', 'studio_offerings'):
         assert COLUMNS[table] == ('id', 'body')
@@ -343,8 +343,8 @@ def test_postgresql_registers_the_studio_tables():
 
 
 def test_postgresql_studio_records_are_durable(tmp_path, pg_file):
-    from kuberweaver.app import create_app
-    from kuberweaver.storage import Store
+    from backend.app import create_app
+    from backend.storage import Store
 
     plugins = tmp_path / 'plugins'
     sample_manifest(plugins)

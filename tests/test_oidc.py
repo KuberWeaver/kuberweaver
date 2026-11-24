@@ -100,7 +100,7 @@ def configure(monkeypatch):
 
 
 def build(tmp_path, monkeypatch, http):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     configure(monkeypatch)
     return create_app(state_dir=tmp_path, testing=True, oidc_http=http)
 
@@ -128,7 +128,7 @@ def sign_in(client, http, key, *, username='operator', subject='subject-1', **cl
 
 
 def test_disabled_by_default_and_password_login_still_works(tmp_path, monkeypatch):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     for name in ('KUBERWEAVER_OIDC_ISSUER', 'KUBERWEAVER_OIDC_CLIENT_ID', 'KUBERWEAVER_OIDC_CLIENT_SECRET'):
         monkeypatch.delenv(name, raising=False)
     app = create_app(state_dir=tmp_path, testing=True)
@@ -144,7 +144,7 @@ def test_disabled_by_default_and_password_login_still_works(tmp_path, monkeypatc
 
 
 def test_incomplete_configuration_disables_only_the_provider(tmp_path, monkeypatch):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     monkeypatch.setenv('KUBERWEAVER_OIDC_ISSUER', ISSUER)
     monkeypatch.delenv('KUBERWEAVER_OIDC_CLIENT_ID', raising=False)
     monkeypatch.delenv('KUBERWEAVER_OIDC_CLIENT_SECRET', raising=False)
@@ -348,7 +348,7 @@ def test_claim_mapping_normalises_and_refuses_unusable_claims(tmp_path, monkeypa
     provider = app.state.oidc
     mapped = provider.map_claims({'sub': 'subject-1', 'preferred_username': '  Operator '})
     assert mapped == {'issuer': ISSUER, 'subject': 'subject-1', 'username': 'operator'}
-    from kuberweaver.oidc import OidcAccountRefused, OidcInvalidToken
+    from backend.oidc import OidcAccountRefused, OidcInvalidToken
     with pytest.raises(OidcInvalidToken):
         provider.map_claims({'preferred_username': 'operator'})
     with pytest.raises(OidcAccountRefused):
@@ -358,7 +358,7 @@ def test_claim_mapping_normalises_and_refuses_unusable_claims(tmp_path, monkeypa
 
 
 def test_postgresql_translation_matches_the_binding_table():
-    from kuberweaver.postgres import COLUMNS, DDL, translate_sql
+    from backend.postgres import COLUMNS, DDL, translate_sql
     statement = translate_sql(
         'CREATE TABLE IF NOT EXISTS oidc_identities('
         'id TEXT PRIMARY KEY, issuer TEXT NOT NULL, subject TEXT NOT NULL, user_id TEXT NOT NULL, '

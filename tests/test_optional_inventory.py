@@ -13,7 +13,7 @@ def bootstrap(path: Path) -> dict:
 
 
 def test_inventory_is_unbound_by_default_and_reported_as_such(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     plugins = tmp_path / 'plugins'
     plugins.mkdir()
@@ -38,7 +38,7 @@ def test_inventory_is_unbound_by_default_and_reported_as_such(tmp_path):
 
 
 def test_binding_an_inventory_provider_brings_the_topology_back(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     plugins = tmp_path / 'plugins'
     plugins.mkdir()
@@ -61,7 +61,7 @@ def test_binding_an_inventory_provider_brings_the_topology_back(tmp_path):
 
 
 def test_a_required_capability_cannot_be_cleared(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     plugins = tmp_path / 'plugins'
     plugins.mkdir()
@@ -83,7 +83,7 @@ def test_a_required_capability_cannot_be_cleared(tmp_path):
 
 def test_gns3_refuses_with_a_named_variable_when_it_is_not_configured(tmp_path, monkeypatch):
     """No lab address is compiled in: an unset variable is named, not defaulted."""
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     monkeypatch.delenv('KUBERWEAVER_GNS3_URL', raising=False)
     monkeypatch.delenv('KUBERWEAVER_GNS3_PROJECT', raising=False)

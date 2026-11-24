@@ -1,7 +1,7 @@
 # Contributing
 
 KuberWeaver is an early-stage, self-hosted infrastructure management prototype:
-one FastAPI kernel (`backend/kuberweaver/`), the `kw` CLI (`kw/`), a declarative
+one FastAPI kernel (`backend/`), the `kw` CLI (`kw/`), a declarative
 catalogue of workload bricks (`modules/services/`) and separately installed Python
 extensions (`extensions/`). This document is written for someone who has
 never seen the repository. It does not describe a finished product: the project is
@@ -15,7 +15,7 @@ privately instead of opening an issue.
 
 | Path | Contents |
 | --- | --- |
-| `backend/kuberweaver/` | FastAPI kernel: HTTP, RBAC, approvals, durable state, audit, orchestration, catalogue and extension registry |
+| `backend/` | FastAPI kernel: HTTP, RBAC, approvals, durable state, audit, orchestration, catalogue and extension registry |
 | `kw/` | Thin CLI client, the reference client over the API |
 | `modules/resources/` | Infrastructure recipes and manifests |
 | `modules/services/` | Service recipes and manifests |
@@ -83,7 +83,7 @@ your real database. From the repository root:
 ```sh
 state=$(mktemp -d "${TMPDIR:-$HOME/.cache}/kw-tests.XXXXXX")
 env -u KUBERWEAVER_DATABASE_URL_FILE -u KUBERWEAVER_DATABASE_URL \
-  KUBERWEAVER_STATE_DIR="$state" PYTHONPATH=backend \
+  KUBERWEAVER_STATE_DIR="$state" \
   .venv/bin/python -m pytest tests -q
 ```
 

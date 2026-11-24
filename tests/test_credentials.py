@@ -5,17 +5,14 @@ secret file, so the seed uses `admin` unless `KUBERWEAVER_ADMIN_PASSWORD` says
 otherwise. The server reports while that default is still active, and rotation
 goes through the normal policy and removes the plaintext line.
 """
-import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 
 def _policy():
-    from kuberweaver import passwords
+    from backend import passwords
     return passwords
 
 
@@ -26,7 +23,7 @@ def _headers(csrf):
 @pytest.fixture
 def api(tmp_path, monkeypatch):
     monkeypatch.delenv('KUBERWEAVER_ADMIN_PASSWORD', raising=False)
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     application = create_app(state_dir=tmp_path, testing=True)
     with TestClient(application) as client:
         yield client, application, tmp_path
@@ -72,7 +69,7 @@ def test_default_admin_flag_clears_after_rotation(api):
 
 def test_an_operator_chosen_seed_is_not_reported_as_a_default(tmp_path, monkeypatch):
     monkeypatch.setenv('KUBERWEAVER_ADMIN_PASSWORD', 'chosen by the operator 42')
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     with TestClient(create_app(state_dir=tmp_path, testing=True)) as client:
         response = client.post('/api/auth/login',
                                json={'username': 'admin', 'password': 'chosen by the operator 42'})

@@ -79,8 +79,8 @@ def test_every_step_is_one_brick_and_one_guest(plan):
 
 
 def test_every_step_passes_the_portal_admission_alone(tool, plan):
-    from kuberweaver.catalog import Catalog
-    from kuberweaver.policy import Admission
+    from backend.catalog import Catalog
+    from backend.policy import Admission
     admission = Admission(Catalog(PLUGINS), tool._DefaultSettings())
     for step in plan['steps']:
         report = admission.validate(step['graph'])
@@ -90,7 +90,7 @@ def test_every_step_passes_the_portal_admission_alone(tool, plan):
 
 
 def test_every_brick_is_a_pinned_live_workload(plan):
-    from kuberweaver.workload_execution import WorkloadExecutor
+    from backend.workload_execution import WorkloadExecutor
     executor = WorkloadExecutor(PLUGINS / 'unused', PLUGINS / 'services')
     for step in plan['steps']:
         brick = executor.brick(step['brick'])
