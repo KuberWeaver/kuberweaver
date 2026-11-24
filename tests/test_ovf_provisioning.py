@@ -267,7 +267,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def module():
-    return importlib.import_module('kuberweaver.ovf_provisioning')
+    return importlib.import_module('backend.ovf_provisioning')
 
 
 def job():
@@ -341,7 +341,7 @@ def test_image_minimum_disk_checked_before_attempt(tmp_path):
 
 
 def test_transport_contract_fails_closed_when_namespace_unavailable(monkeypatch):
-    from kuberweaver import ovf_transport
+    from backend import ovf_transport
     def unavailable():
         raise ValueError('No user namespaces')
     monkeypatch.setattr(ovf_transport, 'require_transport', unavailable)
@@ -459,9 +459,9 @@ def test_socket_topology_beyond_host_limits_is_refused(tmp_path, sockets, cores)
 
 
 def test_admission_accepts_declared_topology_and_charges_total_vcpus(tmp_path):
-    from kuberweaver.catalog import Catalog
-    from kuberweaver.policy import Admission
-    from kuberweaver.storage import Store
+    from backend.catalog import Catalog
+    from backend.policy import Admission
+    from backend.storage import Store
 
     graph = job()['graph'] | {'name': 'Topology admission', 'strategy': {'canary': 1, 'batch_size': 1}}
     graph['nodes'] = [dict(graph['nodes'][0], config=dict(graph['nodes'][0]['config'],
@@ -473,9 +473,9 @@ def test_admission_accepts_declared_topology_and_charges_total_vcpus(tmp_path):
 
 
 def test_admission_refuses_a_total_cpu_field_the_schema_does_not_declare(tmp_path):
-    from kuberweaver.catalog import Catalog
-    from kuberweaver.policy import Admission
-    from kuberweaver.storage import Store
+    from backend.catalog import Catalog
+    from backend.policy import Admission
+    from backend.storage import Store
 
     graph = job()['graph'] | {'name': 'Legacy cpu field', 'strategy': {'canary': 1, 'batch_size': 1}}
     graph['nodes'] = [dict(graph['nodes'][0], config=dict(graph['nodes'][0]['config'],

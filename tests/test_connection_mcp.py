@@ -3,7 +3,7 @@ import asyncio
 import json
 
 import httpx
-from kuberweaver.mcp_server import ServerConfig, create_server
+from backend.mcp_server import ServerConfig, create_server
 
 
 def test_connection_metadata_and_explicit_discovery_use_http_only(tmp_path):

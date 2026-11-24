@@ -62,7 +62,7 @@ def test_key_revision_drift_invalidates_the_prepared_plan(tmp_path):
 
 @pytest.mark.parametrize('environment', ['staging', 'production'])
 def test_vmware_key_management_preserves_existing_environment_restrictions(tmp_path, environment):
-    from kuberweaver.models import Graph
+    from backend.models import Graph
     ex = executor(tmp_path); ex.ssh_keys = Keys(); value = request()
     value['graph']['name'] = 'Managed key plan'
     value['graph']['environment'] = environment

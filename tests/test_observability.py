@@ -8,7 +8,7 @@ from test_core_graph import api, graph
 
 
 def test_snapshot_counts_durable_approval_reservation_as_known_state(api):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     client, app = api
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     job.update(status='approving', requires_manual_review=True)
@@ -20,7 +20,7 @@ def test_snapshot_counts_durable_approval_reservation_as_known_state(api):
 
 
 def test_snapshot_reports_actual_persisted_jobs_without_payloads(api):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     client, app = api
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     before = app.state.store.conn.total_changes
@@ -41,7 +41,7 @@ def test_snapshot_reports_actual_persisted_jobs_without_payloads(api):
 
 
 def test_snapshot_contains_malformed_persisted_states_without_echoing_them(api):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     _, app = api
     store = app.state.store
     for identity, body in [('bad-json', 'not-json-secret'), ('list', '[]'),
@@ -64,7 +64,7 @@ def test_snapshot_contains_malformed_persisted_states_without_echoing_them(api):
 
 
 def test_capabilities_are_configuration_not_live_probes_or_secret_reads(api, monkeypatch):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     _, app = api
     def forbidden(*args, **kwargs):
         raise AssertionError('Health must not call provider consumers')
@@ -91,7 +91,7 @@ def test_capabilities_are_configuration_not_live_probes_or_secret_reads(api, mon
 @pytest.mark.parametrize('age,error,expected', [(10, False, 'succeeded'), (600, False, 'stale'),
                                                (10, True, 'failed'), (None, None, 'never_observed')])
 def test_probe_evidence_is_cached_and_distinguishes_stale_success(api, age, error, expected):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     _, app = api
     provider = app.state.registry.get('inventory', 'gns3')
     provider.last_success = (datetime.now(timezone.utc) - timedelta(seconds=age)).isoformat() if age is not None else None
@@ -108,7 +108,7 @@ def test_probe_evidence_is_cached_and_distinguishes_stale_success(api, age, erro
 
 
 def test_duration_evidence_uses_only_valid_terminal_timestamps(api):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     _, app = api
     base = {'status': 'succeeded', 'created_at': '2026-01-01T00:00:00+00:00',
             'finished_at': '2026-01-01T00:02:00+00:00'}
@@ -120,7 +120,7 @@ def test_duration_evidence_uses_only_valid_terminal_timestamps(api):
         app.state.store.put('jobs', identity, {**base, **changes})
     evidence = snapshot(app)['jobs']['submission_to_finish_seconds']
     assert evidence == {'observations': 1, 'sum': 120.0, 'max': 120.0, 'invalid_terminal_timestamps': 3}
-    from kuberweaver.observability import metrics_text
+    from backend.observability import metrics_text
     metrics = metrics_text(app)
     assert 'kuberweaver_job_submission_to_finish_seconds{statistic="sum"} 120.0' in metrics
     assert 'kuberweaver_job_submission_to_finish_seconds{statistic="max"} 120.0' in metrics
@@ -129,7 +129,7 @@ def test_duration_evidence_uses_only_valid_terminal_timestamps(api):
 
 
 def test_unreadable_storage_and_stopped_worker_never_report_healthy(api):
-    from kuberweaver.observability import snapshot
+    from backend.observability import snapshot
     _, app = api
     app.state.worker.close()
     result = snapshot(app)
@@ -144,7 +144,7 @@ def test_unreadable_storage_and_stopped_worker_never_report_healthy(api):
 
 
 def test_metrics_export_aggregate_health_without_inventing_probe_success(api):
-    from kuberweaver.observability import metrics_text
+    from backend.observability import metrics_text
     client, app = api
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     text = metrics_text(app)

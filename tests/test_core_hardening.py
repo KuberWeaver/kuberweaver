@@ -62,7 +62,7 @@ def test_colliding_target_ports_are_rejected(api):
 
 
 def test_yaml_policy_persists_api_updates_and_invalid_config_fails_closed(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     state = tmp_path / 'data'
     config = state / 'config'
     config.mkdir(parents=True)
@@ -95,7 +95,7 @@ def test_local_host_origin_and_payload_limits(api):
 
 
 def test_static_frontend_same_origin_and_api_fallback(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     frontend = tmp_path / 'dist'
     frontend.mkdir()
     (frontend / 'index.html').write_text('<!doctype html><title>Real frontend fixture</title>')

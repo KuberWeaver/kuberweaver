@@ -15,8 +15,8 @@ KEY = b'chatops-test-key-at-least-32-bytes!!'
 
 
 def setup_chatops(app):
-    from kuberweaver.chatops import install_chatops_api
-    from kuberweaver.secrets import RestrictedFileProvider
+    from backend.chatops import install_chatops_api
+    from backend.secrets import RestrictedFileProvider
     path = app.state.state_dir / 'signing.key'
     path.write_bytes(KEY)
     path.chmod(0o600)
@@ -51,7 +51,7 @@ def signed(client, action, nonce='nonce-00000000000000001', actor='gateway:user-
 
 
 def test_signed_approval_runs_actual_serial_worker(api):
-    assert importlib.util.find_spec('kuberweaver.chatops') is not None
+    assert importlib.util.find_spec('backend.chatops') is not None
     client, app = api
     _, callback = setup_chatops(app)
     executor = install_executor(app, RecordingExecutor())
@@ -171,7 +171,7 @@ def test_reject_and_nonce_survive_restart(api):
     job = client.post('/api/jobs', json={'graph': graph()}).json()
     action = issue(client, job, 'reject')
     assert signed(callback, action).json()['status'] == 'rejected'
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
     _, after_restart = setup_chatops(restarted)
     assert signed(after_restart, action).status_code == 409

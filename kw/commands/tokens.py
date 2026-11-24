@@ -1,6 +1,6 @@
 """Agent tokens: human-issued, hashed, short-lived machine principals.
 
-Thin wrapper over the agent-token routes only (backend/kuberweaver/agent_auth.py):
+Thin wrapper over the agent-token routes only (backend/agent_auth.py):
 - GET    /api/agent-tokens              human admin; metadata, never the secret
 - POST   /api/agent-tokens              human admin; the secret is returned once
 - POST   /api/agent-tokens/{id}/rotate  human admin; new secret, same identity/expiry

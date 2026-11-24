@@ -1,9 +1,6 @@
 import json
 import os
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 
 def bootstrap(path):
@@ -12,7 +9,7 @@ def bootstrap(path):
 
 def test_persistent_auth_csrf_and_security_boundary(tmp_path):
     from fastapi.testclient import TestClient
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     app = create_app(state_dir=tmp_path, testing=True)
     with TestClient(app) as client:

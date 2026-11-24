@@ -6,7 +6,7 @@ From the prototype root:
 
 ```sh
 uv pip install --python .venv/bin/python -r requirements.txt
-PYTHONPATH=backend .venv/bin/uvicorn kuberweaver.app:app --host 127.0.0.1 --port 8088
+.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 8088
 ```
 
 The server serves `frontend/dist` on the same origin. `create_app(state_dir=..., testing=True, plugins_dir=..., frontend_dir=..., executor=...)` supports isolated tests and injected execution implementations. Production lifespans take an exclusive state-directory process lock; use one Uvicorn worker. Graceful shutdown waits for in-flight execution rather than relinquishing the lock while a provider still writes.

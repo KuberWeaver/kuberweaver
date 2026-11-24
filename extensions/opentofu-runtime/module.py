@@ -2,10 +2,7 @@
 import json
 from pathlib import Path
 
-try:
-    from kuberweaver.tofu_execution import TofuExecutor
-except ModuleNotFoundError:
-    from backend.kuberweaver.tofu_execution import TofuExecutor
+from backend.tofu_execution import TofuExecutor
 
 
 def register(ctx):

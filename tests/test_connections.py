@@ -6,12 +6,10 @@ import sys
 from contextlib import closing, contextmanager
 from copy import deepcopy
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 
 def spec(**changes):
@@ -24,10 +22,10 @@ def spec(**changes):
 def make_app(path, monkeypatch):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     app = create_app(state_dir=path / 'state', testing=True)
-    if importlib.util.find_spec('kuberweaver.connections') is not None:
-        from kuberweaver.connections import install_connections_api
+    if importlib.util.find_spec('backend.connections') is not None:
+        from backend.connections import install_connections_api
         if not hasattr(app.state, 'connections'):
             install_connections_api(app)
     return app
@@ -167,7 +165,7 @@ def test_unknown_and_malformed_ids_are_not_looked_up(platform):
 
 def test_installer_is_idempotent(platform):
     app, client = platform
-    from kuberweaver.connections import install_connections_api
+    from backend.connections import install_connections_api
     service, routes = app.state.connections, len(app.routes)
     install_connections_api(app)
     assert app.state.connections is service
@@ -175,7 +173,7 @@ def test_installer_is_idempotent(platform):
 
 
 def test_patch_model_is_exported_for_typed_mcp_consumers():
-    from kuberweaver import connections
+    from backend import connections
     assert hasattr(connections, 'ConnectionPatch'), 'Missing typed patch contract'
     from pydantic import ValidationError
     patch = connections.ConnectionPatch.model_validate({'revision': 3, 'enabled': False, 'tls_sha256': None})
@@ -210,7 +208,7 @@ class MemorySecrets:
 
     @contextmanager
     def resolve(self, name):
-        from kuberweaver.secrets import SecretValue
+        from backend.secrets import SecretValue
         self.reads.append(name)
         value = SecretValue(b'{"username":"test-user","password":"boundary-test-only"}')
         self.values.append(value)
@@ -260,7 +258,7 @@ def test_explicit_discovery_resolves_selected_credentials_and_caches_observation
     assert source.reads == ['hypervisors/lab', 'hypervisors/lab']
     assert all(credentials == b'{"username":"test-user","password":"boundary-test-only"}'
                for _, credentials in driver.calls)
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
     for value in source.values:
         with pytest.raises(SecretError):
             value.bytes()
@@ -276,7 +274,7 @@ def test_access_yields_connection_and_bytes_then_closes_secret(platform):
     with app.state.connections.access(connection['id']) as (snapshot, credentials):
         assert snapshot == connection
         assert isinstance(credentials, bytes) and b'boundary-test-only' in credentials
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
     with pytest.raises(SecretError):
         source.values[0].bytes()
     assert not driver.calls
@@ -317,7 +315,7 @@ def test_external_failures_become_static_unavailable_observations(platform, fail
     assert client.get(path).json()['observation'] == observation
     assert 'boundary-test-only' not in response.text
     assert 'boundary-test-only' not in json.dumps(app.state.store.all('SELECT * FROM audit'))
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
     with pytest.raises(SecretError):
         source.values[0].bytes()
 
@@ -653,7 +651,7 @@ class WritableSecrets(MemorySecrets):
 
     @contextmanager
     def resolve(self, name):
-        from kuberweaver.secrets import SecretValue
+        from backend.secrets import SecretValue
         self.reads.append(name)
         value = SecretValue(self.saved.get(name, b'{"username":"test-user","password":"boundary-test-only"}'))
         self.values.append(value)
@@ -674,7 +672,7 @@ def test_human_credentials_write_is_memory_only_and_invalidates_revision_and_obs
     assert response.status_code == 200, response.text
     assert response.json() == {'stored': True, 'connection_id': connection['id']}
     assert json.loads(source.saved['hypervisors/lab']) == {'username': 'ui-user', 'password': 'ui-only-password'}
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
     with pytest.raises(SecretError):
         source.writes[0].bytes()
     current = client.get(path).json()
@@ -745,7 +743,7 @@ def test_credentials_storage_requires_explicit_synchronous_write_capability(plat
 
 def test_credentials_storage_sanitizes_provider_errors_and_closes_value(platform):
     from fastapi import HTTPException
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
     app, client = platform
 
     class FailingStore(WritableSecrets):
@@ -893,7 +891,7 @@ def test_valid_inventory_cannot_echo_resolved_credentials_in_allowed_fields(plat
 @pytest.mark.parametrize('raw', [b'', b'x' * 65537])
 def test_access_refuses_empty_or_oversized_credentials(platform, raw):
     from fastapi import HTTPException
-    from kuberweaver.secrets import SecretValue
+    from backend.secrets import SecretValue
     app, client = platform
 
     class BadSource(MemorySecrets):
@@ -915,7 +913,7 @@ def test_access_refuses_empty_or_oversized_credentials(platform, raw):
 
 
 def test_access_closes_secret_even_when_source_forgets_and_borrower_raises(platform):
-    from kuberweaver.secrets import SecretError, SecretValue
+    from backend.secrets import SecretError, SecretValue
     app, client = platform
 
     class ForgetfulSource(MemorySecrets):

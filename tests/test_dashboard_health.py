@@ -1,16 +1,12 @@
 """Dashboard health observations: real SQLite and auth, no outbound request."""
 import json
-import sys
 import threading
 import time
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.dashboard_health import (DEFAULT_INTERVAL, DEFAULT_TIMEOUT, MAX_BODY,
+from backend.dashboard_health import (DEFAULT_INTERVAL, DEFAULT_TIMEOUT, MAX_BODY,
                                           DashboardProbeLoop, ProbeResponse, ResponseTooLarge,
                                           fetch_once, probe_settings)
 
@@ -33,7 +29,7 @@ def make_app(path, monkeypatch, *, probe_seconds=None, probe_timeout=None, name=
         monkeypatch.setenv('KUBERWEAVER_DASHBOARD_PROBE_SECONDS', probe_seconds)
     if probe_timeout is not None:
         monkeypatch.setenv('KUBERWEAVER_DASHBOARD_PROBE_TIMEOUT', probe_timeout)
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -378,7 +374,7 @@ def test_a_zero_interval_never_starts_a_thread():
 
 
 def test_fetch_once_sends_no_credentials_and_keeps_the_query(monkeypatch):
-    import kuberweaver.dashboard_health as module
+    import backend.dashboard_health as module
 
     calls = []
 
@@ -415,7 +411,7 @@ def test_fetch_once_sends_no_credentials_and_keeps_the_query(monkeypatch):
 
 
 def test_fetch_once_refuses_an_oversized_body(monkeypatch):
-    import kuberweaver.dashboard_health as module
+    import backend.dashboard_health as module
 
     class FakeResponse:
         status = 200
@@ -445,7 +441,7 @@ def test_fetch_once_refuses_an_oversized_body(monkeypatch):
 
 
 def test_postgresql_registers_the_health_table():
-    from kuberweaver.postgres import COLUMNS, DDL, translate_sql
+    from backend.postgres import COLUMNS, DDL, translate_sql
     assert COLUMNS['dashboard_health'] == ('dashboard_id', 'body')
     statement = translate_sql('CREATE TABLE IF NOT EXISTS dashboard_health('
                               'dashboard_id TEXT PRIMARY KEY, body TEXT NOT NULL)')

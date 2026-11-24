@@ -29,7 +29,7 @@ def test_readyz_reports_each_dependency(api):
 
 
 def test_readyz_fails_when_storage_is_unavailable(api, monkeypatch):
-    from kuberweaver.storage import StorageError
+    from backend.storage import StorageError
     client, app = api
 
     def failed(*args, **kwargs):
@@ -80,7 +80,7 @@ def test_readyz_fails_when_the_plugin_directory_is_not_configured(api, monkeypat
 
 
 def test_readyz_fails_when_a_selected_vault_is_unavailable(api):
-    from kuberweaver.secrets import SecretError
+    from backend.secrets import SecretError
 
     class BrokenVault:
         def resolve(self, name):
@@ -132,7 +132,7 @@ def test_readyz_treats_an_explicit_false_verification_as_a_refusal(api):
 
 
 def test_readyz_verifies_existing_local_vault_material(api, tmp_path):
-    from kuberweaver.local_vault import LocalVaultProvider, initialize
+    from backend.local_vault import LocalVaultProvider, initialize
 
     client, app = api
     directory = tmp_path / 'vault'
@@ -147,7 +147,7 @@ def test_readyz_verifies_existing_local_vault_material(api, tmp_path):
 
 
 def test_readyz_fails_when_local_vault_material_is_corrupt(api, tmp_path):
-    from kuberweaver.local_vault import LocalVaultProvider, initialize
+    from backend.local_vault import LocalVaultProvider, initialize
 
     client, app = api
     directory = tmp_path / 'vault'
@@ -162,7 +162,7 @@ def test_readyz_fails_when_local_vault_material_is_corrupt(api, tmp_path):
 
 
 def test_readyz_fails_when_the_vault_directory_is_missing(api, tmp_path):
-    from kuberweaver.local_vault import LocalVaultProvider
+    from backend.local_vault import LocalVaultProvider
 
     client, app = api
     app.state.registry.register('secrets', 'local-vault', LocalVaultProvider(tmp_path / 'absent'),
@@ -199,13 +199,13 @@ def test_readyz_accepts_an_agent_token_without_extra_scope(api):
 
 
 def test_readyz_scope_mapping_is_explicit():
-    from kuberweaver.agent_auth import required_scope
+    from backend.agent_auth import required_scope
     assert required_scope('GET', '/readyz') == ''
     assert required_scope('POST', '/readyz') is None
 
 
 def test_readyz_reports_the_postgresql_backend(tmp_path, pg_file):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
 
     plugins = tmp_path / 'plugins'
     manifest(plugins)

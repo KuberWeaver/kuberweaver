@@ -4,10 +4,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-try:
-    from kuberweaver.secrets import OpenBaoProvider, SecretError, _protected_read
-except ModuleNotFoundError:
-    from backend.kuberweaver.secrets import OpenBaoProvider, SecretError, _protected_read
+from backend.secrets import OpenBaoProvider, SecretError, _protected_read
 
 
 class _LocalOpenBaoProvider(OpenBaoProvider):

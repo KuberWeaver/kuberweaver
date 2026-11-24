@@ -1,17 +1,13 @@
 """Destruction of an owned VM: proof, quarantine, cancellation and failures."""
 import json
-import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.adoption import AdoptionService, marker_digest
-from kuberweaver.destruction import (DestroyService, DestroyUnavailable,
+from backend.adoption import AdoptionService, marker_digest
+from backend.destruction import (DestroyService, DestroyUnavailable,
                                      DestroyUnverified, connection_destroyer)
 from test_postgresql_store import pg_file  # noqa: F401  fixture
 
@@ -38,7 +34,7 @@ class Clock:
 def make_app(path, monkeypatch, name='state'):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -616,8 +612,8 @@ def test_connection_destroyer_requires_a_confirmed_write():
 
 
 def test_postgresql_registers_the_destroy_record(tmp_path, pg_file):
-    from kuberweaver.environment_state import EnvironmentStates
-    from kuberweaver.storage import Store
+    from backend.environment_state import EnvironmentStates
+    from backend.storage import Store
 
     store = Store(tmp_path / 'pg-destroy')
     try:

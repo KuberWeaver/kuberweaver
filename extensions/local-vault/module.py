@@ -1,5 +1,5 @@
 """Trusted optional local provider; never changes a global provider binding."""
-from kuberweaver.local_vault import LocalVaultProvider, _cipher, _directory
+from backend.local_vault import LocalVaultProvider, _cipher, _directory
 
 
 def register(ctx):

@@ -197,8 +197,8 @@ def wait_status(client, identity, statuses):
 
 
 def test_saved_plan_is_prepared_by_same_worker_before_explicit_approval(api):
-    from kuberweaver.jobs import digest
-    from kuberweaver.providers import resolve_provider
+    from backend.jobs import digest
+    from backend.providers import resolve_provider
     client, app = api
     provider, _ = saved_engine(api)
     app.state.connections = object()  # Injection contract only; no connection or remote mutation.
@@ -249,7 +249,7 @@ def test_saved_plan_is_prepared_by_same_worker_before_explicit_approval(api):
         time.sleep(.01)
     assert [item['status'] for item in notifications] == ['pending_approval', 'succeeded']
     # The existing notification schema supports execute/rollback, never prepare.
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     for payload in notifications:
         assert WebhookNotifications._payload(payload)['operation'] == 'execute'
 
@@ -305,7 +305,7 @@ def test_worker_propagates_provider_manual_review_to_top_level(api):
 @pytest.mark.parametrize('status', ['queued', 'planning'])
 def test_interrupted_preparation_is_never_replayed_after_restart(api, status):
     from fastapi.testclient import TestClient
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     from test_core_jobs import login
     client, app = api
     provider, _ = saved_engine(api)
@@ -336,7 +336,7 @@ def test_registry_changes_block_durable_inflight_states_without_active_thread(ap
 
 
 def test_consumer_validated_provider_can_reuse_provenance_without_global_binding(api, tmp_path):
-    from kuberweaver.providers import provider_provenance, CONSUMER_METHODS
+    from backend.providers import provider_provenance, CONSUMER_METHODS
     client, app = api
     dependency = tmp_path / 'driver_helper.py'
     dependency.write_text('# reviewed simulation helper\n')
@@ -493,7 +493,7 @@ def test_prepared_plan_cannot_be_blessed_after_preparation_drift(api, change):
 
 
 def test_saved_plan_revalidation_occurs_after_actual_remote_publication_without_shared_lock(api, tmp_path, monkeypatch):
-    import kuberweaver.gitops as gitops
+    import backend.gitops as gitops
     from test_remote_gitops import git, configure
     client, app = api
     provider, _ = saved_engine(api)

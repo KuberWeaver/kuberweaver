@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from kuberweaver import configuration
-from kuberweaver.catalog import Catalog
-from kuberweaver.local_execution import LocalExecutor
-from kuberweaver.local_vm_ansible import LocalVmAnsibleProvider
-from kuberweaver.ovf_provisioning import OVFExecutor
-from kuberweaver.provisioning import SavedPlanExecutor
+from backend import configuration
+from backend.catalog import Catalog
+from backend.local_execution import LocalExecutor
+from backend.local_vm_ansible import LocalVmAnsibleProvider
+from backend.ovf_provisioning import OVFExecutor
+from backend.provisioning import SavedPlanExecutor
 
-from kuberweaver.workload_execution import WorkloadExecutor
+from backend.workload_execution import WorkloadExecutor
 
 
 ROOT = Path(__file__).resolve().parents[1]

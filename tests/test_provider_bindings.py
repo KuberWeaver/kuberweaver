@@ -18,7 +18,7 @@ def wait_idle(app, timeout=15.0):
     """
     import time as _time
 
-    from kuberweaver.runtime import queue_busy
+    from backend.runtime import queue_busy
 
     deadline = _time.time() + timeout
     while _time.time() < deadline:
@@ -87,7 +87,7 @@ def test_selected_inventory_is_used_persisted_and_disabled_fails_only_its_route(
     assert client.get('/api/diagnostics').status_code == 200
     assert client.get('/api/jobs').status_code == 200
     assert client.get('/api/providers').json()['active']['inventory']['available'] is False
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
     with TestClient(restarted) as other:
         login(other, app.state.state_dir, 'admin')
@@ -161,7 +161,7 @@ def test_selected_notification_consumer_sends_and_missing_provider_warns_without
 def test_invalid_secret_configuration_does_not_take_down_other_capabilities(api):
     client, app = api
     (app.state.state_dir / 'config/secrets.json').write_text('{invalid-json')
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
     with TestClient(restarted) as other:
         login(other, app.state.state_dir, 'admin')
@@ -200,9 +200,9 @@ def test_execution_source_drift_is_reported_unavailable_and_approval_denied(api)
 def test_invalid_binding_schema_fails_capabilities_closed_without_disabling_auth_or_repair(api):
     client, app = api
     (app.state.state_dir / 'config/providers.json').write_text(json.dumps({'schema_version': True, 'bindings': {}}))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     restarted = create_app(state_dir=app.state.state_dir, plugins_dir=app.state.plugins_dir, testing=True)
-    from kuberweaver.providers import provider_provenance
+    from backend.providers import provider_provenance
     from test_core_jobs import RecordingExecutor
     other_name = 'recording'
     restarted.state.registry.register('execution', other_name, RecordingExecutor(), {'status': 'configured'})

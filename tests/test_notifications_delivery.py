@@ -1,17 +1,14 @@
 """Real loopback HTTP only; never reads live configuration or credentials."""
 import json
-import sys
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from kuberweaver.extensions import ExtensionRegistry
-from kuberweaver.secrets import RestrictedFileProvider
+from backend.extensions import ExtensionRegistry
+from backend.secrets import RestrictedFileProvider
 
 
 @pytest.fixture
@@ -65,7 +62,7 @@ def deliver(provider, payload):
 
 
 def test_real_delivery_deduplicates_across_restart_preserves_rollback(tmp_path, receiver):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     first = deliver(provider, event())
@@ -81,7 +78,7 @@ def test_real_delivery_deduplicates_across_restart_preserves_rollback(tmp_path, 
 
 
 def test_failures_are_durable_bounded_retry_and_redacted(tmp_path, receiver, monkeypatch):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     monkeypatch.setenv('HTTP_PROXY', 'http://127.0.0.1:1')
     monkeypatch.setenv('ALL_PROXY', 'http://127.0.0.1:1')
@@ -116,7 +113,7 @@ def test_failures_are_durable_bounded_retry_and_redacted(tmp_path, receiver, mon
     {'endpoint': 'https://SECRET'}, {'unknown': 1},
 ])
 def test_invalid_configuration_is_sanitized(tmp_path, receiver, changes):
-    from kuberweaver.notifications import WebhookNotifications, NotificationError
+    from backend.notifications import WebhookNotifications, NotificationError
     app, config = setup_app(tmp_path, receiver)
     with pytest.raises(NotificationError, match='Invalid notification configuration'):
         WebhookNotifications(app, dict(config, **changes))
@@ -129,7 +126,7 @@ def test_invalid_configuration_is_sanitized(tmp_path, receiver, changes):
     'https://example.com:bad/TOKEN_SECRET', 'https://example.com/TOKEN_SECRET#fragment',
 ])
 def test_invalid_endpoints_never_contact_network(tmp_path, receiver, endpoint, monkeypatch):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     def forbidden_client(*args, **kwargs):
         pytest.fail('Invalid endpoint reached HTTP transport')
     monkeypatch.setattr(WebhookNotifications, '_post', forbidden_client)
@@ -142,7 +139,7 @@ def test_invalid_endpoints_never_contact_network(tmp_path, receiver, endpoint, m
 
 
 def test_explicit_loopback_exception_and_redirect_refusal(tmp_path, receiver):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, dict(config, allow_loopback_http=False))
     assert deliver(provider, event())['status'] == 'pending'
@@ -155,7 +152,7 @@ def test_explicit_loopback_exception_and_redirect_refusal(tmp_path, receiver):
 
 @pytest.mark.parametrize('transport,field', [('discord', 'content'), ('teams', 'text')])
 def test_vendor_wire_formats(tmp_path, receiver, transport, field):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, dict(config, transport=transport))
     assert deliver(provider, event())['status'] == 'delivered'
@@ -166,7 +163,7 @@ def test_vendor_wire_formats(tmp_path, receiver, transport, field):
 
 
 def test_payload_allowlist_and_disabled_provider(tmp_path, receiver):
-    from kuberweaver.notifications import WebhookNotifications, NotificationError
+    from backend.notifications import WebhookNotifications, NotificationError
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     deliver(provider, event(secret='ARBITRARY_SECRET'))
@@ -182,7 +179,7 @@ def test_payload_allowlist_and_disabled_provider(tmp_path, receiver):
 
 
 def test_crash_after_remote_acceptance_requires_explicit_uncertain_retry(tmp_path, receiver, monkeypatch):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     original = WebhookNotifications._post
@@ -208,7 +205,7 @@ def test_crash_after_remote_acceptance_requires_explicit_uncertain_retry(tmp_pat
 
 
 def test_register_missing_invalid_disabled_and_valid_configuration(tmp_path, receiver):
-    from kuberweaver.notifications import register_notifications
+    from backend.notifications import register_notifications
     app, config = setup_app(tmp_path, receiver)
     for body, expected in [(None, 'unavailable'), ('{"endpoint":"SECRET"}', 'unavailable'),
                            (json.dumps(dict(config, enabled=False)), 'disabled'),
@@ -230,7 +227,7 @@ def test_register_missing_invalid_disabled_and_valid_configuration(tmp_path, rec
 
 @pytest.mark.parametrize('kind', ['directory', 'database'])
 def test_storage_rejects_symlink_redirects(tmp_path, receiver, kind):
-    from kuberweaver.notifications import WebhookNotifications, NotificationError
+    from backend.notifications import WebhookNotifications, NotificationError
     app, config = setup_app(tmp_path, receiver)
     directory = app.state.state_dir / 'notifications'
     outside = tmp_path / 'untouched'
@@ -251,7 +248,7 @@ def test_storage_rejects_symlink_redirects(tmp_path, receiver, kind):
 
 
 def test_send_only_enqueues_and_occurrence_time_distinguishes_repeated_operations(tmp_path, receiver):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     first = provider.send(event())
@@ -266,7 +263,7 @@ def test_send_only_enqueues_and_occurrence_time_distinguishes_repeated_operation
 
 
 def test_transport_failure_after_acceptance_is_uncertain_and_logs_no_urls(tmp_path, receiver, monkeypatch, caplog):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     import logging
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
@@ -297,8 +294,8 @@ def test_main_api_validation_enqueues_and_delivers_sanitized_summary(tmp_path, r
 
     # Isolate even the module-level default app; never use live state/config.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(tmp_path / 'import-state'))
-    from kuberweaver.app import create_app
-    from kuberweaver.providers import resolve_provider
+    from backend.app import create_app
+    from backend.providers import resolve_provider
 
     _, config = setup_app(tmp_path, receiver)
     state = tmp_path / 'main-state'
@@ -343,7 +340,7 @@ def test_main_api_validation_enqueues_and_delivers_sanitized_summary(tmp_path, r
         # A second host validation is a separate occurrence; retry keeps original time.
         assert client.post('/api/plans/validate', json=candidate).status_code == 200
         assert len(provider.read()['deliveries']) == 2
-        from kuberweaver.notifications import WebhookNotifications
+        from backend.notifications import WebhookNotifications
         restarted = WebhookNotifications(app, config)
         assert restarted.send(original)['id'] == queued[0]['id']
         receiver.code = 204
@@ -375,7 +372,7 @@ def test_main_api_validation_enqueues_and_delivers_sanitized_summary(tmp_path, r
     {'time': 'https://SECRET'}, {'time': None},
 ])
 def test_validation_payload_accepts_only_host_summary_shape(tmp_path, receiver, changes):
-    from kuberweaver.notifications import WebhookNotifications, NotificationError
+    from backend.notifications import WebhookNotifications, NotificationError
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     payload = event(event='before_plan', operation='validate', job_id=None, status='planning')
@@ -387,7 +384,7 @@ def test_validation_payload_accepts_only_host_summary_shape(tmp_path, receiver, 
 
 
 def test_validation_replay_preserves_time_and_default_retry_leaves_uncertain(tmp_path, receiver, monkeypatch):
-    from kuberweaver.notifications import WebhookNotifications
+    from backend.notifications import WebhookNotifications
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     payload = event(event='before_plan', operation='validate', job_id=None, status='planning',
@@ -415,7 +412,7 @@ def test_validation_replay_preserves_time_and_default_retry_leaves_uncertain(tmp
 
 
 def test_retry_limit_is_bounded(tmp_path, receiver):
-    from kuberweaver.notifications import WebhookNotifications, NotificationError
+    from backend.notifications import WebhookNotifications, NotificationError
     app, config = setup_app(tmp_path, receiver)
     provider = WebhookNotifications(app, config)
     for limit in (0, -1, 101, True, '1'):

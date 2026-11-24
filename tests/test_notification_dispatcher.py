@@ -1,11 +1,11 @@
 import threading
 from types import SimpleNamespace
 
-from kuberweaver.extensions import ExtensionRegistry
+from backend.extensions import ExtensionRegistry
 
 
 def test_notification_dispatch_runs_outside_caller_thread_and_stops():
-    from kuberweaver.notification_dispatcher import NotificationDispatcher
+    from backend.notification_dispatcher import NotificationDispatcher
     owner = threading.get_ident()
     calls = []
     done = threading.Event()

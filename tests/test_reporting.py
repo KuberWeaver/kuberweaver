@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from kuberweaver import reporting
-from kuberweaver.storage import Store
+from backend import reporting
+from backend.storage import Store
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def pg_store(tmp_path, monkeypatch):
     import psycopg
     from psycopg import sql
     from psycopg.conninfo import make_conninfo
-    from kuberweaver.postgres import read_dsn_file
+    from backend.postgres import read_dsn_file
 
     source = Path(os.environ.get('KUBERWEAVER_TEST_DATABASE_URL_FILE',
                                  Path(__file__).parents[1] / 'data/postgresql/test-url'))

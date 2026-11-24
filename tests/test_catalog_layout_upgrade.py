@@ -1,7 +1,7 @@
 """Compatibility of reviewed module source pins across a catalogue move."""
 import shutil
 
-from kuberweaver.catalog import Catalog
+from backend.catalog import Catalog
 
 
 def test_moving_source_into_a_group_preserves_reviewed_fingerprint(tmp_path):

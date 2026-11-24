@@ -55,7 +55,6 @@ def tests() -> None:
     state = tempfile.mkdtemp(prefix='kw-check.', dir=os.environ.get('TMPDIR'))
     env = {
         'KUBERWEAVER_STATE_DIR': state,
-        'PYTHONPATH': 'backend',
         # The test database URL file is deliberately unset so no live database
         # can be selected; PostgreSQL fixtures create their own schema.
         'KUBERWEAVER_TEST_DATABASE_URL_FILE': '',

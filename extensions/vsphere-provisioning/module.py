@@ -3,10 +3,7 @@
 The host injects ``connections`` after provider resolution. The SDK exposes no
 application object, and no graph value is an executable or filesystem path.
 """
-try:
-    from kuberweaver.provisioning import ROOT, SavedPlanExecutor
-except ModuleNotFoundError:
-    from backend.kuberweaver.provisioning import ROOT, SavedPlanExecutor
+from backend.provisioning import ROOT, SavedPlanExecutor
 
 
 def register(ctx):

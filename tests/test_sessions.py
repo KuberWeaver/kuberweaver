@@ -10,7 +10,7 @@ def bootstrap(path):
 
 
 def app_for(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=tmp_path, testing=True)
 
 
@@ -46,7 +46,7 @@ def test_cookie_is_secure_over_https_and_absent_on_failure(tmp_path):
 
 
 def test_idle_timeout_rejects_deletes_and_clears_the_cookie(tmp_path):
-    from kuberweaver.sessions import digest
+    from backend.sessions import digest
     app = app_for(tmp_path)
     with TestClient(app) as client:
         assert login(client, tmp_path).status_code == 200
@@ -61,7 +61,7 @@ def test_idle_timeout_rejects_deletes_and_clears_the_cookie(tmp_path):
 
 
 def test_absolute_deadline_rejects_an_active_token(tmp_path):
-    from kuberweaver.sessions import digest
+    from backend.sessions import digest
     app = app_for(tmp_path)
     with TestClient(app) as client:
         account = app.state.store.one("SELECT * FROM users WHERE role='admin'")
@@ -75,8 +75,8 @@ def test_absolute_deadline_rejects_an_active_token(tmp_path):
 
 
 def test_idle_window_slides_on_activity_then_expires(tmp_path):
-    from kuberweaver.sessions import Sessions
-    from kuberweaver.storage import Store
+    from backend.sessions import Sessions
+    from backend.storage import Store
     store = Store(tmp_path)
     account = store.one("SELECT * FROM users WHERE role='admin'")
     now = [1_000_000.0]
@@ -94,8 +94,8 @@ def test_idle_window_slides_on_activity_then_expires(tmp_path):
 
 
 def test_activity_cannot_extend_the_absolute_deadline(tmp_path):
-    from kuberweaver.sessions import Sessions
-    from kuberweaver.storage import Store
+    from backend.sessions import Sessions
+    from backend.storage import Store
     store = Store(tmp_path)
     account = store.one("SELECT * FROM users WHERE role='admin'")
     now = [1_000_000.0]
@@ -180,7 +180,7 @@ def test_unknown_account_is_throttled_like_a_wrong_password(tmp_path):
 
 
 def test_throttle_window_expires_and_tracking_stays_bounded():
-    from kuberweaver.login_throttle import LoginThrottle
+    from backend.login_throttle import LoginThrottle
     now = [0.0]
     throttle = LoginThrottle(account_limit=2, window=60, max_keys=4, clock=lambda: now[0])
     throttle.failure('client', 'admin')

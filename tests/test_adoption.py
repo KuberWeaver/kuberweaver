@@ -1,15 +1,11 @@
 """Adoption of an existing VM: ownership proof, refusals and idempotency."""
-import sys
 from contextlib import contextmanager
-from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.adoption import AdoptionService, connection_inspector, marker_digest
+from backend.adoption import AdoptionService, connection_inspector, marker_digest
 from test_postgresql_store import pg_file  # noqa: F401  fixture
 
 UUID = '11111111-1111-4111-8111-111111111111'
@@ -23,7 +19,7 @@ ADOPTIONS = '/api/environment-states/adoptions'
 def make_app(path, monkeypatch, name='state'):
     # app.py creates a module-level app: never let its first import touch data/.
     monkeypatch.setenv('KUBERWEAVER_STATE_DIR', str(path / 'module-app'))
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     return create_app(state_dir=path / name, testing=True)
 
 
@@ -358,12 +354,12 @@ def test_the_kernel_wires_the_adoption_service_with_the_connection_inspector(pla
 
 
 def test_postgresql_registers_the_adoption_index(tmp_path, pg_file):
-    from kuberweaver.storage import Store
+    from backend.storage import Store
 
     store = Store(tmp_path / 'pg-adoption')
     try:
         assert store.backend == 'postgresql'
-        from kuberweaver.environment_state import EnvironmentStates
+        from backend.environment_state import EnvironmentStates
         states = EnvironmentStates(store)
         service = AdoptionService(states, lambda connection_id, uuid: live())
         first = service.adopt('staging', 'vm-adopted', CONNECTION, UUID, MARKER,

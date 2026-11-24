@@ -12,7 +12,7 @@ and configures it. The composition is fixed data; the adapter adds no branch.
    `local-runtime-v1` contract, the SSH key binding and the VM shape are hashed.
    Preparation never creates a guest and never reads the runtime.
 2. On approved execution the injected runtime provisions the VM and returns a
-   typed handoff (`backend/kuberweaver/local_vm_ansible.py`, `HANDOFF_SCHEMA`).
+   typed handoff (`backend/local_vm_ansible.py`, `HANDOFF_SCHEMA`).
 3. The adapter validates the handoff, writes a private `known_hosts` entry from
    the attested guest host key, and runs a fixed
    `ssh ... -o StrictHostKeyChecking=yes ... true`. That proves the host key,
@@ -55,7 +55,7 @@ class Runtime:
 
 `request` is `{'job_id', 'vm': {'name', 'cpu', 'memory_mb', 'disk_gb'}}`; no
 path crosses that boundary. The returned document must match `HANDOFF_SCHEMA`
-in `backend/kuberweaver/local_vm_ansible.py`, including `vm.uuid`,
+in `backend/local_vm_ansible.py`, including `vm.uuid`,
 `vm.power_state == 'running'`, `guest.address`, `guest.ssh_port`,
 `guest.user == 'ubuntu'` and the guest SSH host key.
 

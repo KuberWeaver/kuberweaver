@@ -6,7 +6,7 @@ from threading import Thread
 
 import pytest
 
-from kuberweaver.secrets import OpenBaoProvider, SecretError, SecretValue
+from backend.secrets import OpenBaoProvider, SecretError, SecretValue
 
 
 @contextmanager

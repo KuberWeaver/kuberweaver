@@ -1,5 +1,4 @@
 import json
-import sys
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +8,7 @@ from test_core_jobs import RecordingExecutor, wait_job, login, install_executor
 
 
 def test_production_lifespan_allows_only_one_worker_per_state_dir(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     state = tmp_path / 'data'
     with TestClient(create_app(state_dir=state), base_url='http://localhost') as first:
         assert first.get('/healthz').status_code == 200

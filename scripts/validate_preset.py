@@ -19,13 +19,13 @@ import jsonschema
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'backend'))
+sys.path.insert(0, str(ROOT))
 
-from kuberweaver.catalog import Catalog  # noqa: E402
-from kuberweaver.models import Graph  # noqa: E402
-from kuberweaver.module_paths import module_directory  # noqa: E402
-from kuberweaver.policy import Admission  # noqa: E402
-from kuberweaver.workload_execution import WorkloadError, WorkloadExecutor  # noqa: E402
+from backend.catalog import Catalog  # noqa: E402
+from backend.models import Graph  # noqa: E402
+from backend.module_paths import module_directory  # noqa: E402
+from backend.policy import Admission  # noqa: E402
+from backend.workload_execution import WorkloadError, WorkloadExecutor  # noqa: E402
 
 IDENTIFIER = re.compile(r'[a-z0-9][a-z0-9-]{0,63}')
 UUID = re.compile(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}')

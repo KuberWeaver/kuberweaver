@@ -23,8 +23,8 @@ from urllib.error import HTTPError
 from urllib.request import ProxyHandler, HTTPRedirectHandler, build_opener, Request
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
-from kuberweaver.secrets import OpenBaoProvider, SecretError, _protected_read
+sys.path.insert(0, str(ROOT))
+from backend.secrets import OpenBaoProvider, SecretError, _protected_read
 
 POLICY = 'path "secret/data/kuberweaver/*" { capabilities = ["read"] }\n'
 ENDPOINT = "http://127.0.0.1:18200"

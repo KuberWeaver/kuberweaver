@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_configuration():
-    path = ROOT / 'backend/kuberweaver/configuration.py'
+    path = ROOT / 'backend/configuration.py'
     spec = importlib.util.spec_from_file_location('configuration', path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -33,7 +33,7 @@ def test_defaults_point_inside_the_checkout(configuration):
 
 
 def test_no_developer_absolute_path_is_compiled_in():
-    source = (ROOT / 'backend/kuberweaver/configuration.py').read_text()
+    source = (ROOT / 'backend/configuration.py').read_text()
     assert '/home/' not in source
     assert '/Users/' not in source
 

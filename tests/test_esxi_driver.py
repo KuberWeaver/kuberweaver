@@ -8,7 +8,6 @@ import hashlib
 import importlib.util
 import json
 import socket
-import sys
 from pathlib import Path
 
 import pytest
@@ -16,7 +15,6 @@ from pyVmomi import vim
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "extensions/esxi-runtime"
-sys.path.insert(0, str(ROOT / "backend"))
 
 CONNECTION = {"endpoint": "https://192.0.2.10", "tls_sha256": None}
 CREDENTIALS = json.dumps({"username": "offline-reader", "password": "synthetic-password"}).encode()
@@ -756,7 +754,7 @@ def test_dependency_is_optional_at_registration(monkeypatch):
 
 
 def test_extension_registers_esxi_hypervisor_with_discovery_and_destruction():
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
 
     registry = ExtensionRegistry()
     reports = registry.load_directory(PACKAGE.parent, {"esxi-runtime"})

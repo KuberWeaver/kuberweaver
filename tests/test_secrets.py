@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from kuberweaver.secrets import RestrictedFileProvider, SecretError, OpenBaoProvider
+from backend.secrets import RestrictedFileProvider, SecretError, OpenBaoProvider
 
 
 def protected(tmp_path: Path, content: bytes = b"private material") -> Path:

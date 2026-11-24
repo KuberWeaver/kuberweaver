@@ -15,7 +15,7 @@ from test_core_graph import api
 
 
 def module():
-    return importlib.import_module('kuberweaver.provisioning')
+    return importlib.import_module('backend.provisioning')
 
 
 def job():
@@ -735,7 +735,7 @@ def test_connection_and_secret_changes_cannot_cross_command_boundary(tmp_path, m
 
 
 def test_catalogue_has_only_real_discovery_selectors():
-    from kuberweaver.catalog import Catalog
+    from backend.catalog import Catalog
     blueprint = Catalog(module().ROOT / 'modules').discover()['vsphere-vm']
     assert blueprint['execution_provider'] == 'vsphere-provisioner'
     assert blueprint['admission_profile'] == 'virtual-machine'
@@ -750,7 +750,7 @@ def test_catalogue_has_only_real_discovery_selectors():
 
 def test_extension_is_disabled_until_explicit_trust_and_uses_scoped_data(tmp_path, monkeypatch):
     import shutil
-    from kuberweaver.extensions import ExtensionRegistry
+    from backend.extensions import ExtensionRegistry
     source = module().ROOT / 'extensions/vsphere-provisioning'
     assert source.is_dir(), 'Opt-in vSphere extension package missing'
     extensions = tmp_path / 'extensions'
@@ -887,7 +887,7 @@ def test_flock_excludes_concurrent_planning(tmp_path, monkeypatch):
 def test_real_jobs_standard_graph_and_approval_validate_are_strictly_local(api, tmp_path, monkeypatch):
     import shutil
     import yaml
-    from kuberweaver.providers import provider_provenance
+    from backend.providers import provider_provenance
     from test_prepared_jobs import wait_status
     client, app = api
     ex, boundary = executor(tmp_path, monkeypatch)

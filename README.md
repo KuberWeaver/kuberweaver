@@ -105,7 +105,7 @@ Job endpoints on the management subnet may require a tunnel from the workstation
 The kernel owns identity, admission, approvals, durable state, audit and serialized orchestration. Business capabilities use provider contracts; declarative manifests and blueprint schemas are separate from client code.
 
 ```text
-backend/kuberweaver/
+backend/
   app.py, api.py                HTTP, sessions, RBAC, CSRF
   agent_auth.py, mcp_server.py  revocable tokens, scopes, MCP tools
   models.py, policy.py          envelopes and admission
@@ -196,10 +196,14 @@ systemctl --user stop kuberweaver.service kuberweaver-bao-tunnel.service
 
 Graceful shutdown waits for the active operation before releasing its lock. Do not run multiple Uvicorn workers against the same state.
 
+**Upgrading the backend package:** let active work finish before upgrading. Update the installed systemd unit to start `backend.app:app` from the repository root without adding `backend/` to `PYTHONPATH`. Keep its site-specific paths and database settings, then run `systemctl --user daemon-reload` before restarting.
+
+Update installed copies of extensions in `data/extensions/` that import `kuberweaver.*` or `backend.kuberweaver.*` to use `backend.*`. Updating the checkout does not update these copies. Keep the extension configuration and plugin data. Provider provenance hashes source paths and bytes, so pending pins can require a new review and approval, and historical rollback or retirement can require the original installation. Do not rewrite saved pins.
+
 Foreground alternative from this directory, with the appropriate private database configuration:
 
 ```sh
-PYTHONPATH=backend .venv/bin/uvicorn kuberweaver.app:app --host 127.0.0.1 --port 8088
+.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 8088
 ```
 
 Lab targets must be running for deployments. The API still exposes local capabilities and explicit unavailable states when targets cannot be reached. It does not start all GNS3 nodes automatically.

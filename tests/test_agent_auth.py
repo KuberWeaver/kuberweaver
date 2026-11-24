@@ -1,19 +1,16 @@
 import hashlib
 import json
 import os
-import sys
 import time
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 
 
 @pytest.fixture
 def platform(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     app = create_app(tmp_path, testing=True)
     with TestClient(app) as human:
         credentials = dict(line.split(':', 1) for line in (tmp_path / 'bootstrap-credentials.txt').read_text().splitlines())
@@ -33,7 +30,7 @@ def issue(human, **changes):
 
 
 def test_background_services_partial_startup_cleanup(tmp_path):
-    from kuberweaver.app import create_app
+    from backend.app import create_app
     app = create_app(tmp_path, testing=True)
     events = []
 
@@ -59,7 +56,7 @@ def test_background_services_partial_startup_cleanup(tmp_path):
 
 def test_callback_only_exemption_preserves_browser_checks(platform):
     app, human, agent = platform
-    from kuberweaver.chatops import install_chatops_api
+    from backend.chatops import install_chatops_api
     install_chatops_api(app)
     # No config: adapter itself rejects, rather than browser middleware.
     assert agent.post('/api/chatops/callback', json={}).status_code == 503
@@ -198,8 +195,8 @@ def test_revocation_expiry_and_persistence(platform):
     app.state.store.execute('UPDATE agent_tokens SET expires_at=? WHERE id=?', (time.time() - 1, expired['metadata']['id']))
     assert agent.get('/api/jobs').status_code == 401
     assert expired['token'] not in json.dumps(app.state.store.all('SELECT * FROM audit'))
-    from kuberweaver.agent_auth import AgentTokens
-    from kuberweaver.storage import Store
+    from backend.agent_auth import AgentTokens
+    from backend.storage import Store
     reopened = AgentTokens(Store(app.state.state_dir))
     assert reopened.authenticate(issued['token']) is None
     live = issue(human)
@@ -307,8 +304,8 @@ def test_each_authenticated_agent_request_is_audited(platform):
 
 
 def test_agent_use_audit_is_bounded_and_keeps_decisions(tmp_path):
-    from kuberweaver.agent_auth import AgentTokens
-    from kuberweaver.storage import Store
+    from backend.agent_auth import AgentTokens
+    from backend.storage import Store
     store = Store(tmp_path)
     tokens = AgentTokens(store, use_audit_retention=2, use_audit_prune_interval=0)
     store.audit('admin', 'agent_token.issued', 'token-1')

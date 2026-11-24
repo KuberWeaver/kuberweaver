@@ -2,20 +2,17 @@
 import hashlib
 import importlib
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-
-from kuberweaver.environment_state import EnvironmentStates
-from kuberweaver.storage import Store
+from backend.environment_state import EnvironmentStates
+from backend.storage import Store
 
 
 @pytest.fixture(autouse=True)
 def isolated_ssh_config(tmp_path, monkeypatch):
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     known = tmp_path / 'known_hosts'
     known.write_text('host ssh-ed25519 test-key\n')
     config = tmp_path / 'ssh_config'
@@ -30,7 +27,7 @@ def graph():
 
 
 def test_reviewed_graph_rejects_arbitrary_connection_and_updates(tmp_path):
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     executor = module.TofuExecutor(tmp_path)
     job = {'id': 'job-1', 'graph': graph()}
     prepared = executor.review(job)
@@ -66,7 +63,7 @@ class FakeBoundary:
         out, code = '', 0
         if argv[0] == 'ssh':
             if '-G' in argv:
-                module = importlib.import_module('backend.kuberweaver.tofu_execution')
+                module = importlib.import_module('backend.tofu_execution')
                 known = module.SSH_CONFIG.parent / 'known_hosts'
                 out = (f'stricthostkeychecking true\nuserknownhostsfile {known}\n'
                        'globalknownhostsfile none\nupdatehostkeys false\n'
@@ -148,9 +145,9 @@ def test_external_xml_change_blocks_removal(tmp_path):
 
 
 def test_planned_catalog_and_disabled_extension_discovery(tmp_path):
-    from backend.kuberweaver.catalog import Catalog
-    from backend.kuberweaver.extensions import ExtensionRegistry
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    from backend.catalog import Catalog
+    from backend.extensions import ExtensionRegistry
+    module = importlib.import_module('backend.tofu_execution')
     assert Catalog(module.ROOT / 'modules').discover()['libvirt-vm']['capability'] == 'planned'
     registry = ExtensionRegistry()
     registry.load_directory(module.ROOT / 'extensions', enabled=set())
@@ -158,7 +155,7 @@ def test_planned_catalog_and_disabled_extension_discovery(tmp_path):
 
 
 def executor(tmp_path):
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     binary = tmp_path / 'tofu'
     binary.write_bytes(b'trusted executable')
     boundary = FakeBoundary()
@@ -167,7 +164,7 @@ def executor(tmp_path):
 
 def job(identity='job-1'):
     g = graph()
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     return {'id': identity, 'graph': g, 'approved_by': 'admin', 'approved_at': 'reviewed',
             'approved_graph_hash': module.digest(g),
             'approved_execution_provider': {'name': 'opentofu'}}
@@ -345,7 +342,7 @@ def test_effective_host_trust_change_blocks_approved_apply(tmp_path):
 @pytest.mark.parametrize('directive', ['Include=/external/config', 'Match exec "true"'])
 def test_dynamic_ssh_config_rejected_before_ssh_g(tmp_path, directive):
     ex, boundary = executor(tmp_path)
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     module.SSH_CONFIG.write_text(directive + '\n')
     with pytest.raises(ValueError):
         ex.prepare_plan(job())
@@ -356,7 +353,7 @@ def test_dynamic_ssh_config_rejected_before_ssh_g(tmp_path, directive):
 @pytest.mark.parametrize('interruption', ['timeout', 'keyboard'])
 def test_partial_apply_interruption_survives_restart_without_retry(tmp_path, operation, interruption):
     import subprocess
-    module = importlib.import_module('backend.kuberweaver.tofu_execution')
+    module = importlib.import_module('backend.tofu_execution')
     ex, boundary = executor(tmp_path)
     j = job()
     j['approved_tofu_plan'] = ex.prepare_plan(j)['plan_digest']
